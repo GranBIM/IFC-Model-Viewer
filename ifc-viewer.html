@@ -304,6 +304,24 @@ body{
 .ec-preset.active{border-color:var(--dot-blue);color:var(--dot-blue);background:rgba(37,99,235,0.08);}
 
 #file-input{display:none;}
+
+/* Devtools collapsible groups */
+.dev-group{border:1px solid var(--border-soft);border-radius:0.4rem;margin-bottom:0.35rem;overflow:hidden;}
+.dev-group-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.35rem 0.5rem;cursor:pointer;user-select:none;
+  font-size:0.72rem;font-weight:700;color:var(--dot-blue);
+  letter-spacing:.03em;text-transform:uppercase;
+  background:rgba(37,99,235,0.04);transition:background 0.1s;
+}
+.dev-group-head:hover{background:rgba(37,99,235,0.08);}
+.dev-group-head .dg-arrow{font-size:0.6rem;color:var(--muted);transition:transform 0.15s;}
+.dev-group-head.open .dg-arrow{transform:rotate(90deg);}
+.dev-group-body{padding:0.3rem 0.4rem;display:none;}
+.dev-group-body.open{display:block;}
+.dev-slider{display:flex;flex-direction:column;gap:0.15rem;margin-bottom:0.35rem;}
+.dev-slider label{display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);}
+.dev-slider input[type=range]{width:100%;accent-color:var(--dot-blue);height:4px;}
 </style>
 </head>
 <body class="theme-dark">
@@ -423,6 +441,18 @@ body{
   <span class="info-chip" id="ic-elements" style="display:none">Elementer <strong id="i-elements">0</strong></span>
   <span class="ib-sep" id="ib-s2" style="display:none"></span>
   <span class="info-chip" id="ic-tris" style="display:none">Trekanter <strong id="i-tris">0</strong></span>
+  <span class="ib-sep" id="ib-s-car" style="display:none"></span>
+  <span id="car-info-group" style="display:none;align-items:center;gap:0.5rem">
+    <span class="info-chip"><strong id="i-car-spd">0</strong> m/s</span>
+    <span class="ib-sep"></span>
+    <span class="info-chip">Z <strong id="i-car-z">0</strong></span>
+    <span class="ib-sep"></span>
+    <span class="info-chip">Pos <strong id="i-car-pos">0, 0, 0</strong></span>
+    <span class="ib-sep"></span>
+    <span class="info-chip">Rot <strong id="i-car-rot">0°</strong></span>
+    <span class="ib-sep"></span>
+    <span class="info-chip">Helning <strong id="i-car-tilt">0°</strong></span>
+  </span>
   <span style="flex:1"></span>
   <span class="info-chip" id="cam-pos-text" style="font-family:monospace;font-size:0.72rem;letter-spacing:0.02em"></span>
 </div>
@@ -431,9 +461,13 @@ body{
 <div id="drop-portal">
 
   <div class="tb-hdrop" id="drop-file" style="min-width:240px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0.5rem 0.15rem">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Modeller</span>
+      <button class="tb-hdrop-btn" id="btn-toggle-all-models" onclick="toggleAllModels()" style="font-size:0.7rem;padding:0.15rem 0.4rem">Vis/skjul alle</button>
+    </div>
     <div id="model-list-container" style="max-height:260px;overflow-y:auto;"></div>
     <div class="tb-hdrop-sep"></div>
-    <button class="tb-hdrop-btn" onclick="document.getElementById('file-input').click()">📂 Legg til IFC-fil…</button>
+    <button class="tb-hdrop-btn" onclick="document.getElementById('file-input').click()">Legg til IFC-fil…</button>
   </div>
 
   <div class="tb-hdrop" id="drop-camera">
@@ -464,16 +498,16 @@ body{
   </div>
 
   <div class="tb-hdrop" id="drop-measure">
-    <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">📏 Lengde</button>
+    <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">Lengde</button>
     <div class="tb-hdrop-sep"></div>
     <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle</button>
   </div>
 
   <div class="tb-hdrop" id="drop-tools">
-    <button class="tb-hdrop-btn" id="btn-tree" onclick="toggleTree()">🌳 Modelltre</button>
-    <button class="tb-hdrop-btn" id="btn-select" onclick="toggleSelectMode()">🖱 Velg element</button>
+    <button class="tb-hdrop-btn" id="btn-tree" onclick="toggleTree()">Modelltre</button>
+    <button class="tb-hdrop-btn" id="btn-select" onclick="toggleSelectMode()">Velg element</button>
     <div class="tb-hdrop-sep"></div>
-    <button class="tb-hdrop-btn" onclick="isolateSelected()">👁 Isoler valgt</button>
+    <button class="tb-hdrop-btn" onclick="isolateSelected()">Isoler valgt</button>
     <button class="tb-hdrop-btn" onclick="showAll()">◉ Vis alle</button>
     <div class="tb-hdrop-sep"></div>
     <div style="padding:0.2rem 0.6rem 0.1rem;font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Rutenett</div>
@@ -495,135 +529,85 @@ body{
     </div>
   </div>
 
-  <div class="tb-hdrop" id="drop-vehicle">
-    <button class="tb-hdrop-btn" id="btn-car" onclick="toggleCarMode()">🚗 Bil</button>
+  <div class="tb-hdrop" id="drop-vehicle" style="min-width:220px;">
+    <div style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding:0.2rem 0.5rem 0.15rem">Plasser kjøretøy</div>
+    <button class="tb-hdrop-btn" id="btn-car" onclick="selectVehicle('personbil')">Personbil</button>
+    <button class="tb-hdrop-btn" onclick="selectVehicle('varebil')">Varebil</button>
+    <button class="tb-hdrop-btn" onclick="selectVehicle('lastebil')">Lastebil</button>
+    <button class="tb-hdrop-btn" onclick="selectVehicle('brannbil')">Brannbil</button>
+    <div class="tb-hdrop-sep"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0.5rem">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte</span>
+      <button class="tb-hdrop-btn" onclick="removeAllVehicles()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+    </div>
+    <div id="vehicle-list" style="max-height:180px;overflow-y:auto;padding:0 0.2rem"></div>
+    <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
   </div>
 
   <div class="tb-hdrop" id="drop-devtools" style="min-width:280px;max-height:80vh;overflow-y:auto;padding:0.5rem 0.4rem;">
-    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.4rem">Utviklerverktøy</div>
+    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Utviklerverktøy</div>
 
-    <!-- Kjøretøy toggle -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.5rem;border-radius:0.4rem;cursor:pointer" onclick="document.getElementById('dev-car-panel').style.display=document.getElementById('dev-car-panel').style.display==='none'?'block':'none';this.querySelector('.tree-toggle').textContent=document.getElementById('dev-car-panel').style.display==='none'?'▸':'▾'">
-      <span style="font-size:0.82rem;font-weight:600">🚗 Kjøretøy</span>
-      <span class="tree-toggle">▾</span>
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
+    <div style="display:flex;flex-direction:column;gap:2px;padding:0.2rem 0">
+      <button class="tb-hdrop-btn active" id="cam-3rd-free" onclick="setCarCam('3rd-free')" style="font-size:0.73rem">3. person — frivinkel</button>
+      <button class="tb-hdrop-btn" id="cam-3rd-locked" onclick="setCarCam('3rd-locked')" style="font-size:0.73rem">3. person — last vinkel</button>
+      <button class="tb-hdrop-btn" id="cam-1st" onclick="setCarCam('1st')" style="font-size:0.73rem">1. person — forersete</button>
     </div>
 
-    <div id="dev-car-panel" style="padding:0 0.3rem 0.3rem;">
-
-      <!-- Kamera -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
-      <div style="display:flex;flex-direction:column;gap:2px;padding:0.25rem 0">
-        <button class="tb-hdrop-btn active" id="cam-3rd-free" onclick="setCarCam('3rd-free')" style="font-size:0.75rem">🎥 3. person — frivinkel</button>
-        <button class="tb-hdrop-btn" id="cam-3rd-locked" onclick="setCarCam('3rd-locked')" style="font-size:0.75rem">🔒 3. person — låst vinkel</button>
-        <button class="tb-hdrop-btn" id="cam-1st" onclick="setCarCam('1st')" style="font-size:0.75rem">👤 1. person — førersete</button>
-      </div>
-
-      <!-- Fysikk -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Fysikk</div>
-      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Gravitasjon <span id="dev-grav-val">20</span> m/s²</label>
-        <input type="range" min="0" max="50" step="0.5" value="20" oninput="carPhys.gravity=+this.value;document.getElementById('dev-grav-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Akselerasjon <span id="dev-accel-val">15</span> m/s²</label>
-        <input type="range" min="1" max="50" step="0.5" value="15" oninput="carPhys.accel=+this.value;document.getElementById('dev-accel-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Friksjon/brems <span id="dev-brake-val">20</span> m/s²</label>
-        <input type="range" min="1" max="60" step="0.5" value="20" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label>
-        <input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Styrefølsomhet <span id="dev-steer-val">2.5</span> rad/s</label>
-        <input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-      </div>
-
-      <!-- Kamera avstand -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kamera (3. person)</div>
-      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Avstand <span id="dev-camdist-val">8</span> m</label>
-        <input type="range" min="2" max="40" step="0.5" value="8" id="dev-camdist-slider" oninput="carCamDist=+this.value;document.getElementById('dev-camdist-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Høyde <span id="dev-camht-val">1.5</span> m</label>
-        <input type="range" min="0" max="10" step="0.1" value="1.5" oninput="carPhys.camHeight=+this.value;document.getElementById('dev-camht-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-      </div>
-
-      <!-- Dimensjoner -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kjøretøy-dimensjoner</div>
-      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Lengde <span id="dev-carlen-val">4.2</span> m</label>
-        <input type="range" min="2" max="12" step="0.1" value="4.2" oninput="carDims.length=+this.value;document.getElementById('dev-carlen-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Bredde <span id="dev-carw-val">2.0</span> m</label>
-        <input type="range" min="1" max="5" step="0.1" value="2.0" oninput="carDims.width=+this.value;document.getElementById('dev-carw-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Høyde (karosseri) <span id="dev-carh-val">0.7</span> m</label>
-        <input type="range" min="0.3" max="2" step="0.05" value="0.7" oninput="carDims.bodyH=+this.value;document.getElementById('dev-carh-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Høyde (kabin) <span id="dev-cabh-val">0.6</span> m</label>
-        <input type="range" min="0.2" max="1.5" step="0.05" value="0.6" oninput="carDims.cabH=+this.value;document.getElementById('dev-cabh-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
-      </div>
-
-      <!-- Hjul -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Hjul</div>
-      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Hjulradius <span id="dev-wheelr-val">0.35</span> m</label>
-        <input type="range" min="0.15" max="1.0" step="0.01" value="0.35" oninput="carDims.wheelR=+this.value;document.getElementById('dev-wheelr-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Hjulbredde <span id="dev-wheelw-val">0.25</span> m</label>
-        <input type="range" min="0.1" max="0.8" step="0.01" value="0.25" oninput="carDims.wheelW=+this.value;document.getElementById('dev-wheelw-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
-      </div>
-
-      <!-- 1. person kamera -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kamera (1. person)</div>
-      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Sete X-offset <span id="dev-fp-x-val">0.0</span> m</label>
-        <input type="range" min="-1.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffX=+this.value;document.getElementById('dev-fp-x-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Sete Y-offset <span id="dev-fp-y-val">0.0</span> m</label>
-        <input type="range" min="-0.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffY=+this.value;document.getElementById('dev-fp-y-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Sete Z-offset <span id="dev-fp-z-val">0.0</span> m</label>
-        <input type="range" min="-3" max="3" step="0.05" value="0" oninput="carPhys.fpOffZ=+this.value;document.getElementById('dev-fp-z-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Synsfelt (FOV) <span id="dev-fp-fov-val">75</span>°</label>
-        <input type="range" min="40" max="120" step="1" value="75" oninput="carPhys.fpFov=+this.value;document.getElementById('dev-fp-fov-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
-      </div>
-
-      <!-- Se-gjennom -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Synlighet</div>
-      <div style="padding:0.3rem 0.2rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleCarSeeThrough()">
-          <span style="font-size:0.75rem;color:var(--text)">Se gjennom bil</span>
-          <span id="dev-seethrough-status" style="font-size:0.68rem;color:var(--muted)">AV</span>
-        </div>
-        <div style="font-size:0.65rem;color:var(--muted);padding:0.1rem 0 0.2rem">Gjør bilen usynlig for kamera i 1. person</div>
-      </div>
-
-      <!-- Xbox kontroller -->
-      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Xbox-kontroller</div>
-      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.3rem">
-        <div id="dev-xbox-status" style="font-size:0.72rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center">Ikke tilkoblet</div>
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Gass/brems sensitivitet <span id="dev-xbox-accel-val">1.0</span>×</label>
-        <input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.accelMult=+this.value;document.getElementById('dev-xbox-accel-val').textContent=(+this.value).toFixed(1)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Styresensitivitet <span id="dev-xbox-steer-val">1.0</span>×</label>
-        <input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.steerMult=+this.value;document.getElementById('dev-xbox-steer-val').textContent=(+this.value).toFixed(1)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Kamerasensitivitet <span id="dev-xbox-cam-val">1.0</span>×</label>
-        <input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.camMult=+this.value;document.getElementById('dev-xbox-cam-val').textContent=(+this.value).toFixed(1)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Deadzone <span id="dev-xbox-dz-val">0.15</span></label>
-        <input type="range" min="0.05" max="0.4" step="0.01" value="0.15" oninput="carXbox.deadzone=+this.value;document.getElementById('dev-xbox-dz-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
-
-        <div id="dev-xbox-live" style="display:none;font-family:monospace;font-size:0.65rem;color:var(--muted);padding:0.3rem;background:var(--btn-bg);border-radius:0.3rem;margin-top:0.2rem">
-          LX: <span id="xl-lx">0</span> LY: <span id="xl-ly">0</span> RX: <span id="xl-rx">0</span> RY: <span id="xl-ry">0</span><br>
-          LT: <span id="xl-lt">0</span> RT: <span id="xl-rt">0</span>
-        </div>
-      </div>
-
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Fysikk</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div class="dev-slider"><label>Gravitasjon <span id="dev-grav-val">20</span> m/s2</label><input type="range" min="0" max="50" step="0.5" value="20" oninput="carPhys.gravity=+this.value;document.getElementById('dev-grav-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Akselerasjon <span id="dev-accel-val">15</span> m/s2</label><input type="range" min="1" max="50" step="0.5" value="15" oninput="carPhys.accel=+this.value;document.getElementById('dev-accel-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Friksjon/brems <span id="dev-brake-val">20</span> m/s2</label><input type="range" min="1" max="60" step="0.5" value="20" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label><input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Styrefolsomhet <span id="dev-steer-val">2.5</span> rad/s</label><input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value"></div>
     </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 3. person</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div class="dev-slider"><label>Avstand <span id="dev-camdist-val">8</span> m</label><input type="range" min="2" max="40" step="0.5" value="8" id="dev-camdist-slider" oninput="carCamDist=+this.value;document.getElementById('dev-camdist-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Hoyde <span id="dev-camht-val">1.5</span> m</label><input type="range" min="0" max="10" step="0.1" value="1.5" oninput="carPhys.camHeight=+this.value;document.getElementById('dev-camht-val').textContent=this.value"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 1. person</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div class="dev-slider"><label>Sete X-offset <span id="dev-fp-x-val">0.00</span> m</label><input type="range" min="-1.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffX=+this.value;document.getElementById('dev-fp-x-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Sete Y-offset <span id="dev-fp-y-val">0.00</span> m</label><input type="range" min="-0.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffY=+this.value;document.getElementById('dev-fp-y-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Sete Z-offset <span id="dev-fp-z-val">0.00</span> m</label><input type="range" min="-3" max="3" step="0.05" value="0" oninput="carPhys.fpOffZ=+this.value;document.getElementById('dev-fp-z-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Synsfelt (FOV) <span id="dev-fp-fov-val">75</span></label><input type="range" min="40" max="120" step="1" value="75" oninput="carPhys.fpFov=+this.value;document.getElementById('dev-fp-fov-val').textContent=this.value"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0;cursor:pointer" onclick="toggleCarSeeThrough()">
+        <span style="font-size:0.73rem;color:var(--text)">Se gjennom bil</span>
+        <span id="dev-seethrough-status" style="font-size:0.68rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Dimensjoner</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div class="dev-slider"><label>Lengde <span id="dev-carlen-val">4.2</span> m</label><input type="range" min="2" max="12" step="0.1" value="4.2" oninput="carDims.length=+this.value;document.getElementById('dev-carlen-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Bredde <span id="dev-carw-val">2.0</span> m</label><input type="range" min="1" max="5" step="0.1" value="2.0" oninput="carDims.width=+this.value;document.getElementById('dev-carw-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Karosseri hoyde <span id="dev-carh-val">0.7</span> m</label><input type="range" min="0.3" max="2" step="0.05" value="0.7" oninput="carDims.bodyH=+this.value;document.getElementById('dev-carh-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Kabin hoyde <span id="dev-cabh-val">0.6</span> m</label><input type="range" min="0.2" max="1.5" step="0.05" value="0.6" oninput="carDims.cabH=+this.value;document.getElementById('dev-cabh-val').textContent=this.value;rebuildActiveCar()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Hjul</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div class="dev-slider"><label>Hjulradius <span id="dev-wheelr-val">0.35</span> m</label><input type="range" min="0.15" max="1.0" step="0.01" value="0.35" oninput="carDims.wheelR=+this.value;document.getElementById('dev-wheelr-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Hjulbredde <span id="dev-wheelw-val">0.25</span> m</label><input type="range" min="0.1" max="0.8" step="0.01" value="0.25" oninput="carDims.wheelW=+this.value;document.getElementById('dev-wheelw-val').textContent=this.value;rebuildActiveCar()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Xbox-kontroller</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div id="dev-xbox-status" style="font-size:0.7rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center">Ikke tilkoblet</div>
+      <div style="font-size:0.63rem;color:var(--muted);padding:0.1rem 0">RT gass - LT brems - LX styr - RX kamera</div>
+      <div class="dev-slider"><label>Gass/brems sens. <span id="dev-xbox-accel-val">1.0</span>x</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.accelMult=+this.value;document.getElementById('dev-xbox-accel-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Styresensitivitet <span id="dev-xbox-steer-val">1.0</span>x</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.steerMult=+this.value;document.getElementById('dev-xbox-steer-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Kamerasensitivitet <span id="dev-xbox-cam-val">1.0</span>x</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.camMult=+this.value;document.getElementById('dev-xbox-cam-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Deadzone <span id="dev-xbox-dz-val">0.15</span></label><input type="range" min="0.05" max="0.4" step="0.01" value="0.15" oninput="carXbox.deadzone=+this.value;document.getElementById('dev-xbox-dz-val').textContent=(+this.value).toFixed(2)"></div>
+      <div id="dev-xbox-live" style="display:none;font-family:monospace;font-size:0.62rem;color:var(--muted);padding:0.25rem;background:var(--btn-bg);border-radius:0.3rem;margin-top:0.2rem">LX:<span id="xl-lx">0</span> RX:<span id="xl-rx">0</span> LT:<span id="xl-lt">0</span> RT:<span id="xl-rt">0</span></div>
+    </div>
+
   </div>
+
 
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1638,13 +1622,51 @@ function updateCamPosBar(){
 
 // ═══════════════════════════════ CAR SYSTEM ══════════════════════════════════
 
+// ── Vehicle presets ──
+const VEHICLE_PRESETS={
+  personbil:{name:'Personbil',length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
+    bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7,maxSpeed:30,accel:18},
+  varebil:{name:'Varebil',length:8,width:2.1,bodyH:1.8,cabH:0.9,wheelR:0.45,wheelW:0.28,
+    bodyColor:0x16a34a,cabColor:0x15803d,cabOpacity:0.6,maxSpeed:22,accel:12},
+  lastebil:{name:'Lastebil',length:12,width:2.5,bodyH:2.2,cabH:1.2,wheelR:0.55,wheelW:0.35,
+    bodyColor:0xeab308,cabColor:0xca8a04,cabOpacity:0.6,maxSpeed:18,accel:8},
+  brannbil:{name:'Brannbil',length:12,width:3.0,bodyH:2.4,cabH:1.3,wheelR:0.55,wheelW:0.35,
+    bodyColor:0xdc2626,cabColor:0xeab308,cabOpacity:0.7,maxSpeed:20,accel:10},
+};
+let activeVehicleType='personbil';
+
 // ── Configurable parameters (bound to devtools sliders) ──
-const carPhys={gravity:20,accel:15,brake:20,maxSpeed:25,steerSpeed:2.5,camHeight:1.5,
+const carPhys={gravity:20,accel:18,brake:20,maxSpeed:30,steerSpeed:2.5,camHeight:1.5,
   fpOffX:0,fpOffY:0,fpOffZ:0,fpFov:75};
-const carDims={length:4.2,width:2.0,bodyH:0.7,cabH:0.6,wheelR:0.35,wheelW:0.25};
+const carDims={length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
+  bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7};
 const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connected:false};
 let carSeeThrough=false;
 window.carPhys=carPhys;window.carDims=carDims;window.carXbox=carXbox;
+
+function selectVehicle(type){
+  const p=VEHICLE_PRESETS[type];if(!p) return;
+  activeVehicleType=type;
+  // Apply preset to carDims
+  carDims.length=p.length;carDims.width=p.width;carDims.bodyH=p.bodyH;
+  carDims.cabH=p.cabH;carDims.wheelR=p.wheelR;carDims.wheelW=p.wheelW;
+  carDims.bodyColor=p.bodyColor;carDims.cabColor=p.cabColor;carDims.cabOpacity=p.cabOpacity;
+  carPhys.maxSpeed=p.maxSpeed;carPhys.accel=p.accel;
+  // Update sliders
+  const sliders={
+    'dev-carlen-val':p.length,'dev-carw-val':p.width,'dev-carh-val':p.bodyH,
+    'dev-cabh-val':p.cabH,'dev-wheelr-val':p.wheelR,'dev-wheelw-val':p.wheelW,
+    'dev-maxspd-val':p.maxSpeed,'dev-accel-val':p.accel
+  };
+  for(const[id,v] of Object.entries(sliders)){
+    const el=document.getElementById(id);if(el)el.textContent=v;
+  }
+  // If already driving, rebuild car
+  if(carDriving&&carMesh) rebuildActiveCar();
+  // Start placement
+  else toggleCarMode();
+}
+window.selectVehicle=selectVehicle;
 
 let carMode=false;
 let carDriving=false;
@@ -1656,6 +1678,10 @@ let carVelY=0;
 let carOnGround=false;
 let carCamYaw=0;
 let carCamPitch=0.3;
+
+// Placed vehicles registry
+const placedVehicles=[]; // {id, type, mesh, yaw}
+let carDrivingId=null; // id of currently driven vehicle
 let carCamDist=8;
 window.carCamDist=carCamDist; // expose for slider
 Object.defineProperty(window,'carCamDist',{get(){return carCamDist;},set(v){carCamDist=v;}});
@@ -1688,59 +1714,116 @@ window.setCarCam=setCarCam;
 // ── Build car from carDims ──
 function buildCarModel(ghost){
   const d=carDims;
+  const type=activeVehicleType;
   const g=new THREE.Group();
+  const gOp=ghost?0.35:1;
+  const gCabOp=ghost?0.25:(d.cabOpacity||0.7);
 
-  // Body
-  const bodyGeo=new THREE.BoxGeometry(d.width,d.bodyH,d.length);
-  const bodyMat=new THREE.MeshStandardMaterial({
-    color:0x2563eb,roughness:0.4,metalness:0.3,
-    transparent:!!ghost,opacity:ghost?0.35:1
-  });
-  const body=new THREE.Mesh(bodyGeo,bodyMat);
-  body.position.y=d.wheelR+d.bodyH/2;
-  g.add(body);
+  // Body / chassis
+  const bodyColor=d.bodyColor||0x2563eb;
+  const cabColor=d.cabColor||0x1e40af;
 
-  // Cabin
-  const cabW=d.width*0.85;
-  const cabL=d.length*0.52;
-  const cabGeo=new THREE.BoxGeometry(cabW,d.cabH,cabL);
-  const cabMat=new THREE.MeshStandardMaterial({
-    color:ghost?0x88bbff:0x1e40af,roughness:0.3,metalness:0.1,
-    transparent:true,opacity:ghost?0.25:0.7
-  });
-  const cab=new THREE.Mesh(cabGeo,cabMat);
-  cab.position.set(0,d.wheelR+d.bodyH+d.cabH/2,-d.length*0.04);
-  g.add(cab);
+  if(type==='varebil'||type==='lastebil'){
+    // Cab at front, cargo box at rear
+    const cabLen=d.length*0.28;
+    const cargoLen=d.length*0.68;
+    const cabGeo=new THREE.BoxGeometry(d.width,d.bodyH+d.cabH,cabLen);
+    const cabMat=new THREE.MeshStandardMaterial({color:bodyColor,roughness:0.4,metalness:0.2,transparent:!!ghost,opacity:gOp});
+    const cabMesh=new THREE.Mesh(cabGeo,cabMat);
+    cabMesh.position.set(0,d.wheelR+(d.bodyH+d.cabH)/2,d.length/2-cabLen/2);
+    g.add(cabMesh);
+    // Windshield
+    const wsGeo=new THREE.BoxGeometry(d.width*0.85,d.cabH*0.6,0.05);
+    const wsMat=new THREE.MeshStandardMaterial({color:0x88ccee,roughness:0.1,metalness:0.3,transparent:true,opacity:ghost?0.2:0.5});
+    const ws=new THREE.Mesh(wsGeo,wsMat);
+    ws.position.set(0,d.wheelR+d.bodyH+d.cabH*0.5,d.length/2-cabLen+0.03);
+    g.add(ws);
+    // Cargo box
+    const cargoGeo=new THREE.BoxGeometry(d.width*0.95,d.bodyH*1.6,cargoLen);
+    const cargoMat=new THREE.MeshStandardMaterial({color:cabColor,roughness:0.6,metalness:0.1,transparent:!!ghost,opacity:gOp});
+    const cargo=new THREE.Mesh(cargoGeo,cargoMat);
+    cargo.position.set(0,d.wheelR+d.bodyH*0.8,-d.length/2+cargoLen/2+d.length*0.02);
+    g.add(cargo);
+  } else if(type==='brannbil'){
+    // Cab at front, equipment body at rear
+    const cabLen=d.length*0.25;
+    const rearLen=d.length*0.7;
+    // Cab (red)
+    const cabGeo=new THREE.BoxGeometry(d.width,d.bodyH+d.cabH,cabLen);
+    const cabMat=new THREE.MeshStandardMaterial({color:0xdc2626,roughness:0.4,metalness:0.2,transparent:!!ghost,opacity:gOp});
+    const cabMesh=new THREE.Mesh(cabGeo,cabMat);
+    cabMesh.position.set(0,d.wheelR+(d.bodyH+d.cabH)/2,d.length/2-cabLen/2);
+    g.add(cabMesh);
+    // Windshield
+    const wsGeo=new THREE.BoxGeometry(d.width*0.85,d.cabH*0.6,0.05);
+    const wsMat=new THREE.MeshStandardMaterial({color:0x88ccee,roughness:0.1,metalness:0.3,transparent:true,opacity:ghost?0.2:0.5});
+    g.add(new THREE.Mesh(wsGeo,wsMat).translateX(0).translateY(d.wheelR+d.bodyH+d.cabH*0.5).translateZ(d.length/2-cabLen+0.03));
+    // Equipment body (yellow)
+    const rearGeo=new THREE.BoxGeometry(d.width*0.95,d.bodyH*1.5,rearLen);
+    const rearMat=new THREE.MeshStandardMaterial({color:0xeab308,roughness:0.5,metalness:0.1,transparent:!!ghost,opacity:gOp});
+    const rear=new THREE.Mesh(rearGeo,rearMat);
+    rear.position.set(0,d.wheelR+d.bodyH*0.75,-d.length/2+rearLen/2+d.length*0.02);
+    g.add(rear);
+    // Ladder on top (simplified as thin box)
+    const ladderGeo=new THREE.BoxGeometry(0.3,0.12,rearLen*0.8);
+    const ladderMat=new THREE.MeshStandardMaterial({color:0xaaaaaa,roughness:0.7,metalness:0.4,transparent:!!ghost,opacity:gOp});
+    const ladder=new THREE.Mesh(ladderGeo,ladderMat);
+    ladder.position.set(0,d.wheelR+d.bodyH*1.5+0.1,-d.length/2+rearLen/2);
+    g.add(ladder);
+    // Light bar on cab
+    const barGeo=new THREE.BoxGeometry(d.width*0.7,0.15,0.3);
+    const barMat=new THREE.MeshBasicMaterial({color:0xff4444,transparent:!!ghost,opacity:ghost?0.3:0.9});
+    const bar=new THREE.Mesh(barGeo,barMat);
+    bar.position.set(0,d.wheelR+d.bodyH+d.cabH+0.08,d.length/2-cabLen/2);
+    g.add(bar);
+  } else {
+    // Personbil (default)
+    const bodyGeo=new THREE.BoxGeometry(d.width,d.bodyH,d.length);
+    const bodyMat=new THREE.MeshStandardMaterial({color:bodyColor,roughness:0.4,metalness:0.3,transparent:!!ghost,opacity:gOp});
+    const body=new THREE.Mesh(bodyGeo,bodyMat);
+    body.position.y=d.wheelR+d.bodyH/2;
+    g.add(body);
+    // Cabin
+    const cabW=d.width*0.88;
+    const cabL=d.length*0.5;
+    const cabGeo=new THREE.BoxGeometry(cabW,d.cabH,cabL);
+    const cabMat=new THREE.MeshStandardMaterial({color:cabColor,roughness:0.3,metalness:0.1,transparent:true,opacity:gCabOp});
+    const cab=new THREE.Mesh(cabGeo,cabMat);
+    cab.position.set(0,d.wheelR+d.bodyH+d.cabH/2,-d.length*0.04);
+    g.add(cab);
+  }
 
-  // Wheels
+  // Wheels — extra axle for long vehicles
   const wheelGeo=new THREE.CylinderGeometry(d.wheelR,d.wheelR,d.wheelW,12);
-  const wheelMat=new THREE.MeshStandardMaterial({
-    color:0x222222,roughness:0.9,metalness:0.1,
-    transparent:!!ghost,opacity:ghost?0.3:1
-  });
+  const wheelMat=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.9,metalness:0.1,transparent:!!ghost,opacity:ghost?0.3:1});
   const wx=d.width/2+d.wheelW/2-0.05;
-  const wz=d.length*0.31;
-  [[-wx,d.wheelR,wz],[wx,d.wheelR,wz],[-wx,d.wheelR,-wz],[wx,d.wheelR,-wz]].forEach(([x,y,z])=>{
-    const w=new THREE.Mesh(wheelGeo,wheelMat);
-    w.rotation.z=Math.PI/2;
-    w.position.set(x,y,z);
-    g.add(w);
-  });
+  const frontZ=d.length*0.35;
+  const rearZ=-d.length*0.35;
+  const axles=[[frontZ],[rearZ]];
+  // Add middle axle for long vehicles
+  if(d.length>=8) axles[1].push(rearZ+d.wheelR*2.5);
+  for(const zArr of axles){
+    for(const z of zArr){
+      [[-wx,d.wheelR,z],[wx,d.wheelR,z]].forEach(([x,y,zz])=>{
+        const w=new THREE.Mesh(wheelGeo,wheelMat);
+        w.rotation.z=Math.PI/2;w.position.set(x,y,zz);g.add(w);
+      });
+    }
+  }
 
   // Headlights
-  const lR=Math.min(0.12,d.bodyH*0.17);
+  const lR=Math.min(0.15,d.bodyH*0.17);
   const lightGeo=new THREE.SphereGeometry(lR,8,8);
   const lightMat=new THREE.MeshBasicMaterial({color:0xffffcc,transparent:!!ghost,opacity:ghost?0.3:1});
-  const lx=d.width*0.3;
-  const lz=d.length/2;
-  const ly=d.wheelR+d.bodyH*0.5;
-  [[-lx,ly,lz],[lx,ly,lz]].forEach(([x,y,z])=>{
+  const hlx=d.width*0.35;
+  const hlz=d.length/2;
+  const hly=d.wheelR+d.bodyH*0.5;
+  [[-hlx,hly,hlz],[hlx,hly,hlz]].forEach(([x,y,z])=>{
     g.add(new THREE.Mesh(lightGeo,lightMat).translateX(x).translateY(y).translateZ(z));
   });
-
   // Taillights
   const tailMat=new THREE.MeshBasicMaterial({color:0xff2222,transparent:!!ghost,opacity:ghost?0.3:1});
-  [[-lx,ly,-lz],[lx,ly,-lz]].forEach(([x,y,z])=>{
+  [[-hlx,hly,-hlz],[hlx,hly,-hlz]].forEach(([x,y,z])=>{
     g.add(new THREE.Mesh(lightGeo.clone(),tailMat).translateX(x).translateY(y).translateZ(z));
   });
 
@@ -1798,56 +1881,6 @@ window.addEventListener('gamepaddisconnected',e=>{
   }
 });
 
-function processCarXbox(dt){
-  if(!carXbox.connected||carXbox.index===null||!carDriving) return;
-  const gp=navigator.getGamepads()[carXbox.index];
-  if(!gp) return;
-  const dz=carXbox.deadzone;
-  const adz=v=>Math.abs(v)<dz?0:v;
-
-  const lx=adz(gp.axes[0]); // left stick X = steering
-  const ly=adz(gp.axes[1]); // left stick Y (unused or forward)
-  const rx=adz(gp.axes[2]); // right stick X = camera yaw
-  const ry=adz(gp.axes[3]); // right stick Y = camera pitch
-  const rt=gp.buttons[7]?.value||0; // right trigger = gas
-  const lt=gp.buttons[6]?.value||0; // left trigger = brake/reverse
-
-  // Live display
-  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v.toFixed(2);};
-  setT('xl-lx',gp.axes[0]);setT('xl-ly',gp.axes[1]);
-  setT('xl-rx',gp.axes[2]);setT('xl-ry',gp.axes[3]);
-  setT('xl-lt',lt);setT('xl-rt',rt);
-
-  const P=carPhys;
-
-  // Steering from left stick
-  if(lx!==0){
-    const steerDir=carSpeed>0?1:carSpeed<0?-1:0;
-    carYaw-=lx*P.steerSpeed*carXbox.steerMult*dt*steerDir;
-  }
-
-  // Gas (RT) / Brake (LT)
-  if(rt>0.05) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*carXbox.accelMult*rt*dt);
-  else if(lt>0.05) carSpeed=Math.max(-P.maxSpeed*0.4,carSpeed-P.accel*carXbox.accelMult*lt*dt);
-  else {
-    // No trigger input — apply friction only if keyboard also idle
-    if(!carKeys.w&&!carKeys.s){
-      if(carSpeed>0)carSpeed=Math.max(0,carSpeed-P.brake*dt);
-      else if(carSpeed<0)carSpeed=Math.min(0,carSpeed+P.brake*dt);
-    }
-  }
-
-  // Camera from right stick
-  if(carCamMode==='3rd-free'||carCamMode==='1st'){
-    if(rx!==0) carCamYaw-=rx*0.05*carXbox.camMult;
-    if(ry!==0) carCamPitch=Math.max(-0.5,Math.min(1.2,carCamPitch+ry*0.03*carXbox.camMult));
-  }
-
-  // Buttons: A = handbrake (instant stop), B = exit
-  if(gp.buttons[0]?.pressed) carSpeed*=0.9; // A = soft brake
-  if(gp.buttons[1]?.pressed) exitCarDriving(); // B = exit
-}
-
 function toggleCarMode(){
   if(carDriving){exitCarDriving();return;}
   carMode=!carMode;
@@ -1895,10 +1928,16 @@ function carPlacementClick(e){
   carYaw=Math.atan2(camDir.x,camDir.z);
   carMesh.rotation.y=carYaw;
   scene.add(carMesh);
+  // Register placed vehicle
+  const vid='v_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+  const vEntry={id:vid,type:activeVehicleType,mesh:carMesh,yaw:carYaw};
+  placedVehicles.push(vEntry);
+  carDrivingId=vid;
+  carMesh.userData.vehicleId=vid;
+  refreshVehicleListUI();
+
   carMode=false;
   document.getElementById('btn-car').classList.remove('active');
-  document.getElementById('btn-car').textContent='🚗 Bil (ESC avslutt)';
-  document.getElementById('btn-car').classList.add('active-green');
   vp.style.cursor='';
   document.removeEventListener('mousemove',carPlacementMove);
   tc.removeEventListener('click',carPlacementClick);
@@ -1909,6 +1948,7 @@ function carPlacementClick(e){
 function enterCarDriving(){
   carDriving=true;
   carSpeed=0;carVelY=0;carOnGround=true;
+  carTiltPitch=0;carTiltRoll=0;
   if(carCamMode==='3rd-free') carCamYaw=0;
   carCamPitch=0.3;
   document.addEventListener('keydown',carKeyDown);
@@ -1922,6 +1962,9 @@ function enterCarDriving(){
     '1st':'WASD kjør · Mus se rundt · ESC avslutt'};
   hintEl.textContent=hints[carCamMode]||hints['3rd-free'];
   hintEl.classList.add('visible');
+  // Show vehicle telemetry
+  const cg=document.getElementById('car-info-group');if(cg)cg.style.display='flex';
+  const cs=document.getElementById('ib-s-car');if(cs)cs.style.display='';
 }
 
 function exitCarDriving(){
@@ -1933,12 +1976,131 @@ function exitCarDriving(){
   window.removeEventListener('mouseup',carMouseUpH);
   window.removeEventListener('mousemove',carMouseMoveH);
   tc.removeEventListener('wheel',carWheelH);
-  if(carMesh){scene.remove(carMesh);carMesh=null;}
+  // Save state back to registry — keep mesh in scene
+  if(carMesh&&carDrivingId){
+    const v=placedVehicles.find(x=>x.id===carDrivingId);
+    if(v){v.yaw=carYaw;v.mesh=carMesh;}
+  }
+  carMesh=null;carDrivingId=null;
   camera.fov=45;camera.updateProjectionMatrix();
-  document.getElementById('btn-car').textContent='🚗 Bil';
-  document.getElementById('btn-car').classList.remove('active','active-green');
   hintEl.classList.remove('visible');
+  const cg=document.getElementById('car-info-group');if(cg)cg.style.display='none';
+  const cs=document.getElementById('ib-s-car');if(cs)cs.style.display='none';
+  refreshVehicleListUI();
   fitCameraToModel();
+}
+
+// ── Vehicle list management ──
+function refreshVehicleListUI(){
+  const container=document.getElementById('vehicle-list');
+  const empty=document.getElementById('vehicle-list-empty');
+  if(!container) return;
+  if(placedVehicles.length===0){
+    container.innerHTML='';
+    if(empty) empty.style.display='block';
+    return;
+  }
+  if(empty) empty.style.display='none';
+  const colors={personbil:'#3b82f6',varebil:'#16a34a',lastebil:'#eab308',brannbil:'#dc2626'};
+  container.innerHTML=placedVehicles.map((v,i)=>{
+    const preset=VEHICLE_PRESETS[v.type];
+    const name=preset?preset.name:v.type;
+    const col=colors[v.type]||'#888';
+    const driving=(carDriving&&carDrivingId===v.id);
+    return `<div class="model-row" style="${driving?'background:rgba(37,99,235,0.12)':''}" title="Dobbeltklikk for å kjøre" ondblclick="driveVehicle('${v.id}')">
+      <span class="model-dot" style="background:${col}"></span>
+      <span class="model-name" style="${driving?'color:var(--dot-blue);font-weight:600':''}">${name} #${i+1}${driving?' (aktiv)':''}</span>
+      <button class="model-del" onclick="event.stopPropagation();removeVehicle('${v.id}')" title="Slett">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function removeVehicle(id){
+  if(carDriving&&carDrivingId===id) exitCarDriving();
+  const idx=placedVehicles.findIndex(v=>v.id===id);
+  if(idx<0) return;
+  const v=placedVehicles[idx];
+  if(v.mesh) scene.remove(v.mesh);
+  placedVehicles.splice(idx,1);
+  refreshVehicleListUI();
+}
+window.removeVehicle=removeVehicle;
+
+function removeAllVehicles(){
+  if(carDriving) exitCarDriving();
+  for(const v of placedVehicles) if(v.mesh) scene.remove(v.mesh);
+  placedVehicles.length=0;
+  refreshVehicleListUI();
+}
+window.removeAllVehicles=removeAllVehicles;
+
+function driveVehicle(id){
+  // If already driving another, exit first
+  if(carDriving) exitCarDriving();
+  const v=placedVehicles.find(x=>x.id===id);
+  if(!v||!v.mesh) return;
+  // Apply this vehicle's type settings
+  const p=VEHICLE_PRESETS[v.type];
+  if(p){
+    activeVehicleType=v.type;
+    carDims.length=p.length;carDims.width=p.width;carDims.bodyH=p.bodyH;
+    carDims.cabH=p.cabH;carDims.wheelR=p.wheelR;carDims.wheelW=p.wheelW;
+    carDims.bodyColor=p.bodyColor;carDims.cabColor=p.cabColor;carDims.cabOpacity=p.cabOpacity;
+    carPhys.maxSpeed=p.maxSpeed;carPhys.accel=p.accel;
+  }
+  carMesh=v.mesh;
+  carYaw=v.yaw;
+  carDrivingId=id;
+  enterCarDriving();
+  refreshVehicleListUI();
+}
+window.driveVehicle=driveVehicle;
+
+// ── Double-click on 3D viewport to enter vehicle ──
+tc.addEventListener('dblclick',e=>{
+  if(carDriving||carMode) return;
+  // Raycast to see if we hit a placed vehicle mesh
+  raycaster.setFromCamera(ndcFromEvent(e.clientX,e.clientY),activeCamera||camera);
+  for(const v of placedVehicles){
+    if(!v.mesh) continue;
+    const meshes=[];
+    v.mesh.traverse(ch=>{if(ch.isMesh) meshes.push(ch);});
+    const hits=raycaster.intersectObjects(meshes,false);
+    if(hits.length>0){
+      driveVehicle(v.id);
+      return;
+    }
+  }
+});
+
+// ── Toggle all IFC models visibility ──
+let allModelsVisible=true;
+function toggleAllModels(){
+  allModelsVisible=!allModelsVisible;
+  models.forEach(m=>{m.visible=allModelsVisible;m.group.visible=allModelsVisible;});
+  refreshModelListUI();
+  // Update checkboxes
+  document.querySelectorAll('#model-list-container input[type=checkbox]').forEach(cb=>{cb.checked=allModelsVisible;});
+}
+window.toggleAllModels=toggleAllModels;
+
+function updateCarTelemetry(){
+  if(!carDriving||!carMesh) return;
+  const p=carMesh.position;
+  const spdEl=document.getElementById('i-car-spd');
+  const zEl=document.getElementById('i-car-z');
+  const posEl=document.getElementById('i-car-pos');
+  const rotEl=document.getElementById('i-car-rot');
+  const tiltEl=document.getElementById('i-car-tilt');
+  if(spdEl) spdEl.textContent=Math.abs(carSpeed).toFixed(1);
+  if(zEl) zEl.textContent=p.y.toFixed(2);
+  if(posEl) posEl.textContent=p.x.toFixed(1)+', '+p.y.toFixed(1)+', '+p.z.toFixed(1);
+  if(rotEl) rotEl.textContent=(((carYaw*180/Math.PI)%360+360)%360).toFixed(1)+'°';
+  if(tiltEl){
+    // Tilt angle from vertical
+    const tiltAngle=Math.sqrt(carTiltPitch*carTiltPitch+carTiltRoll*carTiltRoll)*180/Math.PI;
+    tiltEl.textContent=tiltAngle.toFixed(1)+'°';
+  }
 }
 
 function carKeyDown(e){
@@ -1979,30 +2141,140 @@ function carWheelH(e){
   e.preventDefault();
 }
 
-// ── Raycast ground ──
+// ── Raycast helpers for ground detection ──
 const _carDownRay=new THREE.Raycaster();
-function carFindGround(pos){
-  _carDownRay.set(new THREE.Vector3(pos.x,pos.y+50,pos.z),new THREE.Vector3(0,-1,0));
-  const allMeshes=[];
-  models.forEach(m=>{if(m.visible) m.group.traverse(ch=>{if(ch.isMesh&&ch.visible) allMeshes.push(ch);});});
-  const hits=_carDownRay.intersectObjects(allMeshes,false);
-  return hits.length?hits[0].point.y:null;
+let _carMeshCache=[];
+let _carMeshCacheDirty=true;
+
+// Rebuild mesh list when models change (cheap guard)
+function getCarRayMeshes(){
+  // Rebuild every frame is fine — models array is small
+  _carMeshCache=[];
+  models.forEach(m=>{if(m.visible) m.group.traverse(ch=>{if(ch.isMesh&&ch.visible) _carMeshCache.push(ch);});});
+  return _carMeshCache;
 }
+
+// Cast a ray downward from (x, startY, z). Returns hit Y or null.
+// startY should be just above the car so we find the surface we're ON, not a bridge far above.
+function carRayDown(x,z,startY){
+  _carDownRay.set(new THREE.Vector3(x,startY,z),new THREE.Vector3(0,-1,0));
+  const meshes=getCarRayMeshes();
+  if(!meshes.length) return null;
+  const hits=_carDownRay.intersectObjects(meshes,false);
+  // Return closest hit below startY
+  for(const h of hits){
+    if(h.point.y<=startY) return h.point.y;
+  }
+  return null;
+}
+
+// Find ground at car center — cast from just above current position (not 50m up)
+function carFindGround(pos){
+  // Cast from 2m above car — enough for bumps, but won't reach a bridge 10m above
+  const startY=pos.y+2;
+  const y=carRayDown(pos.x,pos.z,startY);
+  return y!==null?{y}:null;
+}
+
+// 4-point wheel height sampling for tilt
+function carSampleWheelHeights(pos,yaw){
+  const d=carDims;
+  const cosY=Math.cos(yaw),sinY=Math.sin(yaw);
+  const hw=d.width/2;
+  const hl=d.length*0.35;
+  // 4 corners in local space: FL, FR, RL, RR
+  const corners=[
+    [-hw, hl],  // front-left
+    [ hw, hl],  // front-right
+    [-hw,-hl],  // rear-left
+    [ hw,-hl],  // rear-right
+  ];
+  const startY=pos.y+2;
+  const heights=corners.map(([lx,lz])=>{
+    const wx=pos.x+cosY*lx+sinY*lz;
+    const wz=pos.z-sinY*lx+cosY*lz;
+    return carRayDown(wx,wz,startY);
+  });
+  return heights; // [FL, FR, RL, RR] — null if no ground
+}
+
+// Smoothed tilt values
+let carTiltPitch=0;
+let carTiltRoll=0;
 
 // ── Physics update ──
 function updateCar(dt){
   if(!carDriving||!carMesh) return;
   const P=carPhys;
 
+  // Poll for gamepad (fallback if gamepadconnected event missed)
+  if(!carXbox.connected){
+    const gps=navigator.getGamepads?navigator.getGamepads():[];
+    for(let i=0;i<gps.length;i++){
+      if(gps[i]&&gps[i].axes.length>=4&&gps[i].buttons.length>=8){
+        carXbox.index=i;carXbox.connected=true;
+        const status=document.getElementById('dev-xbox-status');
+        if(status){status.textContent=gps[i].id.split('(')[0]||'Kontroller';status.style.background='rgba(22,163,74,0.15)';status.style.color='var(--dot-green)';}
+        const live=document.getElementById('dev-xbox-live');if(live)live.style.display='block';
+        break;
+      }
+    }
+  }
+
+  // ── Gather input from keyboard + Xbox ──
+  let inputSteer=0; // -1 left, +1 right
+  let inputGas=0;   // 0..1
+  let inputBrake=0; // 0..1
+  let hasXboxInput=false;
+
+  // Keyboard
+  if(carKeys.a) inputSteer-=1;
+  if(carKeys.d) inputSteer+=1;
+  if(carKeys.w) inputGas=1;
+  if(carKeys.s) inputBrake=1;
+
+  // Xbox (additive — stronger of the two wins)
+  if(carXbox.connected&&carXbox.index!==null){
+    const gp=navigator.getGamepads()[carXbox.index];
+    if(gp){
+      const dz=carXbox.deadzone;
+      const adz=v=>Math.abs(v)<dz?0:v;
+      const lx=adz(gp.axes[0]);
+      const rx=adz(gp.axes[2]);
+      const ry=adz(gp.axes[3]);
+      const rt=gp.buttons[7]?.value||0;
+      const lt=gp.buttons[6]?.value||0;
+
+      // Live display
+      const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v.toFixed(2);};
+      setT('xl-lx',gp.axes[0]);setT('xl-rx',gp.axes[2]);setT('xl-lt',lt);setT('xl-rt',rt);
+
+      if(Math.abs(lx)>Math.abs(inputSteer)) inputSteer=lx*carXbox.steerMult;
+      if(rt>inputGas) inputGas=rt*carXbox.accelMult;
+      if(lt>inputBrake) inputBrake=lt*carXbox.accelMult;
+      if(lx!==0||rt>0.05||lt>0.05) hasXboxInput=true;
+
+      // Camera: RX yaw + RY pitch
+      if(carCamMode==='3rd-free'||carCamMode==='1st'){
+        if(rx!==0) carCamYaw-=rx*0.05*carXbox.camMult;
+        if(ry!==0) carCamPitch=Math.max(-0.3,Math.min(1.2,carCamPitch+ry*0.03*carXbox.camMult));
+      }
+
+      // A = handbrake, B = exit
+      if(gp.buttons[0]?.pressed) carSpeed*=0.9;
+      if(gp.buttons[1]?.pressed){exitCarDriving();return;}
+    }
+  }
+
   // Steering
   const steerDir=carSpeed>0?1:carSpeed<0?-1:0;
-  if(carKeys.a) carYaw+=P.steerSpeed*dt*steerDir;
-  if(carKeys.d) carYaw-=P.steerSpeed*dt*steerDir;
+  carYaw-=inputSteer*P.steerSpeed*dt*steerDir;
 
-  // Acceleration
-  if(carKeys.w) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*dt);
-  else if(carKeys.s) carSpeed=Math.max(-P.maxSpeed*0.4,carSpeed-P.accel*dt);
+  // Acceleration / braking
+  if(inputGas>0.01) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*inputGas*dt);
+  else if(inputBrake>0.01) carSpeed=Math.max(-P.maxSpeed*0.4,carSpeed-P.accel*inputBrake*dt);
   else {
+    // Friction (only when no input at all)
     if(carSpeed>0) carSpeed=Math.max(0,carSpeed-P.brake*dt);
     else if(carSpeed<0) carSpeed=Math.min(0,carSpeed+P.brake*dt);
   }
@@ -2012,24 +2284,44 @@ function updateCar(dt){
   carMesh.position.addScaledVector(fwd,carSpeed*dt);
 
   // Gravity & ground snap
-  const groundY=carFindGround(carMesh.position);
-  if(groundY!==null){
-    if(carMesh.position.y>groundY+0.05){
+  const groundHit=carFindGround(carMesh.position);
+  if(groundHit!==null){
+    const gy=groundHit.y;
+    if(carMesh.position.y>gy+0.05){
       carVelY-=P.gravity*dt;
       carMesh.position.y+=carVelY*dt;
-      if(carMesh.position.y<=groundY){carMesh.position.y=groundY;carVelY=0;carOnGround=true;}
+      if(carMesh.position.y<=gy){carMesh.position.y=gy;carVelY=0;carOnGround=true;}
     } else {
-      carMesh.position.y=groundY;carVelY=0;carOnGround=true;
+      carMesh.position.y=gy;carVelY=0;carOnGround=true;
     }
   } else {
     carVelY-=P.gravity*dt;
     carMesh.position.y+=carVelY*dt;
+    carOnGround=false;
   }
 
-  carMesh.rotation.y=carYaw;
+  // 4-point wheel tilt
+  const wh=carSampleWheelHeights(carMesh.position,carYaw);
+  // wh = [FL, FR, RL, RR]
+  const fl=wh[0],fr=wh[1],rl=wh[2],rr=wh[3];
+  if(fl!==null&&fr!==null&&rl!==null&&rr!==null){
+    const d=carDims;
+    const wheelbase=d.length*0.7; // front-to-rear distance
+    const track=d.width;          // left-to-right distance
+    // Pitch: average front vs average rear
+    const frontAvg=(fl+fr)/2;
+    const rearAvg=(rl+rr)/2;
+    const targetPitch=-Math.atan2(frontAvg-rearAvg,wheelbase);
+    // Roll: average left vs average right
+    const leftAvg=(fl+rl)/2;
+    const rightAvg=(fr+rr)/2;
+    const targetRoll=Math.atan2(leftAvg-rightAvg,track);
+    // Smooth
+    carTiltPitch+=(targetPitch-carTiltPitch)*0.15;
+    carTiltRoll+=(targetRoll-carTiltRoll)*0.15;
+  }
 
-  // ── Xbox gamepad input ──
-  processCarXbox(dt);
+  carMesh.rotation.set(carTiltPitch,carYaw,carTiltRoll,'YXZ');
 
   // ── FOV management ──
   const targetFov=carCamMode==='1st'?P.fpFov:45;
@@ -2091,6 +2383,7 @@ const clk=new THREE.Clock();
 
   if(carDriving){
     updateCar(dt);
+    updateCarTelemetry();
   } else {
     if(orb.ar){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
   }
