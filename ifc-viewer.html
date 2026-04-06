@@ -15,8 +15,8 @@
   --toolbar-h:52px;
 }
 body.theme-light{
-  --bg:#f3f4f6;--text:#111827;--muted:#4b5563;--card:#ffffff;
-  --border:#d1d5db;--border-soft:#e5e7eb;--hover:#f3f4f6;--btn-bg:#f9fafb;
+  --bg:#FFDF20;--text:#111827;--muted:#4b5563;--card:#ffffff;
+  --border:#d1d5db;--border-soft:#e5e7eb;--hover:#fff8c5;--btn-bg:#fffde0;
   --shadow:0 1px 3px rgba(15,23,42,0.08);--shadow-md:0 4px 12px rgba(15,23,42,0.10);
 }
 body.theme-black{
@@ -541,12 +541,17 @@ body{
     <button class="tb-hdrop-btn" id="btn-grid-toggle" onclick="toggleGrid()">▦ Vis/skjul rutenett</button>
   </div>
 
-  <div class="tb-hdrop" id="drop-theme" style="min-width:200px;padding:0.5rem 0.4rem;">
+  <div class="tb-hdrop" id="drop-theme" style="min-width:220px;padding:0.5rem 0.4rem;">
     <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.4rem">Tema</div>
+    <div id="ec-brightness-row" style="display:flex;flex-direction:column;gap:3px;margin-bottom:0.4rem">
+      <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Lysstyrke <span id="ec-bri-val">100%</span></label>
+      <input type="range" id="ec-bri" min="20" max="100" step="1" value="100" oninput="applyBrightness()" style="width:100%;accent-color:var(--dot-blue)">
+    </div>
+    <div class="tb-hdrop-sep" style="margin:0 0 0.3rem"></div>
     <div style="display:flex;gap:5px">
-      <button class="ec-preset" onclick="setTheme('light',this)">☀ Lys</button>
-      <button class="ec-preset active" id="ec-pre-dark" onclick="setTheme('dark',this)">☾ Mørk</button>
-      <button class="ec-preset" onclick="setTheme('black',this)">◼ Svart</button>
+      <button class="ec-preset" onclick="setTheme('light',this)">Lys</button>
+      <button class="ec-preset active" id="ec-pre-dark" onclick="setTheme('dark',this)">Mork</button>
+      <button class="ec-preset" onclick="setTheme('black',this)">Svart</button>
     </div>
   </div>
 
@@ -596,6 +601,36 @@ body{
         <span id="dev-merge-status" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
       </div>
       <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.15rem">Slår sammen geometri per IFC-type = færre draw calls</div>
+    </div>
+
+    <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.2rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Render-opplosning</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>Opplosning <span id="dev-res-val">100</span>%</label><input type="range" min="25" max="100" step="5" value="100" oninput="setRenderResolution(+this.value)"></div>
+      <div style="font-family:monospace;font-size:0.6rem;color:var(--muted);padding:0.15rem;background:var(--btn-bg);border-radius:0.25rem" id="dev-res-info">Rendrer i full opplosning</div>
+    </div>
+
+    <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.2rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Objektfilter</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.1rem">Skjul sma objekter basert pa trekanter og storrelse</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleObjFilter()">
+        <span style="font-size:0.75rem;color:var(--text)">Aktiver objektfilter</span>
+        <span id="dev-objfilter-status" style="font-size:0.68rem;padding:0.1rem 0.5rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+      <div class="dev-slider"><label>Maks trekanter <span id="dev-filter-tris-val">500</span></label><input type="range" min="10" max="5000" step="10" value="500" oninput="objFilterCfg.maxTris=+this.value;document.getElementById('dev-filter-tris-val').textContent=this.value;applyObjFilter()"></div>
+      <div class="dev-slider"><label>Maks volum <span id="dev-filter-vol-val">1.0</span> m3</label><input type="range" min="0.01" max="20" step="0.01" value="1" oninput="objFilterCfg.maxVol=+this.value;document.getElementById('dev-filter-vol-val').textContent=(+this.value).toFixed(2);applyObjFilter()"></div>
+
+      <div class="tb-hdrop-sep" style="margin:0.2rem 0"></div>
+      <div style="font-size:0.6rem;color:var(--muted);padding:0 0 0.1rem">Filtrer etter IFC-type</div>
+      <div id="dev-type-filter-list" style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:1px"></div>
+      <div style="display:flex;gap:4px;margin-top:0.2rem">
+        <button class="tb-hdrop-btn" onclick="objFilterSelectAll(true)" style="flex:1;text-align:center;font-size:0.68rem;padding:0.15rem">Vis alle</button>
+        <button class="tb-hdrop-btn" onclick="objFilterSelectAll(false)" style="flex:1;text-align:center;font-size:0.68rem;padding:0.15rem">Skjul alle</button>
+      </div>
+      <div style="font-family:monospace;font-size:0.6rem;color:var(--muted);padding:0.2rem;background:var(--btn-bg);border-radius:0.25rem;margin-top:0.15rem" id="dev-filter-stats">Synlige: -- / -- | Skjulte: --</div>
     </div>
 
     <div class="tb-hdrop-sep" style="margin:0.3rem 0"></div>
@@ -989,7 +1024,7 @@ function refreshModelListUI(){
 // Expose to inline handlers
 window._toggleModelVis=function(id,v){
   const m=models.find(x=>x.id===id);if(!m) return;
-  m.visible=v;m.group.visible=v;
+  m.visible=v;m.group.visible=v;updateInfoBar();
 };
 window._removeModel=function(id){removeModel(id);};
 
@@ -1008,11 +1043,35 @@ function updateInfoBar(){
   document.getElementById('ic-elements').style.display='';
   document.getElementById('ib-s2').style.display='';
   document.getElementById('ic-tris').style.display='';
+
+  // Count only VISIBLE meshes (respects isolation, filter, streaming)
+  let visibleElements=0,visibleTris=0,totalElements=0,totalTris=0;
+  const seenEIDs=new Set();
+  const seenVisEIDs=new Set();
+  vis.forEach(mdl=>{
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      const eid=ch.userData.expressID;
+      if(eid!==undefined&&!seenEIDs.has(eid)){seenEIDs.add(eid);totalElements++;}
+      const geo=ch.geometry;
+      const tris=geo.index?geo.index.count/3:geo.attributes.position.count/3;
+      totalTris+=tris;
+      if(ch.visible){
+        if(eid!==undefined&&!seenVisEIDs.has(eid)){seenVisEIDs.add(eid);visibleElements++;}
+        visibleTris+=tris;
+      }
+    });
+  });
+
+  const allVisible=(visibleElements===totalElements);
   document.getElementById('i-fname').textContent=vis.length===1?vis[0].name:vis.length+' modeller';
-  const totE=vis.reduce((s,m)=>s+m.stats.elements,0);
-  const totT=vis.reduce((s,m)=>s+m.stats.tris,0);
-  document.getElementById('i-elements').textContent=totE.toLocaleString();
-  document.getElementById('i-tris').textContent=Math.round(totT).toLocaleString();
+  if(allVisible){
+    document.getElementById('i-elements').textContent=totalElements.toLocaleString();
+    document.getElementById('i-tris').textContent=Math.round(totalTris).toLocaleString();
+  } else {
+    document.getElementById('i-elements').textContent=visibleElements.toLocaleString()+' / '+totalElements.toLocaleString();
+    document.getElementById('i-tris').textContent=Math.round(visibleTris).toLocaleString()+' / '+Math.round(totalTris).toLocaleString();
+  }
 }
 
 // ═══════════════════════════════ IFC LOADING ═════════════════════════════════
@@ -1021,47 +1080,50 @@ function setLoader(v,lbl){
   if(lbl) document.getElementById('loader-title').textContent=lbl;
 }
 
+// ═══════════════════════════════ IFC LOADING (CHUNKED ASYNC) ═════════════════
+// Parsing runs on main thread (web-ifc WASM) but geometry building is chunked
+// into small batches with requestAnimationFrame yields so UI stays responsive
+// and geometry appears progressively.
+
 async function loadIFCFile(file){
   setLoader(true,'Laster inn '+file.name+'...');
-  await new Promise(r=>setTimeout(r,50));
+  await new Promise(r=>setTimeout(r,30));
   try{
     await ensureIfcReady();
     const data=await file.arrayBuffer();
     const uint8=new Uint8Array(data);
+
+    setLoader(true,file.name+': Parsing IFC...');
+    await new Promise(r=>setTimeout(r,10));
     const modelId=ifcApi.OpenModel(uint8,{USE_FAST_BOOLS:true});
 
-    const group=new THREE.Group();
-    const expressIDs=new Map(); // expressID -> {type, meshIndex}
+    setLoader(true,file.name+': Genererer geometri...');
+    await new Promise(r=>setTimeout(r,10));
     const flatMeshes=ifcApi.LoadAllGeometry(modelId);
+    const total=flatMeshes.size();
 
-    // Collect IFC type colors
-    const typeColors={};
     const defaultColors={
-      'IFCWALL':0xcccccc,'IFCWALLSTANDARDCASE':0xcccccc,
-      'IFCSLAB':0xb0b0b0,'IFCFLOOR':0xb0b0b0,
-      'IFCROOF':0xc97e4d,
-      'IFCCOLUMN':0x8899aa,'IFCBEAM':0x7788aa,
-      'IFCDOOR':0x8b6843,'IFCWINDOW':0x88ccee,
-      'IFCSTAIR':0xaaa599,'IFCSTAIRFLIGHT':0xaaa599,
-      'IFCRAILING':0x888888,
-      'IFCPLATE':0x99aabb,'IFCMEMBER':0x778899,
-      'IFCCURTAINWALL':0x66bbdd,
-      'IFCFURNISHINGELEMENT':0xb49a6a,
-      'IFCBUILDINGELEMENTPROXY':0x99aa88,
-      'IFCSPACE':0x6688aa,'IFCOPENINGELEMENT':0x446688,
-      'IFCSITE':0x669966,'IFCFOOTING':0x999999,
-      'IFCPILE':0x888888,
-      'IFCROAD':0x555555,'IFCPAVEMENT':0x666666,
-      'IFCKERB':0x777777,'IFCCOURSE':0x888888,
-      'IFCALIGNMENT':0x44aa44,'IFCBRIDGE':0x998877,
+      'WALL':0xcccccc,'WALLSTANDARDCASE':0xcccccc,
+      'SLAB':0xb0b0b0,'FLOOR':0xb0b0b0,'ROOF':0xc97e4d,
+      'COLUMN':0x8899aa,'BEAM':0x7788aa,'DOOR':0x8b6843,'WINDOW':0x88ccee,
+      'STAIR':0xaaa599,'STAIRFLIGHT':0xaaa599,'RAILING':0x888888,
+      'PLATE':0x99aabb,'MEMBER':0x778899,'CURTAINWALL':0x66bbdd,
+      'FURNISHINGELEMENT':0xb49a6a,'BUILDINGELEMENTPROXY':0x99aa88,
+      'SPACE':0x6688aa,'OPENINGELEMENT':0x446688,
+      'SITE':0x669966,'FOOTING':0x999999,'PILE':0x888888,
+      'ROAD':0x555555,'PAVEMENT':0x666666,'KERB':0x777777,'COURSE':0x888888,
+      'ALIGNMENT':0x44aa44,'BRIDGE':0x998877,
     };
+    function getTypeColor(t){for(const[k,v] of Object.entries(defaultColors)){if(t.includes(k))return v;}return 0xcccccc;}
 
-    for(let i=0;i<flatMeshes.size();i++){
-      if(i%50===0) {setLoader(true,'Laster geometri... '+Math.round(i/flatMeshes.size()*100)+'%');await new Promise(r=>setTimeout(r,0));}
+    const group=new THREE.Group();
+    const expressIDs=new Map();
+    let addedToScene=false;
+    const BATCH=15; // meshes per frame yield
+
+    for(let i=0;i<total;i++){
       const fm=flatMeshes.get(i);
       const expressID=fm.expressID;
-
-      // Get IFC type
       let ifcType='UNKNOWN';
       try{
         const line=ifcApi.GetLine(modelId,expressID);
@@ -1071,78 +1133,71 @@ async function loadIFCFile(file){
       const placedGeos=fm.geometries;
       for(let j=0;j<placedGeos.size();j++){
         try{
-        const pg=placedGeos.get(j);
-        const geoData=ifcApi.GetGeometry(modelId,pg.geometryExpressID);
+          const pg=placedGeos.get(j);
+          const geoData=ifcApi.GetGeometry(modelId,pg.geometryExpressID);
+          const vertPtr=geoData.GetVertexData();
+          const vertSize=geoData.GetVertexDataSize();
+          const idxPtr=geoData.GetIndexData();
+          const idxSize=geoData.GetIndexDataSize();
+          if(!vertSize||!idxSize){geoData.delete();continue;}
+          const verts=ifcApi.GetVertexArray(vertPtr,vertSize);
+          const indices=ifcApi.GetIndexArray(idxPtr,idxSize);
+          geoData.delete();
+          if(!verts.length||!indices.length) continue;
 
-        const vertPtr=geoData.GetVertexData();
-        const vertSize=geoData.GetVertexDataSize();
-        const idxPtr=geoData.GetIndexData();
-        const idxSize=geoData.GetIndexDataSize();
-
-        if(!vertSize||!idxSize){ geoData.delete(); continue; }
-
-        const verts=ifcApi.GetVertexArray(vertPtr,vertSize);
-        const indices=ifcApi.GetIndexArray(idxPtr,idxSize);
-
-        geoData.delete(); // free WASM memory
-
-        if(!verts.length||!indices.length) continue;
-
-        // Build geometry
-        const posArr=new Float32Array(verts.length/2);
-        const norArr=new Float32Array(verts.length/2);
-        for(let k=0;k<verts.length;k+=6){
-          const idx3=k/2;
-          posArr[idx3]=verts[k];posArr[idx3+1]=verts[k+1];posArr[idx3+2]=verts[k+2];
-          norArr[idx3]=verts[k+3];norArr[idx3+1]=verts[k+4];norArr[idx3+2]=verts[k+5];
-        }
-
-        const geo=new THREE.BufferGeometry();
-        geo.setAttribute('position',new THREE.Float32BufferAttribute(posArr,3));
-        geo.setAttribute('normal',new THREE.Float32BufferAttribute(norArr,3));
-        geo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices),1));
-
-        // Color from IFC color or type-based
-        let color=0xcccccc;
-        const c=pg.color;
-        if(c&&(c.x!==0||c.y!==0||c.z!==0)){
-          color=new THREE.Color(c.x,c.y,c.z);
-        } else {
-          // Try type-based color
-          for(const[key,val] of Object.entries(defaultColors)){
-            if(ifcType.includes(key.replace('IFC',''))){color=val;break;}
+          const posArr=new Float32Array(verts.length/2);
+          const norArr=new Float32Array(verts.length/2);
+          for(let k=0;k<verts.length;k+=6){
+            const idx3=k/2;
+            posArr[idx3]=verts[k];posArr[idx3+1]=verts[k+1];posArr[idx3+2]=verts[k+2];
+            norArr[idx3]=verts[k+3];norArr[idx3+1]=verts[k+4];norArr[idx3+2]=verts[k+5];
           }
-        }
-        let opacity=c?c.w:1;
-        if(opacity<0.01) opacity=1;
 
-        const mat=new THREE.MeshStandardMaterial({
-          color,roughness:0.65,metalness:0.05,
-          transparent:opacity<0.99,opacity,
-          side:THREE.DoubleSide,
-        });
+          const geo=new THREE.BufferGeometry();
+          geo.setAttribute('position',new THREE.Float32BufferAttribute(posArr,3));
+          geo.setAttribute('normal',new THREE.Float32BufferAttribute(norArr,3));
+          geo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices),1));
 
-        const mesh=new THREE.Mesh(geo,mat);
-        // Store original color/opacity for shading restore
-        mesh.userData._origColor=new THREE.Color(color);
-        mesh.userData._origOpacity=opacity;
-        // Apply placement matrix
-        const flatMatrix=pg.flatTransformation;
-        const m4=new THREE.Matrix4().fromArray(flatMatrix);
-        mesh.applyMatrix4(m4);
-        mesh.userData.expressID=expressID;
-        mesh.userData.ifcType=ifcType;
-        mesh.userData.modelId=modelId;
-        group.add(mesh);
+          let color=0xcccccc;
+          const c=pg.color;
+          if(c&&(c.x!==0||c.y!==0||c.z!==0)){
+            color=new THREE.Color(c.x,c.y,c.z);
+          } else {
+            color=getTypeColor(ifcType);
+          }
+          let opacity=c?c.w:1;
+          if(opacity<0.01) opacity=1;
 
-        expressIDs.set(expressID,{type:ifcType,mesh});
+          const mat=new THREE.MeshStandardMaterial({
+            color,roughness:0.65,metalness:0.05,
+            transparent:opacity<0.99,opacity,
+            side:THREE.DoubleSide,
+          });
+          const mesh=new THREE.Mesh(geo,mat);
+          mesh.userData._origColor=new THREE.Color(color);
+          mesh.userData._origOpacity=opacity;
+          mesh.applyMatrix4(new THREE.Matrix4().fromArray(pg.flatTransformation));
+          mesh.userData.expressID=expressID;
+          mesh.userData.ifcType=ifcType;
+          mesh.userData.modelId=modelId;
+          group.add(mesh);
+          expressIDs.set(expressID,{type:ifcType,mesh});
         }catch(geoErr){
-          console.warn('Geometri-feil for expressID',expressID,':',geoErr.message);
+          console.warn('Geo error expressID',expressID,':',geoErr.message);
         }
+      }
+
+      // Yield to browser every BATCH meshes — keeps UI responsive + shows progress
+      if(i%BATCH===0||i===total-1){
+        const pct=Math.round((i+1)/total*100);
+        setLoader(true,file.name+': Bygger geometri... '+pct+'%');
+        // Add to scene early so geometry appears progressively
+        if(!addedToScene){scene.add(group);addedToScene=true;}
+        await new Promise(r=>requestAnimationFrame(r));
       }
     }
 
-    scene.add(group);
+    if(!addedToScene) scene.add(group);
     const mdl=registerModel(group,file.name,expressIDs,modelId,file.size);
     document.getElementById('drop-zone').classList.add('hidden');
     applyShading();
@@ -1416,6 +1471,7 @@ function isolateSelected(){
       if(ch.isMesh) ch.visible=eids.has(ch.userData.expressID);
     });
   });
+  updateInfoBar();
 }
 window.isolateSelected=isolateSelected;
 
@@ -1423,6 +1479,7 @@ function showAll(){
   clearSelection();
   models.forEach(mdl=>{mdl.group.traverse(ch=>{if(ch.isMesh)ch.visible=true;});});
   applyShading();
+  updateInfoBar();
 }
 window.showAll=showAll;
 
@@ -1657,12 +1714,20 @@ function redrawSVG(){
 }
 
 // ═══════════════════════════════ THEME ════════════════════════════════════════
-const themeBgs={'dark':0x0b1220,'light':0xf3f4f6,'black':0x000000};
+const themeBgs={'dark':0x0b1220,'light':0xFFDF20,'black':0x000000};
+let currentTheme='dark';
+let brightnessVal=100;
+
 function setTheme(name,el){
+  currentTheme=name;
   document.body.className=name==='dark'?'theme-dark':name==='light'?'theme-light':'theme-black';
-  renderer.setClearColor(themeBgs[name]||0x0b1220);
   document.querySelectorAll('.ec-preset').forEach(b=>b.classList.remove('active'));
   if(el) el.classList.add('active');
+  // Hide brightness for black theme
+  const briRow=document.getElementById('ec-brightness-row');
+  if(briRow) briRow.style.display=(name==='black')?'none':'flex';
+  // Apply brightness to renderer bg
+  applyBrightness();
   // Recreate grid with theme colors, preserve position
   const gy=gridHelper?gridHelper.position.y:-0.01;
   const gx=gridHelper?gridHelper.position.x:0;
@@ -1671,6 +1736,162 @@ function setTheme(name,el){
   gridHelper.position.set(gx,gy,gz);
 }
 window.setTheme=setTheme;
+
+function applyBrightness(){
+  const slider=document.getElementById('ec-bri');
+  brightnessVal=slider?+slider.value:100;
+  const label=document.getElementById('ec-bri-val');
+  if(label) label.textContent=brightnessVal+'%';
+  // Apply brightness to 3D background
+  const baseHex=themeBgs[currentTheme]||0x0b1220;
+  const r=((baseHex>>16)&0xff)/255;
+  const g=((baseHex>>8)&0xff)/255;
+  const b=(baseHex&0xff)/255;
+  const f=brightnessVal/100;
+  renderer.setClearColor(new THREE.Color(r*f,g*f,b*f));
+}
+window.applyBrightness=applyBrightness;
+
+// ═══════════════════════════════ RENDER RESOLUTION ═══════════════════════════
+let renderResScale=1;
+function setRenderResolution(pct){
+  renderResScale=pct/100;
+  const dpr=Math.min(window.devicePixelRatio,2)*renderResScale;
+  renderer.setPixelRatio(dpr);
+  // Update info display
+  const w=Math.round(vp.clientWidth*dpr);
+  const h=Math.round(vp.clientHeight*dpr);
+  document.getElementById('dev-res-val').textContent=pct;
+  document.getElementById('dev-res-info').textContent=w+'x'+h+(pct<100?' (redusert)':' (full opplosning)');
+  resize(); // re-apply size
+}
+window.setRenderResolution=setRenderResolution;
+
+// ═══════════════════════════════ OBJECT FILTER ═══════════════════════════════
+// Hide small/irrelevant objects by triangle count, bounding box volume, and IFC type.
+const objFilterCfg={enabled:false,maxTris:500,maxVol:1.0};
+const objFilterHiddenTypes=new Set(); // IFC types to hide
+let objFilterTypeList={}; // {type: {count,visible}}
+window.objFilterCfg=objFilterCfg;
+
+function toggleObjFilter(){
+  objFilterCfg.enabled=!objFilterCfg.enabled;
+  const el=document.getElementById('dev-objfilter-status');
+  if(el){el.textContent=objFilterCfg.enabled?'PA':'AV';el.style.color=objFilterCfg.enabled?'var(--dot-green)':'var(--muted)';}
+  if(objFilterCfg.enabled){
+    buildTypeFilterList();
+    applyObjFilter();
+  } else {
+    restoreObjFilter();
+  }
+}
+window.toggleObjFilter=toggleObjFilter;
+
+function buildTypeFilterList(){
+  // Scan all models for IFC types
+  objFilterTypeList={};
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      const t=ch.userData.ifcType||'UNKNOWN';
+      if(!objFilterTypeList[t]) objFilterTypeList[t]={count:0,visible:true};
+      objFilterTypeList[t].count++;
+    });
+  });
+  // Restore hidden state from previous
+  for(const t of objFilterHiddenTypes){
+    if(objFilterTypeList[t]) objFilterTypeList[t].visible=false;
+  }
+  renderTypeFilterList();
+}
+
+function renderTypeFilterList(){
+  const container=document.getElementById('dev-type-filter-list');
+  if(!container) return;
+  const sorted=Object.entries(objFilterTypeList).sort((a,b)=>b[1].count-a[1].count);
+  container.innerHTML=sorted.map(([type,info])=>{
+    const cleanName=type.replace('IFC','').replace(/([A-Z])/g,' $1').trim();
+    const checked=info.visible?'checked':'';
+    return `<label style="display:flex;align-items:center;gap:5px;font-size:0.68rem;color:var(--text);padding:0.1rem 0.2rem;cursor:pointer;border-radius:0.2rem;transition:background 0.1s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <input type="checkbox" ${checked} onchange="toggleTypeFilter('${type}',this.checked)" style="cursor:pointer;flex-shrink:0">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cleanName}</span>
+      <span style="color:var(--muted);font-size:0.6rem;flex-shrink:0">${info.count}</span>
+    </label>`;
+  }).join('');
+}
+
+function toggleTypeFilter(type,visible){
+  if(objFilterTypeList[type]) objFilterTypeList[type].visible=visible;
+  if(visible) objFilterHiddenTypes.delete(type);
+  else objFilterHiddenTypes.add(type);
+  if(objFilterCfg.enabled) applyObjFilter();
+}
+window.toggleTypeFilter=toggleTypeFilter;
+
+function objFilterSelectAll(show){
+  for(const[type,info] of Object.entries(objFilterTypeList)){
+    info.visible=show;
+    if(show) objFilterHiddenTypes.delete(type);
+    else objFilterHiddenTypes.add(type);
+  }
+  renderTypeFilterList();
+  if(objFilterCfg.enabled) applyObjFilter();
+}
+window.objFilterSelectAll=objFilterSelectAll;
+
+function applyObjFilter(){
+  if(!objFilterCfg.enabled) return;
+  let total=0,visible=0,hidden=0;
+  const _box=new THREE.Box3();
+  const _size=new THREE.Vector3();
+
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      total++;
+      const type=ch.userData.ifcType||'UNKNOWN';
+
+      // Type filter
+      if(objFilterHiddenTypes.has(type)){
+        ch.visible=false;hidden++;return;
+      }
+
+      // Triangle count
+      const geo=ch.geometry;
+      const triCount=geo.index?geo.index.count/3:geo.attributes.position.count/3;
+      if(triCount<=objFilterCfg.maxTris){
+        // Also check bounding box volume
+        if(!geo.boundingBox) geo.computeBoundingBox();
+        _box.copy(geo.boundingBox).applyMatrix4(ch.matrixWorld);
+        _box.getSize(_size);
+        const vol=_size.x*_size.y*_size.z;
+        if(vol<=objFilterCfg.maxVol){
+          ch.visible=false;hidden++;return;
+        }
+      }
+
+      ch.visible=true;visible++;
+    });
+  });
+
+  const el=document.getElementById('dev-filter-stats');
+  if(el) el.textContent=`Synlige: ${visible} / ${total} | Skjulte: ${hidden}`;
+  updateInfoBar();
+}
+window.applyObjFilter=applyObjFilter;
+
+function restoreObjFilter(){
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{if(ch.isMesh) ch.visible=true;});
+  });
+  const el=document.getElementById('dev-filter-stats');
+  if(el) el.textContent='Filter av';
+  updateInfoBar();
+}
+window.restoreObjFilter=restoreObjFilter;
 
 // ═══════════════════════════════ CAM POS BAR ════════════════════════════════
 function updateCamPosBar(){
