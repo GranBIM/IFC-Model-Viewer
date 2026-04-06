@@ -305,6 +305,19 @@ body{
 
 #file-input{display:none;}
 
+#watermark{
+  position:absolute;bottom:2.8rem;right:1rem;
+  font-size:0.62rem;color:rgba(255,255,255,0.92);
+  text-align:right;line-height:1.5;pointer-events:none;
+  z-index:5;user-select:none;
+}
+#last-updated{
+  position:absolute;bottom:2.8rem;left:1rem;
+  font-size:0.62rem;color:rgba(255,255,255,0.92);
+  text-align:left;line-height:1.5;pointer-events:none;
+  z-index:5;user-select:none;
+}
+
 /* Devtools collapsible groups */
 .dev-group{border:1px solid var(--border-soft);border-radius:0.4rem;margin-bottom:0.35rem;overflow:hidden;}
 .dev-group-head{
@@ -386,6 +399,8 @@ body{
   <canvas id="measure-canvas"></canvas>
   <svg id="measure-svg"></svg>
   <div id="pivot-dot"></div>
+  <div id="watermark">Utviklet og vedlikeholdt av<br>Mathias Weiseth Gran</div>
+  <div id="last-updated">Sist oppdatert 06.04.2026</div>
 
   <div id="drop-zone">
     <div class="drop-icon-wrap">
@@ -405,6 +420,12 @@ body{
   </div>
 
   <div id="measure-hint"></div>
+
+  <div id="fps-counter" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+    font-family:monospace;font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.7);
+    background:rgba(15,23,42,0.6);padding:0.2rem 0.6rem;border-radius:0.3rem;
+    pointer-events:none;z-index:14;backdrop-filter:blur(3px);
+    border:1px solid rgba(255,255,255,0.08)">-- FPS</div>
 
   <!-- Properties panel -->
   <div id="props-panel">
@@ -544,8 +565,41 @@ body{
     <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
   </div>
 
-  <div class="tb-hdrop" id="drop-devtools" style="min-width:280px;max-height:80vh;overflow-y:auto;padding:0.5rem 0.4rem;">
+  <div class="tb-hdrop" id="drop-devtools" style="min-width:300px;max-width:340px;max-height:80vh;overflow-y:auto;padding:0.5rem 0.4rem;">
     <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Utviklerverktøy</div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Streaming / LOD</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleStreaming()">
+        <span style="font-size:0.75rem;color:var(--text)">Aktiver streaming</span>
+        <span id="dev-streaming-status" style="font-size:0.68rem;padding:0.1rem 0.5rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+      <div style="font-size:0.6rem;color:var(--muted);padding:0 0 0.15rem">Frustum culling + avstandsbasert LOD</div>
+      <div class="dev-slider"><label>Naer-grense <span id="dev-lod-near-val">50</span> m</label><input type="range" min="10" max="200" step="5" value="50" oninput="streamCfg.nearDist=+this.value;document.getElementById('dev-lod-near-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Fjern-grense <span id="dev-lod-far-val">150</span> m</label><input type="range" min="50" max="500" step="10" value="150" oninput="streamCfg.farDist=+this.value;document.getElementById('dev-lod-far-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Skjul-grense <span id="dev-lod-cull-val">300</span> m</label><input type="range" min="100" max="1000" step="10" value="300" oninput="streamCfg.cullDist=+this.value;document.getElementById('dev-lod-cull-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Oppdateringsfrekvens <span id="dev-lod-freq-val">6</span> fps</label><input type="range" min="1" max="30" step="1" value="6" oninput="streamCfg.updateFps=+this.value;document.getElementById('dev-lod-freq-val').textContent=this.value"></div>
+      <div style="font-family:monospace;font-size:0.62rem;color:var(--muted);padding:0.25rem;background:var(--btn-bg);border-radius:0.3rem;margin-top:0.15rem" id="dev-stream-stats">Synlige: -- / -- | Skjulte: -- | Draw calls: --</div>
+    </div>
+
+    <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
+
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0;cursor:pointer" onclick="toggleOcclusion()">
+        <span style="font-size:0.72rem;color:var(--text)">Occlusion culling</span>
+        <span id="dev-occlusion-status" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+      <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.1rem">Skjuler objekter bak andre via depth-test</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0;cursor:pointer" onclick="toggleMeshMerge()">
+        <span style="font-size:0.72rem;color:var(--text)">Mesh-sammenslåing</span>
+        <span id="dev-merge-status" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+      <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.15rem">Slår sammen geometri per IFC-type = færre draw calls</div>
+    </div>
+
+    <div class="tb-hdrop-sep" style="margin:0.3rem 0"></div>
+    <div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.2rem">Kjøretøy</div>
 
     <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
     <div style="display:flex;flex-direction:column;gap:2px;padding:0.2rem 0">
@@ -613,6 +667,10 @@ body{
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module">
 import {IfcAPI} from 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/web-ifc-api.js';
+
+// Early declarations for streaming LOD (used by applyShading and streaming system)
+const _streamOrigMats=new WeakMap();
+const _streamLodMats=new WeakMap();
 
 // ═══════════════════════════════ WEB-IFC INIT ════════════════════════════════
 const ifcApi = new IfcAPI();
@@ -1087,20 +1145,22 @@ async function loadIFCFile(file){
     scene.add(group);
     const mdl=registerModel(group,file.name,expressIDs,modelId,file.size);
     document.getElementById('drop-zone').classList.add('hidden');
-
-    // Fit camera + position grid at model bottom
-    resetCamera();
     applyShading();
   }catch(err){
     console.error('IFC load error:',err);
     alert('Feil ved lasting av IFC: '+err.message);
   }
   setLoader(false);
+  _pendingLoads--;
+  if(_pendingLoads<=0){_pendingLoads=0;setTimeout(resetCamera,1000);}
 }
+let _pendingLoads=0;
 
 // ═══════════════════════════════ FILE INPUT / DROP ════════════════════════════
 document.getElementById('file-input').addEventListener('change',e=>{
-  for(const f of e.target.files) if(f.name.toLowerCase().endsWith('.ifc')) loadIFCFile(f);
+  const ifcFiles=[...e.target.files].filter(f=>f.name.toLowerCase().endsWith('.ifc'));
+  _pendingLoads+=ifcFiles.length;
+  for(const f of ifcFiles) loadIFCFile(f);
   e.target.value='';
 });
 
@@ -1110,13 +1170,16 @@ dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-ove
 dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
 dz.addEventListener('drop',e=>{
   e.preventDefault();dz.classList.remove('drag-over');
-  for(const f of e.dataTransfer.files) if(f.name.toLowerCase().endsWith('.ifc')) loadIFCFile(f);
+  const ifcFiles=[...e.dataTransfer.files].filter(f=>f.name.toLowerCase().endsWith('.ifc'));
+  _pendingLoads+=ifcFiles.length;
+  for(const f of ifcFiles) loadIFCFile(f);
 });
-// Also allow dropping on viewport after model loaded
 vp.addEventListener('dragover',e=>e.preventDefault());
 vp.addEventListener('drop',e=>{
   e.preventDefault();
-  for(const f of e.dataTransfer.files) if(f.name.toLowerCase().endsWith('.ifc')) loadIFCFile(f);
+  const ifcFiles=[...e.dataTransfer.files].filter(f=>f.name.toLowerCase().endsWith('.ifc'));
+  _pendingLoads+=ifcFiles.length;
+  for(const f of ifcFiles) loadIFCFile(f);
 });
 
 // ═══════════════════════════════ CAMERA CONTROLS ═════════════════════════════
@@ -1202,7 +1265,6 @@ function applyShading(){
     if(!mdl.visible) return;
     mdl.group.traverse(ch=>{
       if(!ch.isMesh) return;
-      // Always read original color from userData (set at creation time)
       const origColor=ch.userData._origColor||new THREE.Color(0xcccccc);
       const origOpacity=ch.userData._origOpacity!==undefined?ch.userData._origOpacity:1;
       if(shading==='wire'){
@@ -1219,6 +1281,9 @@ function applyShading(){
           side:THREE.DoubleSide,
         });
       }
+      // Update streaming cache so LOD uses correct base material
+      _streamOrigMats.delete(ch);
+      _streamLodMats.delete(ch);
     });
   });
 }
@@ -1945,7 +2010,17 @@ function carPlacementClick(e){
 }
 
 // ── Driving mode ──
+// Saved camera state before entering vehicle
+let _savedCamState=null;
+
 function enterCarDriving(){
+  // Save current camera view for restore on exit
+  _savedCamState={
+    tgt:orb.tgt.clone(),
+    radius:orb.sph.radius,
+    theta:orb.sph.theta,
+    phi:orb.sph.phi,
+  };
   carDriving=true;
   carSpeed=0;carVelY=0;carOnGround=true;
   carTiltPitch=0;carTiltRoll=0;
@@ -1962,7 +2037,6 @@ function enterCarDriving(){
     '1st':'WASD kjør · Mus se rundt · ESC avslutt'};
   hintEl.textContent=hints[carCamMode]||hints['3rd-free'];
   hintEl.classList.add('visible');
-  // Show vehicle telemetry
   const cg=document.getElementById('car-info-group');if(cg)cg.style.display='flex';
   const cs=document.getElementById('ib-s-car');if(cs)cs.style.display='';
 }
@@ -1976,7 +2050,6 @@ function exitCarDriving(){
   window.removeEventListener('mouseup',carMouseUpH);
   window.removeEventListener('mousemove',carMouseMoveH);
   tc.removeEventListener('wheel',carWheelH);
-  // Save state back to registry — keep mesh in scene
   if(carMesh&&carDrivingId){
     const v=placedVehicles.find(x=>x.id===carDrivingId);
     if(v){v.yaw=carYaw;v.mesh=carMesh;}
@@ -1987,7 +2060,17 @@ function exitCarDriving(){
   const cg=document.getElementById('car-info-group');if(cg)cg.style.display='none';
   const cs=document.getElementById('ib-s-car');if(cs)cs.style.display='none';
   refreshVehicleListUI();
-  fitCameraToModel();
+  // Restore camera to where it was before driving
+  if(_savedCamState){
+    orb.tgt.copy(_savedCamState.tgt);
+    orb.sph.radius=_savedCamState.radius;
+    orb.sph.theta=_savedCamState.theta;
+    orb.sph.phi=_savedCamState.phi;
+    applyOrb();
+    _savedCamState=null;
+  } else {
+    fitCameraToModel();
+  }
 }
 
 // ── Vehicle list management ──
@@ -2375,11 +2458,305 @@ function updateCar(dt){
   orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
 }
 
+// ═══════════════════════════════ STREAMING / LOD ═════════════════════════════
+const streamCfg={
+  enabled:false,
+  occlusion:false,
+  mergeMeshes:false,
+  nearDist:50,
+  farDist:150,
+  cullDist:300,
+  updateFps:6,
+};
+window.streamCfg=streamCfg;
+
+let streamLastUpdate=0;
+const streamFrustum=new THREE.Frustum();
+const streamProjMat=new THREE.Matrix4();
+
+// LOD material cache
+function getStreamLodMat(mesh){
+  let lm=_streamLodMats.get(mesh);
+  if(lm) return lm;
+  const origColor=mesh.userData._origColor||
+    (mesh.material&&mesh.material.color?mesh.material.color.clone():new THREE.Color(0xaaaaaa));
+  lm=new THREE.MeshLambertMaterial({color:origColor,side:THREE.DoubleSide});
+  _streamLodMats.set(mesh,lm);
+  return lm;
+}
+
+// ── Toggle functions ──
+function toggleStreaming(){
+  streamCfg.enabled=!streamCfg.enabled;
+  const el=document.getElementById('dev-streaming-status');
+  if(el){el.textContent=streamCfg.enabled?'PA':'AV';el.style.color=streamCfg.enabled?'var(--dot-green)':'var(--muted)';}
+  if(!streamCfg.enabled) streamRestoreAll();
+}
+window.toggleStreaming=toggleStreaming;
+
+function toggleOcclusion(){
+  streamCfg.occlusion=!streamCfg.occlusion;
+  const el=document.getElementById('dev-occlusion-status');
+  if(el){el.textContent=streamCfg.occlusion?'PA':'AV';el.style.color=streamCfg.occlusion?'var(--dot-green)':'var(--muted)';}
+  if(streamCfg.occlusion) initOcclusionSystem();
+}
+window.toggleOcclusion=toggleOcclusion;
+
+function toggleMeshMerge(){
+  streamCfg.mergeMeshes=!streamCfg.mergeMeshes;
+  const el=document.getElementById('dev-merge-status');
+  if(el){el.textContent=streamCfg.mergeMeshes?'PA':'AV';el.style.color=streamCfg.mergeMeshes?'var(--dot-green)':'var(--muted)';}
+  if(streamCfg.mergeMeshes) performMeshMerge();
+  else undoMeshMerge();
+}
+window.toggleMeshMerge=toggleMeshMerge;
+
+function streamRestoreAll(){
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      ch.visible=true;
+      ch.frustumCulled=true; // re-enable Three.js built-in
+      const orig=_streamOrigMats.get(ch);
+      if(orig) ch.material=orig;
+    });
+  });
+  const el=document.getElementById('dev-stream-stats');
+  if(el) el.textContent='Streaming av';
+}
+
+// ═══════════════════════ OCCLUSION CULLING ═══════════════════════════════════
+// Uses a low-res depth-only render pass to test if meshes are hidden behind others.
+// Renders all opaque meshes into a small off-screen target with DepthMaterial,
+// then reads bounding-sphere screen projections against the depth buffer.
+let _occRT=null, _occDepthMat=null, _occSize=128;
+let _occPixels=null;
+
+function initOcclusionSystem(){
+  if(_occRT) return; // already init
+  _occRT=new THREE.WebGLRenderTarget(_occSize,_occSize,{
+    minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,
+    format:THREE.RGBAFormat,type:THREE.UnsignedByteType
+  });
+  _occDepthMat=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});
+  _occPixels=new Uint8Array(_occSize*_occSize*4);
+}
+
+function renderOcclusionPass(cam){
+  if(!_occRT) initOcclusionSystem();
+  // Override all materials with depth material
+  scene.overrideMaterial=_occDepthMat;
+  const oldRT=renderer.getRenderTarget();
+  renderer.setRenderTarget(_occRT);
+  renderer.render(scene,cam);
+  renderer.setRenderTarget(oldRT);
+  scene.overrideMaterial=null;
+  // Read pixels
+  renderer.readRenderTargetPixels(_occRT,0,0,_occSize,_occSize,_occPixels);
+}
+
+function isOccluded(sphere,cam){
+  // Project sphere center to screen, sample depth at that pixel
+  const v=sphere.center.clone().project(cam);
+  if(v.z>1||v.z<-1) return true; // behind camera or beyond far
+  const sx=Math.floor((v.x*0.5+0.5)*_occSize);
+  const sy=Math.floor((v.y*0.5+0.5)*_occSize);
+  if(sx<0||sx>=_occSize||sy<0||sy>=_occSize) return true;
+  const idx=(sy*_occSize+sx)*4;
+  // Decode RGBA depth
+  const r=_occPixels[idx]/255,g=_occPixels[idx+1]/255,b=_occPixels[idx+2]/255,a=_occPixels[idx+3]/255;
+  const depthAtPixel=r+g/255+b/65025+a/16581375;
+  // Linearize the projected Z (0..1 range)
+  const objDepth=v.z*0.5+0.5;
+  // Object is occluded if its depth is greater than what's already rendered
+  // Plus a margin based on sphere radius (so large objects behind small ones aren't wrongly culled)
+  const screenRadius=sphere.radius/(cam.position.distanceTo(sphere.center)||1)*0.5;
+  return objDepth>depthAtPixel+Math.max(0.001,screenRadius*0.1);
+}
+
+// ═══════════════════════ MESH MERGING ════════════════════════════════════════
+// Groups meshes by IFC type and merges geometries into single meshes.
+// Dramatically reduces draw calls for models with many small elements.
+let _mergedMeshes=[]; // {mesh, originalMeshes[]}
+let _mergeUndoData=[]; // track what to restore
+
+function performMeshMerge(){
+  undoMeshMerge(); // clean first
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    // Group meshes by IFC type
+    const byType={};
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh||!ch.geometry) return;
+      const t=ch.userData.ifcType||'UNKNOWN';
+      if(!byType[t]) byType[t]=[];
+      byType[t].push(ch);
+    });
+    for(const[type,meshes] of Object.entries(byType)){
+      if(meshes.length<3) continue; // not worth merging small groups
+      // Collect all geometries with transforms applied
+      const geos=[];
+      const origColor=meshes[0].userData._origColor||new THREE.Color(0xcccccc);
+      for(const m of meshes){
+        const g=m.geometry.clone();
+        g.applyMatrix4(m.matrixWorld);
+        geos.push(g);
+        m.visible=false; // hide originals
+      }
+      // Merge using BufferGeometryUtils-style manual merge
+      let totalVerts=0,totalIdx=0;
+      for(const g of geos){
+        totalVerts+=g.attributes.position.count;
+        totalIdx+=g.index?g.index.count:g.attributes.position.count;
+      }
+      const mergedPos=new Float32Array(totalVerts*3);
+      const mergedNor=new Float32Array(totalVerts*3);
+      const mergedIdx=new Uint32Array(totalIdx);
+      let vOff=0,iOff=0,baseV=0;
+      for(const g of geos){
+        const pos=g.attributes.position;
+        const nor=g.attributes.normal;
+        for(let i=0;i<pos.count;i++){
+          mergedPos[(vOff+i)*3]=pos.getX(i);
+          mergedPos[(vOff+i)*3+1]=pos.getY(i);
+          mergedPos[(vOff+i)*3+2]=pos.getZ(i);
+          if(nor){
+            mergedNor[(vOff+i)*3]=nor.getX(i);
+            mergedNor[(vOff+i)*3+1]=nor.getY(i);
+            mergedNor[(vOff+i)*3+2]=nor.getZ(i);
+          }
+        }
+        if(g.index){
+          for(let i=0;i<g.index.count;i++) mergedIdx[iOff+i]=g.index.array[i]+baseV;
+          iOff+=g.index.count;
+        } else {
+          for(let i=0;i<pos.count;i++) mergedIdx[iOff+i]=baseV+i;
+          iOff+=pos.count;
+        }
+        baseV+=pos.count;
+        vOff+=pos.count;
+        g.dispose();
+      }
+      const mergedGeo=new THREE.BufferGeometry();
+      mergedGeo.setAttribute('position',new THREE.BufferAttribute(mergedPos,3));
+      mergedGeo.setAttribute('normal',new THREE.BufferAttribute(mergedNor,3));
+      mergedGeo.setIndex(new THREE.BufferAttribute(mergedIdx,1));
+      mergedGeo.computeBoundingSphere();
+      const mat=new THREE.MeshStandardMaterial({color:origColor,roughness:0.65,metalness:0.05,side:THREE.DoubleSide});
+      const merged=new THREE.Mesh(mergedGeo,mat);
+      merged.userData._isMerged=true;
+      scene.add(merged);
+      _mergedMeshes.push({mesh:merged,originals:meshes});
+    }
+  });
+}
+
+function undoMeshMerge(){
+  for(const m of _mergedMeshes){
+    scene.remove(m.mesh);
+    m.mesh.geometry.dispose();
+    if(m.mesh.material.dispose) m.mesh.material.dispose();
+    // Restore originals
+    for(const orig of m.originals) orig.visible=true;
+  }
+  _mergedMeshes=[];
+}
+
+// ═══════════════════════ MAIN UPDATE ═════════════════════════════════════════
+const _sphere=new THREE.Sphere();
+
+function updateStreaming(){
+  if(!streamCfg.enabled) return;
+
+  const now=performance.now();
+  const interval=1000/streamCfg.updateFps;
+  if(now-streamLastUpdate<interval) return;
+  streamLastUpdate=now;
+
+  const cam=activeCamera||camera;
+  cam.updateMatrixWorld();
+  streamProjMat.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse);
+  streamFrustum.setFromProjectionMatrix(streamProjMat);
+
+  // Occlusion pass (expensive but effective)
+  if(streamCfg.occlusion&&_occRT){
+    // Temporarily show all for depth pass
+    models.forEach(mdl=>{if(mdl.visible)mdl.group.traverse(ch=>{if(ch.isMesh)ch.visible=true;});});
+    renderOcclusionPass(cam);
+  }
+
+  const camPos=cam.position;
+  let total=0,visible=0,near=0,far=0,culled=0,occluded=0;
+
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      if(ch.userData._isMerged) return; // skip merged meshes
+      // Skip originals that are hidden by merge
+      if(streamCfg.mergeMeshes){
+        const isMergedOrig=_mergedMeshes.some(mm=>mm.originals.includes(ch));
+        if(isMergedOrig){ch.visible=false;total++;culled++;return;}
+      }
+      total++;
+
+      // Bounding sphere
+      if(!ch.geometry.boundingSphere) ch.geometry.computeBoundingSphere();
+      _sphere.copy(ch.geometry.boundingSphere).applyMatrix4(ch.matrixWorld);
+
+      // 1. Frustum culling
+      if(!streamFrustum.intersectsSphere(_sphere)){
+        ch.visible=false;culled++;return;
+      }
+
+      // 2. Occlusion culling
+      if(streamCfg.occlusion&&_occRT){
+        if(isOccluded(_sphere,cam)){
+          ch.visible=false;occluded++;culled++;return;
+        }
+      }
+
+      // 3. Distance LOD
+      const dist=camPos.distanceTo(_sphere.center);
+      if(dist>streamCfg.cullDist){
+        ch.visible=false;culled++;
+      } else if(dist>streamCfg.farDist){
+        ch.visible=true;
+        if(!_streamOrigMats.has(ch)) _streamOrigMats.set(ch,ch.material);
+        ch.material=getStreamLodMat(ch);
+        visible++;far++;
+      } else {
+        ch.visible=true;
+        const orig=_streamOrigMats.get(ch);
+        if(orig&&ch.material!==orig) ch.material=orig;
+        visible++;near++;
+      }
+    });
+  });
+
+  const dc=renderer.info.render.calls;
+  const el=document.getElementById('dev-stream-stats');
+  if(el) el.textContent=`Synlige: ${visible}/${total} | Near: ${near} Far: ${far} | Skjult: ${culled}${occluded?' (occ:'+occluded+')':''} | DC: ${dc}`;
+}
+
 // ═══════════════════════════════ RENDER LOOP ═════════════════════════════════
 const clk=new THREE.Clock();
+let _fpsFrames=0,_fpsLast=performance.now(),_fpsVal=0;
+const _fpsEl=document.getElementById('fps-counter');
+
 (function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clk.getDelta(),0.05);
+
+  // FPS counter
+  _fpsFrames++;
+  const now=performance.now();
+  if(now-_fpsLast>=500){
+    _fpsVal=Math.round(_fpsFrames*1000/(now-_fpsLast));
+    _fpsFrames=0;_fpsLast=now;
+    if(_fpsEl) _fpsEl.textContent=_fpsVal+' FPS';
+  }
 
   if(carDriving){
     updateCar(dt);
@@ -2388,6 +2765,7 @@ const clk=new THREE.Clock();
     if(orb.ar){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
   }
 
+  updateStreaming();
   renderer.render(scene,activeCamera);
   updateCamPosBar();
   redrawSVG();
