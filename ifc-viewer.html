@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFC Viewer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0b1220;--text:#fff;--muted:#94a3b8;--card:#0f172a;
+  --border:#334155;--border-soft:#1f2937;--hover:rgba(148,163,184,0.10);
+  --btn-bg:rgba(148,163,184,0.12);--shadow:0 1px 3px rgba(0,0,0,0.35);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.4);
+  --dot-blue:#2563eb;--dot-orange:#f97316;--dot-green:#16a34a;
+  --toolbar-h:52px;
+}
+body.theme-light{
+  --bg:#f3f4f6;--text:#111827;--muted:#4b5563;--card:#ffffff;
+  --border:#d1d5db;--border-soft:#e5e7eb;--hover:#f3f4f6;--btn-bg:#f9fafb;
+  --shadow:0 1px 3px rgba(15,23,42,0.08);--shadow-md:0 4px 12px rgba(15,23,42,0.10);
+}
+body.theme-black{
+  --bg:#000;--text:#e5e7eb;--muted:#9ca3af;--card:#000;
+  --border:#333;--border-soft:#1f2937;--hover:#111;--btn-bg:#111;--shadow:none;--shadow-md:none;
+}
+
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg);color:var(--text);
+  display:flex;flex-direction:column;
+}
+
+/* ── TOOLBAR ── */
+.toolbar{
+  flex-shrink:0;height:var(--toolbar-h);
+  background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:0;
+  padding:0 0.75rem;
+  box-shadow:var(--shadow);
+  position:relative;z-index:1000;
+  overflow-x:auto;overflow-y:visible;white-space:nowrap;
+}
+.toolbar::-webkit-scrollbar{height:3px;}
+.toolbar::-webkit-scrollbar-thumb{background:var(--border);}
+.tb-brand{
+  font-size:0.9rem;font-weight:700;color:var(--dot-green);
+  margin-right:0.75rem;flex-shrink:0;letter-spacing:-0.01em;
+}
+.tb-sep{width:1px;height:28px;background:var(--border);margin:0 0.6rem;flex-shrink:0;}
+
+/* Hover-dropdown group */
+.tb-hgroup{position:relative;flex-shrink:0;}
+.tb-hgroup-trigger{
+  padding:0.3rem 0.7rem;border-radius:0.45rem;border:1px solid var(--border);
+  background:var(--btn-bg);color:var(--text);font-size:0.82rem;cursor:pointer;
+  font-family:inherit;white-space:nowrap;
+  transition:background 0.12s,border-color 0.12s,color 0.12s;
+  line-height:1.4;display:flex;align-items:center;gap:0.35rem;user-select:none;
+}
+.tb-hgroup-trigger:hover{background:var(--hover);border-color:var(--dot-blue);}
+.tb-hgroup-trigger .tb-caret{font-size:0.6rem;opacity:0.5;margin-left:0.1rem;}
+
+/* Portal dropdown panels */
+#drop-portal{position:fixed;top:0;left:0;width:0;height:0;z-index:99999;pointer-events:none;}
+.tb-hdrop{
+  position:fixed;
+  background:var(--card);border:1px solid var(--border);border-radius:0.55rem;
+  box-shadow:0 8px 24px rgba(0,0,0,0.18);
+  padding:0.4rem;min-width:150px;
+  display:none;flex-direction:column;gap:0.2rem;
+  pointer-events:all;animation:ddFadeIn 0.1s ease;
+}
+.tb-hdrop.open{display:flex;}
+.tb-hdrop-btn{
+  padding:0.32rem 0.6rem;border-radius:0.35rem;border:none;
+  background:transparent;color:var(--text);font-size:0.8rem;cursor:pointer;
+  font-family:inherit;text-align:left;white-space:nowrap;
+  transition:background 0.1s,color 0.1s;
+}
+.tb-hdrop-btn:hover{background:var(--hover);}
+.tb-hdrop-btn.active{background:rgba(37,99,235,0.10);color:var(--dot-blue);}
+.tb-hdrop-btn.active-green{background:rgba(22,163,74,0.10);color:var(--dot-green);}
+.tb-hdrop-btn.active-orange{background:rgba(249,115,22,0.10);color:var(--dot-orange);}
+.tb-hdrop-sep{height:1px;background:var(--border-soft);margin:0.2rem 0;}
+.tb-hdrop-slider{padding:0.3rem 0.6rem 0.5rem;}
+.tb-hdrop-slider label{font-size:0.7rem;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:0.3rem;}
+.tb-hdrop-slider input[type=range]{width:100%;accent-color:var(--dot-blue);}
+@keyframes ddFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+
+.btn{
+  padding:0.3rem 0.7rem;border-radius:0.45rem;border:1px solid var(--border);
+  background:var(--btn-bg);color:var(--text);font-size:0.82rem;cursor:pointer;
+  font-family:inherit;white-space:nowrap;flex-shrink:0;
+  transition:background 0.12s,border-color 0.12s,color 0.12s;line-height:1.4;
+}
+.btn:hover{background:var(--hover);border-color:var(--dot-blue);}
+.btn.active{background:rgba(37,99,235,0.10);border-color:var(--dot-blue);color:var(--dot-blue);}
+
+/* ── VIEWPORT ── */
+#viewport{flex:1;position:relative;overflow:hidden;min-height:0;}
+#three-canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;}
+#measure-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:6;}
+#measure-canvas{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:7;pointer-events:none;}
+
+#viewport.m-nav{cursor:grab;}
+#viewport.m-nav.dragging{cursor:grabbing;}
+#viewport.m-length{cursor:crosshair;}
+
+/* Pivot snap dot */
+#pivot-dot{
+  position:absolute;width:10px;height:10px;border-radius:50%;
+  background:#16a34a;border:2px solid #fff;
+  box-shadow:0 0 0 2px rgba(22,163,74,0.5);
+  transform:translate(-50%,-50%);pointer-events:none;z-index:12;
+  display:none;transition:opacity 0.15s;
+}
+
+/* Drop zone */
+#drop-zone{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1rem;
+  background:var(--bg);cursor:pointer;transition:background 0.15s;z-index:5;
+}
+#drop-zone:hover,#drop-zone.drag-over{background:var(--hover);}
+#drop-zone.hidden{display:none;}
+.drop-icon-wrap{
+  width:56px;height:56px;border-radius:0.75rem;border:1.5px dashed var(--border);
+  background:var(--btn-bg);display:flex;align-items:center;justify-content:center;
+  color:var(--muted);transition:border-color 0.15s,color 0.15s,background 0.15s;
+}
+#drop-zone:hover .drop-icon-wrap,#drop-zone.drag-over .drop-icon-wrap{
+  border-color:var(--dot-blue);color:var(--dot-blue);background:rgba(37,99,235,0.06);}
+.drop-text p{font-size:0.95rem;font-weight:500;color:var(--text);text-align:center;margin-bottom:0.2rem;}
+.drop-text span{font-size:0.82rem;color:var(--muted);display:block;text-align:center;}
+
+/* Loader */
+#loader{
+  position:absolute;inset:0;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:0.75rem;z-index:20;
+  background:rgba(11,18,32,0.9);
+}
+#loader.visible{display:flex;}
+.spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--dot-blue);border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loader-label{font-size:0.82rem;color:var(--muted);}
+
+/* Measure hint */
+#measure-hint{
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  background:rgba(15,23,42,0.82);color:#fff;font-size:0.78rem;
+  padding:0.38rem 1rem;border-radius:2rem;pointer-events:none;
+  z-index:15;white-space:nowrap;display:none;backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,0.12);
+}
+#measure-hint.visible{display:block;}
+
+/* ── INFO BAR ── */
+.info-bar{
+  flex-shrink:0;
+  background:var(--card);border-top:1px solid var(--border);
+  padding:0 0.85rem;display:flex;align-items:center;gap:0.75rem;
+  flex-wrap:wrap;min-height:38px;font-size:0.78rem;overflow:hidden;
+}
+.info-chip{display:flex;align-items:center;gap:0.3rem;color:var(--muted);}
+.info-chip strong{color:var(--text);font-weight:600;}
+.ib-sep{width:1px;height:16px;background:var(--border-soft);}
+
+/* Measure panel */
+#measure-panel{
+  position:absolute;bottom:44px;right:12px;
+  width:320px;max-height:300px;overflow-y:auto;
+  background:var(--card);border:1px solid var(--border);border-radius:0.65rem;
+  box-shadow:var(--shadow-md);z-index:20;display:none;flex-direction:column;
+}
+#measure-panel.visible{display:flex;}
+.mp-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.5rem 0.75rem 0.35rem;border-bottom:1px solid var(--border-soft);
+  font-size:0.78rem;font-weight:600;color:var(--muted);flex-shrink:0;
+}
+.mp-list{padding:0.35rem 0.5rem;display:flex;flex-direction:column;gap:0.3rem;}
+.measure-item{
+  display:flex;flex-direction:column;
+  padding:0.4rem 0.55rem;border-radius:0.4rem;
+  border:1px solid var(--border-soft);background:var(--btn-bg);
+  font-size:0.8rem;gap:0.25rem;
+}
+.measure-item-row{display:flex;align-items:center;justify-content:space-between;gap:0.4rem;}
+.measure-item-left{display:flex;align-items:center;gap:0.4rem;min-width:0;}
+.measure-badge{
+  display:inline-flex;align-items:center;padding:0.1rem 0.45rem;
+  border-radius:0.3rem;font-size:0.68rem;font-weight:700;letter-spacing:0.03em;flex-shrink:0;
+}
+.badge-length{background:rgba(37,99,235,0.12);color:var(--dot-blue);border:1px solid rgba(37,99,235,0.25);}
+.measure-val{font-weight:600;color:var(--text);white-space:nowrap;font-size:0.85rem;}
+.measure-del{
+  padding:0.08rem 0.35rem;border-radius:0.28rem;border:1px solid transparent;
+  background:transparent;color:var(--muted);font-size:0.8rem;cursor:pointer;flex-shrink:0;
+  transition:background 0.1s,color 0.1s;line-height:1;
+}
+.measure-del:hover{background:rgba(220,38,38,0.1);color:#dc2626;}
+
+/* Properties panel */
+#props-panel{
+  position:absolute;top:10px;right:10px;width:320px;max-height:calc(100% - 60px);
+  background:var(--card);border:1px solid var(--border);border-radius:0.65rem;
+  box-shadow:var(--shadow-md);z-index:20;display:none;flex-direction:column;
+  overflow:hidden;
+}
+#props-panel.visible{display:flex;}
+#props-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.6rem 0.75rem;border-bottom:1px solid var(--border-soft);
+  font-size:0.82rem;font-weight:700;color:var(--text);flex-shrink:0;
+}
+#props-header button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:1rem;}
+#props-header button:hover{color:var(--text);}
+#props-body{padding:0.5rem;overflow-y:auto;flex:1;}
+.prop-row{
+  display:flex;justify-content:space-between;gap:0.5rem;
+  padding:0.25rem 0.4rem;font-size:0.75rem;border-radius:0.25rem;
+}
+.prop-row:nth-child(odd){background:rgba(148,163,184,0.05);}
+.prop-key{color:var(--muted);flex-shrink:0;max-width:45%;}
+.prop-val{color:var(--text);font-weight:500;text-align:right;word-break:break-word;}
+.prop-section{
+  font-size:0.7rem;font-weight:700;color:var(--dot-blue);
+  text-transform:uppercase;letter-spacing:0.05em;
+  padding:0.5rem 0.4rem 0.2rem;border-bottom:1px solid var(--border-soft);
+  margin-top:0.3rem;
+}
+
+/* Spatial tree panel */
+#tree-panel{
+  position:absolute;top:10px;left:10px;width:280px;max-height:calc(100% - 60px);
+  background:var(--card);border:1px solid var(--border);border-radius:0.65rem;
+  box-shadow:var(--shadow-md);z-index:20;display:none;flex-direction:column;
+  overflow:hidden;
+}
+#tree-panel.visible{display:flex;}
+#tree-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.6rem 0.75rem;border-bottom:1px solid var(--border-soft);
+  font-size:0.82rem;font-weight:700;color:var(--text);flex-shrink:0;
+}
+#tree-header button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:1rem;}
+#tree-header button:hover{color:var(--text);}
+#tree-body{padding:0.3rem;overflow-y:auto;flex:1;}
+.tree-node{
+  padding:0.2rem 0.35rem;font-size:0.75rem;cursor:pointer;border-radius:0.25rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);
+  transition:background 0.1s;
+}
+.tree-node:hover{background:var(--hover);}
+.tree-node.selected{background:rgba(37,99,235,0.15);color:var(--dot-blue);}
+.tree-toggle{
+  display:inline-block;width:14px;text-align:center;cursor:pointer;
+  color:var(--muted);font-size:0.7rem;user-select:none;
+}
+
+/* Model list panel */
+.model-row{
+  display:flex;align-items:center;gap:6px;
+  padding:0.32rem 0.6rem;font-size:0.78rem;
+  cursor:pointer;border-radius:0.35rem;transition:background 0.1s;
+}
+.model-row:hover{background:var(--hover);}
+.model-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--dot-blue);}
+.model-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.model-size{font-size:0.68rem;color:var(--muted);flex-shrink:0;}
+.model-vis{
+  font-size:0.72rem;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:3px;
+}
+.model-del{
+  border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.78rem;
+  padding:0 2px;transition:color 0.1s;
+}
+.model-del:hover{color:#dc2626;}
+
+/* Toolbar title */
+#toolbar-title-wrap{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  min-width:0;overflow:hidden;
+}
+#toolbar-title{
+  font-size:0.8rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--dot-green);user-select:none;line-height:1;
+  white-space:nowrap;animation:greenGlow 3s ease-in-out infinite;
+}
+@keyframes greenGlow{
+  0%,100%{text-shadow:0 0 4px rgba(34,197,94,0.3);opacity:0.6;}
+  50%{text-shadow:0 0 12px rgba(34,197,94,0.8),0 0 20px rgba(34,197,94,0.4);opacity:1;}
+}
+
+/* Theme presets */
+.ec-preset{
+  flex:1;padding:0.28rem 0.4rem;border-radius:0.35rem;
+  border:1px solid var(--border);background:var(--btn-bg);
+  color:var(--text);font-size:0.72rem;cursor:pointer;font-family:inherit;
+  transition:background 0.1s,border-color 0.1s;white-space:nowrap;
+}
+.ec-preset:hover{background:var(--hover);}
+.ec-preset.active{border-color:var(--dot-blue);color:var(--dot-blue);background:rgba(37,99,235,0.08);}
+
+#file-input{display:none;}
+</style>
+</head>
+<body class="theme-dark">
+
+<input type="file" id="file-input" multiple accept=".ifc">
+
+<!-- ══════════════ TOOLBAR ══════════════ -->
+<div class="toolbar">
+  <span class="tb-brand">IFC</span>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-file">Modeller <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-camera">Kamera <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-shading" id="shading-trigger">Modellvisning <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-nav">Navigasjon <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-measure">Måleverktøy <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-tools">Verktøy <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-vehicle">Kjøretøy <span class="tb-caret">▾</span></div>
+  </div>
+
+  <div id="toolbar-title-wrap">
+    <span id="toolbar-title">IFC Viewer</span>
+  </div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-devtools">Utviklerverktøy <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-theme">Tema <span class="tb-caret">▾</span></div>
+  </div>
+</div>
+
+<!-- ══════════════ VIEWPORT ══════════════ -->
+<div id="viewport" class="m-nav">
+  <canvas id="three-canvas"></canvas>
+  <canvas id="measure-canvas"></canvas>
+  <svg id="measure-svg"></svg>
+  <div id="pivot-dot"></div>
+
+  <div id="drop-zone">
+    <div class="drop-icon-wrap">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <div class="drop-text">
+      <p>Slipp IFC-filer her</p>
+      <span>eller klikk for å velge · IFC 2x3, IFC4, IFC4x3</span>
+    </div>
+  </div>
+
+  <div id="loader">
+    <div class="spinner"></div>
+    <div class="loader-label" id="loader-title">Laster inn modell...</div>
+  </div>
+
+  <div id="measure-hint"></div>
+
+  <!-- Properties panel -->
+  <div id="props-panel">
+    <div id="props-header">
+      <span>Egenskaper</span>
+      <button onclick="closeProps()">✕</button>
+    </div>
+    <div id="props-body"></div>
+  </div>
+
+  <!-- Spatial tree panel -->
+  <div id="tree-panel">
+    <div id="tree-header">
+      <span>Modelltre</span>
+      <button onclick="toggleTree()">✕</button>
+    </div>
+    <div id="tree-body"></div>
+  </div>
+
+  <!-- Measure panel -->
+  <div id="measure-panel">
+    <div class="mp-header">
+      <span>Målinger</span>
+      <button style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.75rem" onclick="clearMeasurements()">Fjern alle</button>
+    </div>
+    <div class="mp-list" id="measure-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════ INFO BAR ══════════════ -->
+<div class="info-bar" id="info-bar">
+  <span class="info-chip" id="ic-file" style="display:none"><strong id="i-fname"></strong></span>
+  <span class="ib-sep" id="ib-s1" style="display:none"></span>
+  <span class="info-chip" id="ic-elements" style="display:none">Elementer <strong id="i-elements">0</strong></span>
+  <span class="ib-sep" id="ib-s2" style="display:none"></span>
+  <span class="info-chip" id="ic-tris" style="display:none">Trekanter <strong id="i-tris">0</strong></span>
+  <span style="flex:1"></span>
+  <span class="info-chip" id="cam-pos-text" style="font-family:monospace;font-size:0.72rem;letter-spacing:0.02em"></span>
+</div>
+
+<!-- ══════════════ DROPDOWN PORTAL ══════════════ -->
+<div id="drop-portal">
+
+  <div class="tb-hdrop" id="drop-file" style="min-width:240px;">
+    <div id="model-list-container" style="max-height:260px;overflow-y:auto;"></div>
+    <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" onclick="document.getElementById('file-input').click()">📂 Legg til IFC-fil…</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-camera">
+    <button class="tb-hdrop-btn active" id="btn-cam-persp" onclick="setCameraMode('perspective')">⊙ Perspektiv</button>
+    <button class="tb-hdrop-btn" id="btn-cam-ortho" onclick="setCameraMode('orthographic')">⊞ Ortografisk</button>
+    <div class="tb-hdrop-sep"></div>
+    <div style="padding:0.2rem 0.6rem 0.1rem;font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Standardvisninger</div>
+    <button class="tb-hdrop-btn" onclick="setStdView('top')">⬆ Ovenfra</button>
+    <button class="tb-hdrop-btn" onclick="setStdView('front')">◉ Forfra</button>
+    <button class="tb-hdrop-btn" onclick="setStdView('right')">▶ Fra høyre</button>
+    <button class="tb-hdrop-btn" onclick="setStdView('back')">◎ Bakfra</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-shading">
+    <button class="tb-hdrop-btn active" id="btn-solid" onclick="setShading('solid')">Solid</button>
+    <button class="tb-hdrop-btn" id="btn-wire" onclick="setShading('wire')">Trådramme</button>
+    <button class="tb-hdrop-btn" id="btn-xray" onclick="setShading('xray')">Røntgen</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-nav">
+    <button class="tb-hdrop-btn" onclick="resetCamera()">⌂ Tilbakestill visning</button>
+    <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" id="btn-autorot" onclick="toggleAutoRotate()">↻ Autoroter</button>
+    <div class="tb-hdrop-slider">
+      <label><span>Rotasjonshastighet</span><span id="rs-val">0.3×</span></label>
+      <input type="range" id="rs-slider" min="0.1" max="5" step="0.1" value="0.3" oninput="rotSpeed=+this.value;document.getElementById('rs-val').textContent=rotSpeed.toFixed(1)+'×'">
+    </div>
+  </div>
+
+  <div class="tb-hdrop" id="drop-measure">
+    <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">📏 Lengde</button>
+    <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-tools">
+    <button class="tb-hdrop-btn" id="btn-tree" onclick="toggleTree()">🌳 Modelltre</button>
+    <button class="tb-hdrop-btn" id="btn-select" onclick="toggleSelectMode()">🖱 Velg element</button>
+    <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" onclick="isolateSelected()">👁 Isoler valgt</button>
+    <button class="tb-hdrop-btn" onclick="showAll()">◉ Vis alle</button>
+    <div class="tb-hdrop-sep"></div>
+    <div style="padding:0.2rem 0.6rem 0.1rem;font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Rutenett</div>
+    <div style="display:flex;gap:4px;padding:0.2rem 0.5rem">
+      <button class="tb-hdrop-btn" id="grid-01" onclick="setGridSize(0.1)" style="flex:1;text-align:center">0.1m</button>
+      <button class="tb-hdrop-btn active" id="grid-1" onclick="setGridSize(1)" style="flex:1;text-align:center">1m</button>
+      <button class="tb-hdrop-btn" id="grid-5" onclick="setGridSize(5)" style="flex:1;text-align:center">5m</button>
+      <button class="tb-hdrop-btn" id="grid-10" onclick="setGridSize(10)" style="flex:1;text-align:center">10m</button>
+    </div>
+    <button class="tb-hdrop-btn" id="btn-grid-toggle" onclick="toggleGrid()">▦ Vis/skjul rutenett</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-theme" style="min-width:200px;padding:0.5rem 0.4rem;">
+    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.4rem">Tema</div>
+    <div style="display:flex;gap:5px">
+      <button class="ec-preset" onclick="setTheme('light',this)">☀ Lys</button>
+      <button class="ec-preset active" id="ec-pre-dark" onclick="setTheme('dark',this)">☾ Mørk</button>
+      <button class="ec-preset" onclick="setTheme('black',this)">◼ Svart</button>
+    </div>
+  </div>
+
+  <div class="tb-hdrop" id="drop-vehicle">
+    <button class="tb-hdrop-btn" id="btn-car" onclick="toggleCarMode()">🚗 Bil</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-devtools" style="min-width:280px;max-height:80vh;overflow-y:auto;padding:0.5rem 0.4rem;">
+    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.4rem">Utviklerverktøy</div>
+
+    <!-- Kjøretøy toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.5rem;border-radius:0.4rem;cursor:pointer" onclick="document.getElementById('dev-car-panel').style.display=document.getElementById('dev-car-panel').style.display==='none'?'block':'none';this.querySelector('.tree-toggle').textContent=document.getElementById('dev-car-panel').style.display==='none'?'▸':'▾'">
+      <span style="font-size:0.82rem;font-weight:600">🚗 Kjøretøy</span>
+      <span class="tree-toggle">▾</span>
+    </div>
+
+    <div id="dev-car-panel" style="padding:0 0.3rem 0.3rem;">
+
+      <!-- Kamera -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:0.25rem 0">
+        <button class="tb-hdrop-btn active" id="cam-3rd-free" onclick="setCarCam('3rd-free')" style="font-size:0.75rem">🎥 3. person — frivinkel</button>
+        <button class="tb-hdrop-btn" id="cam-3rd-locked" onclick="setCarCam('3rd-locked')" style="font-size:0.75rem">🔒 3. person — låst vinkel</button>
+        <button class="tb-hdrop-btn" id="cam-1st" onclick="setCarCam('1st')" style="font-size:0.75rem">👤 1. person — førersete</button>
+      </div>
+
+      <!-- Fysikk -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Fysikk</div>
+      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Gravitasjon <span id="dev-grav-val">20</span> m/s²</label>
+        <input type="range" min="0" max="50" step="0.5" value="20" oninput="carPhys.gravity=+this.value;document.getElementById('dev-grav-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Akselerasjon <span id="dev-accel-val">15</span> m/s²</label>
+        <input type="range" min="1" max="50" step="0.5" value="15" oninput="carPhys.accel=+this.value;document.getElementById('dev-accel-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Friksjon/brems <span id="dev-brake-val">20</span> m/s²</label>
+        <input type="range" min="1" max="60" step="0.5" value="20" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label>
+        <input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Styrefølsomhet <span id="dev-steer-val">2.5</span> rad/s</label>
+        <input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+      </div>
+
+      <!-- Kamera avstand -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kamera (3. person)</div>
+      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Avstand <span id="dev-camdist-val">8</span> m</label>
+        <input type="range" min="2" max="40" step="0.5" value="8" id="dev-camdist-slider" oninput="carCamDist=+this.value;document.getElementById('dev-camdist-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Høyde <span id="dev-camht-val">1.5</span> m</label>
+        <input type="range" min="0" max="10" step="0.1" value="1.5" oninput="carPhys.camHeight=+this.value;document.getElementById('dev-camht-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+      </div>
+
+      <!-- Dimensjoner -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kjøretøy-dimensjoner</div>
+      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Lengde <span id="dev-carlen-val">4.2</span> m</label>
+        <input type="range" min="2" max="12" step="0.1" value="4.2" oninput="carDims.length=+this.value;document.getElementById('dev-carlen-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Bredde <span id="dev-carw-val">2.0</span> m</label>
+        <input type="range" min="1" max="5" step="0.1" value="2.0" oninput="carDims.width=+this.value;document.getElementById('dev-carw-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Høyde (karosseri) <span id="dev-carh-val">0.7</span> m</label>
+        <input type="range" min="0.3" max="2" step="0.05" value="0.7" oninput="carDims.bodyH=+this.value;document.getElementById('dev-carh-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Høyde (kabin) <span id="dev-cabh-val">0.6</span> m</label>
+        <input type="range" min="0.2" max="1.5" step="0.05" value="0.6" oninput="carDims.cabH=+this.value;document.getElementById('dev-cabh-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
+      </div>
+
+      <!-- Hjul -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Hjul</div>
+      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Hjulradius <span id="dev-wheelr-val">0.35</span> m</label>
+        <input type="range" min="0.15" max="1.0" step="0.01" value="0.35" oninput="carDims.wheelR=+this.value;document.getElementById('dev-wheelr-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Hjulbredde <span id="dev-wheelw-val">0.25</span> m</label>
+        <input type="range" min="0.1" max="0.8" step="0.01" value="0.25" oninput="carDims.wheelW=+this.value;document.getElementById('dev-wheelw-val').textContent=this.value;rebuildActiveCar()" style="width:100%;accent-color:var(--dot-blue)">
+      </div>
+
+      <!-- 1. person kamera -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Kamera (1. person)</div>
+      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.4rem">
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Sete X-offset <span id="dev-fp-x-val">0.0</span> m</label>
+        <input type="range" min="-1.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffX=+this.value;document.getElementById('dev-fp-x-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Sete Y-offset <span id="dev-fp-y-val">0.0</span> m</label>
+        <input type="range" min="-0.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffY=+this.value;document.getElementById('dev-fp-y-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Sete Z-offset <span id="dev-fp-z-val">0.0</span> m</label>
+        <input type="range" min="-3" max="3" step="0.05" value="0" oninput="carPhys.fpOffZ=+this.value;document.getElementById('dev-fp-z-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Synsfelt (FOV) <span id="dev-fp-fov-val">75</span>°</label>
+        <input type="range" min="40" max="120" step="1" value="75" oninput="carPhys.fpFov=+this.value;document.getElementById('dev-fp-fov-val').textContent=this.value" style="width:100%;accent-color:var(--dot-blue)">
+      </div>
+
+      <!-- Se-gjennom -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Synlighet</div>
+      <div style="padding:0.3rem 0.2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleCarSeeThrough()">
+          <span style="font-size:0.75rem;color:var(--text)">Se gjennom bil</span>
+          <span id="dev-seethrough-status" style="font-size:0.68rem;color:var(--muted)">AV</span>
+        </div>
+        <div style="font-size:0.65rem;color:var(--muted);padding:0.1rem 0 0.2rem">Gjør bilen usynlig for kamera i 1. person</div>
+      </div>
+
+      <!-- Xbox kontroller -->
+      <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.25rem;border-bottom:1px solid var(--border-soft)">Xbox-kontroller</div>
+      <div style="padding:0.3rem 0.2rem;display:flex;flex-direction:column;gap:0.3rem">
+        <div id="dev-xbox-status" style="font-size:0.72rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center">Ikke tilkoblet</div>
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Gass/brems sensitivitet <span id="dev-xbox-accel-val">1.0</span>×</label>
+        <input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.accelMult=+this.value;document.getElementById('dev-xbox-accel-val').textContent=(+this.value).toFixed(1)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Styresensitivitet <span id="dev-xbox-steer-val">1.0</span>×</label>
+        <input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.steerMult=+this.value;document.getElementById('dev-xbox-steer-val').textContent=(+this.value).toFixed(1)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Kamerasensitivitet <span id="dev-xbox-cam-val">1.0</span>×</label>
+        <input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.camMult=+this.value;document.getElementById('dev-xbox-cam-val').textContent=(+this.value).toFixed(1)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <label style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">Deadzone <span id="dev-xbox-dz-val">0.15</span></label>
+        <input type="range" min="0.05" max="0.4" step="0.01" value="0.15" oninput="carXbox.deadzone=+this.value;document.getElementById('dev-xbox-dz-val').textContent=(+this.value).toFixed(2)" style="width:100%;accent-color:var(--dot-blue)">
+
+        <div id="dev-xbox-live" style="display:none;font-family:monospace;font-size:0.65rem;color:var(--muted);padding:0.3rem;background:var(--btn-bg);border-radius:0.3rem;margin-top:0.2rem">
+          LX: <span id="xl-lx">0</span> LY: <span id="xl-ly">0</span> RX: <span id="xl-rx">0</span> RY: <span id="xl-ry">0</span><br>
+          LT: <span id="xl-lt">0</span> RT: <span id="xl-rt">0</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+import {IfcAPI} from 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/web-ifc-api.js';
+
+// ═══════════════════════════════ WEB-IFC INIT ════════════════════════════════
+const ifcApi = new IfcAPI();
+ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
+
+let ifcReady = false;
+async function ensureIfcReady(){
+  if(ifcReady) return;
+  await ifcApi.Init();
+  ifcReady = true;
+}
+
+// ═══════════════════════════════ PORTAL DROPDOWNS ═════════════════════════════
+(function(){
+  let activePanel=null, activeTrigger=null, hideTimer=null;
+  function showPanel(trigger, panelId){
+    clearTimeout(hideTimer);
+    if(activePanel && activePanel.id !== panelId) activePanel.classList.remove('open');
+    const panel = document.getElementById(panelId);
+    if(!panel) return;
+    const r = trigger.getBoundingClientRect();
+    panel.style.visibility='hidden';panel.style.left='-9999px';
+    panel.classList.add('open');
+    const panelW = panel.offsetWidth||220;
+    panel.classList.remove('open');panel.style.visibility='';
+    let left=r.left;
+    if(left+panelW>window.innerWidth-8) left=Math.max(8,window.innerWidth-8-panelW);
+    panel.style.top=(r.bottom+4)+'px';panel.style.left=left+'px';
+    panel.classList.add('open');
+    activePanel=panel;activeTrigger=trigger;
+  }
+  function scheduleHide(){hideTimer=setTimeout(()=>{if(activePanel){activePanel.classList.remove('open');activePanel=null;activeTrigger=null;}},120);}
+  function cancelHide(){clearTimeout(hideTimer);}
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelectorAll('[data-drop]').forEach(trigger=>{
+      const panelId=trigger.dataset.drop;
+      trigger.addEventListener('mouseenter',()=>showPanel(trigger,panelId));
+      trigger.addEventListener('mouseleave',scheduleHide);
+      const panel=document.getElementById(panelId);
+      if(panel){panel.addEventListener('mouseenter',cancelHide);panel.addEventListener('mouseleave',scheduleHide);}
+    });
+    document.addEventListener('mousedown',e=>{
+      if(activePanel&&!activePanel.contains(e.target)&&!e.target.closest('[data-drop]')){
+        activePanel.classList.remove('open');activePanel=null;activeTrigger=null;
+      }
+    });
+  });
+})();
+
+// ═══════════════════════════════ RENDERER ════════════════════════════════════
+const vp=document.getElementById('viewport');
+const tc=document.getElementById('three-canvas');
+const mc=document.getElementById('measure-canvas');
+const mctx=mc.getContext('2d');
+const renderer=new THREE.WebGLRenderer({canvas:tc,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setClearColor(0x0b1220);
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.localClippingEnabled=true;
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,1,0.01,100000);
+let activeCamera=camera;
+let orthoCamera=null;
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff,0.55));
+const dl1=new THREE.DirectionalLight(0xffffff,0.9);dl1.position.set(5,10,7);scene.add(dl1);
+const dl2=new THREE.DirectionalLight(0xffffff,0.25);dl2.position.set(-4,-3,-4);scene.add(dl2);
+const hl=new THREE.HemisphereLight(0xadd8e6,0x6b4423,0.3);scene.add(hl);
+
+// Grid helper — 1x1m cells, large extent
+let gridSize=1; // meters per cell
+let gridHelper=null;
+function createGrid(){
+  if(gridHelper){scene.remove(gridHelper);gridHelper.geometry.dispose();gridHelper.material.dispose();}
+  // extent: enough cells to cover model, min 200m
+  const extent=Math.max(200,gridSize*200);
+  const divisions=Math.round(extent/gridSize);
+  const isDark=!document.body.classList.contains('theme-light');
+  gridHelper=new THREE.GridHelper(extent,divisions,isDark?0x334155:0xcccccc,isDark?0x1e293b:0xe5e7eb);
+  gridHelper.position.y=-0.01;
+  scene.add(gridHelper);
+}
+createGrid();
+
+function resize(){
+  const w=vp.clientWidth,h=vp.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;camera.updateProjectionMatrix();
+  mc.width=w;mc.height=h;
+  if(orthoCamera){
+    const r=orb.sph.radius;const aspect=w/h;
+    const frustH=r*Math.tan(camera.fov*Math.PI/360);
+    orthoCamera.left=-frustH*aspect;orthoCamera.right=frustH*aspect;
+    orthoCamera.top=frustH;orthoCamera.bottom=-frustH;
+    orthoCamera.updateProjectionMatrix();
+  }
+}
+resize();
+window.addEventListener('resize',()=>{resize();redrawSVG();});
+
+// ═══════════════════════════════ RAYCASTER ════════════════════════════════════
+const raycaster=new THREE.Raycaster();
+function ndcFromEvent(ex,ey){
+  const r=vp.getBoundingClientRect();
+  return new THREE.Vector2(((ex-r.left)/vp.clientWidth)*2-1,-((ey-r.top)/vp.clientHeight)*2+1);
+}
+function worldToScreen(v3){
+  const cam=activeCamera||camera;
+  const v=v3.clone().project(cam);
+  return{x:(v.x+1)/2*vp.clientWidth,y:(-v.y+1)/2*vp.clientHeight,behind:v.z>1};
+}
+
+// ═══════════════════════════════ ORBIT ════════════════════════════════════════
+const orb={
+  tgt:new THREE.Vector3(0,0,0),sph:new THREE.Spherical(20,1.2,-2.3),
+  drag:false,pan:false,ar:false,lx:0,ly:0,dnx:0,dny:0
+};
+let rotSpeed=0.3;
+
+function applyOrb(){
+  camera.position.copy(new THREE.Vector3().setFromSpherical(orb.sph).add(orb.tgt));
+  camera.lookAt(orb.tgt);
+  if(orthoCamera){
+    orthoCamera.position.copy(camera.position);
+    orthoCamera.quaternion.copy(camera.quaternion);
+    orthoCamera.lookAt(orb.tgt);
+    const w=vp.clientWidth,h=vp.clientHeight,aspect=w/h;
+    const frustH=orb.sph.radius*Math.tan(camera.fov*Math.PI/360);
+    orthoCamera.left=-frustH*aspect;orthoCamera.right=frustH*aspect;
+    orthoCamera.top=frustH;orthoCamera.bottom=-frustH;
+    orthoCamera.updateProjectionMatrix();
+  }
+}
+applyOrb();
+
+// Pan
+function doPan(dx,dy){
+  const camDir=camera.getWorldDirection(new THREE.Vector3());
+  const right=new THREE.Vector3().crossVectors(camDir,camera.up).normalize();
+  const fwd=new THREE.Vector3(camDir.x,0,camDir.z).normalize();
+  if(fwd.lengthSq()<0.01) fwd.set(0,0,1);
+  const sp=orb.sph.radius*0.0015;
+  orb.tgt.addScaledVector(right,-dx*sp);
+  orb.tgt.addScaledVector(fwd,dy*sp);
+  applyOrb();
+}
+
+// Mouse
+tc.addEventListener('mousedown',e=>{
+  if(carDriving) return; // car handles its own mouse
+  if(e.button===0) orb.drag=true;
+  if(e.button===1||e.button===2) orb.pan=true;
+  orb.lx=e.clientX;orb.ly=e.clientY;orb.dnx=e.clientX;orb.dny=e.clientY;
+  e.preventDefault();
+});
+tc.addEventListener('contextmenu',e=>e.preventDefault());
+
+window.addEventListener('mousemove',e=>{
+  if(carDriving) return; // car handles its own mouse
+  const dx=e.clientX-orb.lx,dy=e.clientY-orb.ly;
+  orb.lx=e.clientX;orb.ly=e.clientY;
+  if(orb.drag&&interactMode==='navigate'){
+    vp.classList.add('dragging');
+    const speed=0.005;
+    orb.sph.theta-=dx*speed;
+    orb.sph.phi=Math.max(0.05,Math.min(Math.PI-0.05,orb.sph.phi-dy*speed));
+    camera.up.set(0,1,0);
+    applyOrb();
+  }
+  if(orb.pan){doPan(dx,dy);}
+  if(interactMode==='length'&&measurePts.length>0){
+    measureMousePos={x:e.clientX,y:e.clientY};
+  }
+});
+
+window.addEventListener('mouseup',e=>{
+  if(carDriving||carMode) {orb.drag=false;orb.pan=false;return;}
+  const wasDrag=orb.drag;
+  const moved=Math.hypot(e.clientX-orb.dnx,e.clientY-orb.dny)>5;
+  orb.drag=false;orb.pan=false;vp.classList.remove('dragging');
+
+  if(!moved&&wasDrag&&e.button===0){
+    // Click on model
+    if(interactMode==='navigate'&&selectMode){
+      handleSelect(e.clientX,e.clientY,e);
+    } else if(interactMode==='navigate'){
+      // Pivot snap
+      const hit=hitModel(e.clientX,e.clientY);
+      if(hit){
+        orb.tgt.copy(hit.point);
+        orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
+        camera.lookAt(orb.tgt);
+        showPivotDot(e.clientX-vp.getBoundingClientRect().left,e.clientY-vp.getBoundingClientRect().top);
+      }
+    } else if(interactMode==='length'){
+      handleMeasureClick(e.clientX,e.clientY);
+    }
+  }
+});
+
+// Scroll zoom
+tc.addEventListener('wheel',e=>{
+  orb.sph.radius=Math.max(0.01,orb.sph.radius*(1+e.deltaY*0.001));
+  applyOrb();
+  e.preventDefault();
+},{passive:false});
+
+// Touch
+let lp=null;
+tc.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){orb.drag=true;orb.lx=e.touches[0].clientX;orb.ly=e.touches[0].clientY;orb.dnx=orb.lx;orb.dny=orb.ly;}
+},{passive:true});
+tc.addEventListener('touchmove',e=>{
+  if(e.touches.length===1&&orb.drag){
+    const dx=e.touches[0].clientX-orb.lx,dy=e.touches[0].clientY-orb.ly;
+    orb.lx=e.touches[0].clientX;orb.ly=e.touches[0].clientY;
+    orb.sph.theta-=dx*0.005;orb.sph.phi=Math.max(0.05,Math.min(Math.PI-0.05,orb.sph.phi-dy*0.005));applyOrb();
+  }
+  if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    if(lp){orb.sph.radius=Math.max(0.01,orb.sph.radius*lp/d);applyOrb();}lp=d;
+  }
+},{passive:true});
+tc.addEventListener('touchend',e=>{
+  const moved=Math.hypot(e.changedTouches[0].clientX-orb.dnx,e.changedTouches[0].clientY-orb.dny)>5;
+  orb.drag=false;lp=null;
+  if(!moved){
+    const hit=hitModel(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+    if(hit){orb.tgt.copy(hit.point);orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));camera.lookAt(orb.tgt);}
+  }
+});
+
+// ═══════════════════════════════ PIVOT DOT ════════════════════════════════════
+const pivotDot=document.getElementById('pivot-dot');
+let pivotDotTimer=null;
+function showPivotDot(sx,sy){
+  pivotDot.style.left=sx+'px';pivotDot.style.top=sy+'px';
+  pivotDot.style.display='block';pivotDot.style.opacity='1';pivotDot.style.transition='none';
+  if(pivotDotTimer)clearTimeout(pivotDotTimer);
+  pivotDotTimer=setTimeout(()=>{
+    pivotDot.style.transition='opacity 0.4s';pivotDot.style.opacity='0';
+    setTimeout(()=>{pivotDot.style.display='none';pivotDot.style.transition='';},420);
+  },2000);
+}
+
+// ═══════════════════════════════ HIT TEST ════════════════════════════════════
+function hitModel(ex,ey){
+  const allMeshes=[];
+  models.forEach(m=>{if(m.visible) m.group.traverse(ch=>{if(ch.isMesh) allMeshes.push(ch);});});
+  if(!allMeshes.length) return null;
+  raycaster.setFromCamera(ndcFromEvent(ex,ey),activeCamera||camera);
+  const hits=raycaster.intersectObjects(allMeshes,false);
+  if(!hits.length) return null;
+  const camDir=camera.getWorldDirection(new THREE.Vector3());
+  const wn=new THREE.Vector3();
+  for(const h of hits){
+    if(h.face){
+      wn.copy(h.face.normal).applyQuaternion(h.object.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      if(wn.dot(camDir)<0) return h;
+    } else return h;
+  }
+  return hits[0];
+}
+
+// ═══════════════════════════════ MODELS ════════════════════════════════════════
+const models=[];
+let activeModelId=null;
+let shading='solid';
+
+function registerModel(group,name,expressIDs,modelId,fileSize){
+  const id='mdl_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  const m={id,name,group,expressIDs,modelId,visible:true,fileSize,stats:{elements:expressIDs?expressIDs.size:0,tris:0}};
+  // Count tris
+  let tris=0;
+  group.traverse(ch=>{if(ch.isMesh&&ch.geometry){const idx=ch.geometry.index;tris+=idx?idx.count/3:ch.geometry.attributes.position.count/3;}});
+  m.stats.tris=tris;
+  models.push(m);
+  activeModelId=id;
+  refreshModelListUI();
+  updateInfoBar();
+  return m;
+}
+
+function removeModel(id){
+  const idx=models.findIndex(x=>x.id===id);if(idx<0) return;
+  const m=models[idx];
+  scene.remove(m.group);
+  m.group.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)(Array.isArray(c.material)?c.material:[c.material]).forEach(x=>x.dispose());});
+  if(m.modelId!==undefined){try{ifcApi.CloseModel(m.modelId);}catch(e){}}
+  models.splice(idx,1);
+  if(models.length>0) activeModelId=models[models.length-1].id;
+  else activeModelId=null;
+  refreshModelListUI();updateInfoBar();
+  if(models.length===0){document.getElementById('drop-zone').classList.remove('hidden');}
+}
+
+function refreshModelListUI(){
+  const container=document.getElementById('model-list-container');
+  if(!container) return;
+  const colors=['#3b82f6','#f97316','#16a34a','#a855f7','#ef4444','#06b6d4'];
+  container.innerHTML=models.map((m,i)=>{
+    const sz=m.fileSize?(m.fileSize/1048576).toFixed(1)+' MB':'';
+    const col=colors[i%colors.length];
+    return `<div class="model-row" title="${m.name}">
+      <span class="model-dot" style="background:${col}"></span>
+      <span class="model-name">${m.name}</span>
+      <span class="model-size">${sz}</span>
+      <label class="model-vis"><input type="checkbox" ${m.visible?'checked':''} onchange="window._toggleModelVis('${m.id}',this.checked)" style="cursor:pointer"> vis</label>
+      <button class="model-del" onclick="window._removeModel('${m.id}')" title="Fjern">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// Expose to inline handlers
+window._toggleModelVis=function(id,v){
+  const m=models.find(x=>x.id===id);if(!m) return;
+  m.visible=v;m.group.visible=v;
+};
+window._removeModel=function(id){removeModel(id);};
+
+function updateInfoBar(){
+  const vis=models.filter(m=>m.visible);
+  if(!vis.length){
+    document.getElementById('ic-file').style.display='none';
+    document.getElementById('ic-elements').style.display='none';
+    document.getElementById('ic-tris').style.display='none';
+    document.getElementById('ib-s1').style.display='none';
+    document.getElementById('ib-s2').style.display='none';
+    return;
+  }
+  document.getElementById('ic-file').style.display='';
+  document.getElementById('ib-s1').style.display='';
+  document.getElementById('ic-elements').style.display='';
+  document.getElementById('ib-s2').style.display='';
+  document.getElementById('ic-tris').style.display='';
+  document.getElementById('i-fname').textContent=vis.length===1?vis[0].name:vis.length+' modeller';
+  const totE=vis.reduce((s,m)=>s+m.stats.elements,0);
+  const totT=vis.reduce((s,m)=>s+m.stats.tris,0);
+  document.getElementById('i-elements').textContent=totE.toLocaleString();
+  document.getElementById('i-tris').textContent=Math.round(totT).toLocaleString();
+}
+
+// ═══════════════════════════════ IFC LOADING ═════════════════════════════════
+function setLoader(v,lbl){
+  document.getElementById('loader').classList.toggle('visible',v);
+  if(lbl) document.getElementById('loader-title').textContent=lbl;
+}
+
+async function loadIFCFile(file){
+  setLoader(true,'Laster inn '+file.name+'...');
+  await new Promise(r=>setTimeout(r,50));
+  try{
+    await ensureIfcReady();
+    const data=await file.arrayBuffer();
+    const uint8=new Uint8Array(data);
+    const modelId=ifcApi.OpenModel(uint8,{USE_FAST_BOOLS:true});
+
+    const group=new THREE.Group();
+    const expressIDs=new Map(); // expressID -> {type, meshIndex}
+    const flatMeshes=ifcApi.LoadAllGeometry(modelId);
+
+    // Collect IFC type colors
+    const typeColors={};
+    const defaultColors={
+      'IFCWALL':0xcccccc,'IFCWALLSTANDARDCASE':0xcccccc,
+      'IFCSLAB':0xb0b0b0,'IFCFLOOR':0xb0b0b0,
+      'IFCROOF':0xc97e4d,
+      'IFCCOLUMN':0x8899aa,'IFCBEAM':0x7788aa,
+      'IFCDOOR':0x8b6843,'IFCWINDOW':0x88ccee,
+      'IFCSTAIR':0xaaa599,'IFCSTAIRFLIGHT':0xaaa599,
+      'IFCRAILING':0x888888,
+      'IFCPLATE':0x99aabb,'IFCMEMBER':0x778899,
+      'IFCCURTAINWALL':0x66bbdd,
+      'IFCFURNISHINGELEMENT':0xb49a6a,
+      'IFCBUILDINGELEMENTPROXY':0x99aa88,
+      'IFCSPACE':0x6688aa,'IFCOPENINGELEMENT':0x446688,
+      'IFCSITE':0x669966,'IFCFOOTING':0x999999,
+      'IFCPILE':0x888888,
+      'IFCROAD':0x555555,'IFCPAVEMENT':0x666666,
+      'IFCKERB':0x777777,'IFCCOURSE':0x888888,
+      'IFCALIGNMENT':0x44aa44,'IFCBRIDGE':0x998877,
+    };
+
+    for(let i=0;i<flatMeshes.size();i++){
+      if(i%50===0) {setLoader(true,'Laster geometri... '+Math.round(i/flatMeshes.size()*100)+'%');await new Promise(r=>setTimeout(r,0));}
+      const fm=flatMeshes.get(i);
+      const expressID=fm.expressID;
+
+      // Get IFC type
+      let ifcType='UNKNOWN';
+      try{
+        const line=ifcApi.GetLine(modelId,expressID);
+        if(line&&line.constructor) ifcType=line.constructor.name.toUpperCase().replace('IFC2X3.','').replace('IFC4.','');
+      }catch(e){}
+
+      const placedGeos=fm.geometries;
+      for(let j=0;j<placedGeos.size();j++){
+        try{
+        const pg=placedGeos.get(j);
+        const geoData=ifcApi.GetGeometry(modelId,pg.geometryExpressID);
+
+        const vertPtr=geoData.GetVertexData();
+        const vertSize=geoData.GetVertexDataSize();
+        const idxPtr=geoData.GetIndexData();
+        const idxSize=geoData.GetIndexDataSize();
+
+        if(!vertSize||!idxSize){ geoData.delete(); continue; }
+
+        const verts=ifcApi.GetVertexArray(vertPtr,vertSize);
+        const indices=ifcApi.GetIndexArray(idxPtr,idxSize);
+
+        geoData.delete(); // free WASM memory
+
+        if(!verts.length||!indices.length) continue;
+
+        // Build geometry
+        const posArr=new Float32Array(verts.length/2);
+        const norArr=new Float32Array(verts.length/2);
+        for(let k=0;k<verts.length;k+=6){
+          const idx3=k/2;
+          posArr[idx3]=verts[k];posArr[idx3+1]=verts[k+1];posArr[idx3+2]=verts[k+2];
+          norArr[idx3]=verts[k+3];norArr[idx3+1]=verts[k+4];norArr[idx3+2]=verts[k+5];
+        }
+
+        const geo=new THREE.BufferGeometry();
+        geo.setAttribute('position',new THREE.Float32BufferAttribute(posArr,3));
+        geo.setAttribute('normal',new THREE.Float32BufferAttribute(norArr,3));
+        geo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices),1));
+
+        // Color from IFC color or type-based
+        let color=0xcccccc;
+        const c=pg.color;
+        if(c&&(c.x!==0||c.y!==0||c.z!==0)){
+          color=new THREE.Color(c.x,c.y,c.z);
+        } else {
+          // Try type-based color
+          for(const[key,val] of Object.entries(defaultColors)){
+            if(ifcType.includes(key.replace('IFC',''))){color=val;break;}
+          }
+        }
+        let opacity=c?c.w:1;
+        if(opacity<0.01) opacity=1;
+
+        const mat=new THREE.MeshStandardMaterial({
+          color,roughness:0.65,metalness:0.05,
+          transparent:opacity<0.99,opacity,
+          side:THREE.DoubleSide,
+        });
+
+        const mesh=new THREE.Mesh(geo,mat);
+        // Store original color/opacity for shading restore
+        mesh.userData._origColor=new THREE.Color(color);
+        mesh.userData._origOpacity=opacity;
+        // Apply placement matrix
+        const flatMatrix=pg.flatTransformation;
+        const m4=new THREE.Matrix4().fromArray(flatMatrix);
+        mesh.applyMatrix4(m4);
+        mesh.userData.expressID=expressID;
+        mesh.userData.ifcType=ifcType;
+        mesh.userData.modelId=modelId;
+        group.add(mesh);
+
+        expressIDs.set(expressID,{type:ifcType,mesh});
+        }catch(geoErr){
+          console.warn('Geometri-feil for expressID',expressID,':',geoErr.message);
+        }
+      }
+    }
+
+    scene.add(group);
+    const mdl=registerModel(group,file.name,expressIDs,modelId,file.size);
+    document.getElementById('drop-zone').classList.add('hidden');
+
+    // Fit camera + position grid at model bottom
+    resetCamera();
+    applyShading();
+  }catch(err){
+    console.error('IFC load error:',err);
+    alert('Feil ved lasting av IFC: '+err.message);
+  }
+  setLoader(false);
+}
+
+// ═══════════════════════════════ FILE INPUT / DROP ════════════════════════════
+document.getElementById('file-input').addEventListener('change',e=>{
+  for(const f of e.target.files) if(f.name.toLowerCase().endsWith('.ifc')) loadIFCFile(f);
+  e.target.value='';
+});
+
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('click',()=>document.getElementById('file-input').click());
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('drag-over');
+  for(const f of e.dataTransfer.files) if(f.name.toLowerCase().endsWith('.ifc')) loadIFCFile(f);
+});
+// Also allow dropping on viewport after model loaded
+vp.addEventListener('dragover',e=>e.preventDefault());
+vp.addEventListener('drop',e=>{
+  e.preventDefault();
+  for(const f of e.dataTransfer.files) if(f.name.toLowerCase().endsWith('.ifc')) loadIFCFile(f);
+});
+
+// ═══════════════════════════════ CAMERA CONTROLS ═════════════════════════════
+function fitCameraToModel(){
+  const box=new THREE.Box3();let found=false;
+  scene.traverse(obj=>{
+    if(obj.isMesh&&obj.visible&&obj.userData.expressID!==undefined){
+      obj.geometry.computeBoundingBox();
+      const b=obj.geometry.boundingBox.clone().applyMatrix4(obj.matrixWorld);
+      box.union(b);found=true;
+    }
+  });
+  if(!found) return;
+  const center=new THREE.Vector3();const size=new THREE.Vector3();
+  box.getCenter(center);box.getSize(size);
+  const maxDim=Math.max(size.x,size.y,size.z);
+  orb.tgt.copy(center);
+  orb.sph.radius=maxDim*1.6;
+  orb.sph.phi=1.1;orb.sph.theta=-2.3;
+  applyOrb();
+
+  // Position grid at model bottom, rebuild if extent is too small
+  gridHelper.position.y=box.min.y-0.01;
+  gridHelper.position.x=center.x;
+  gridHelper.position.z=center.z;
+  const neededExtent=Math.max(size.x,size.z)*2;
+  if(neededExtent>gridSize*200) createGrid();
+  gridHelper.position.y=box.min.y-0.01;
+  gridHelper.position.x=center.x;
+  gridHelper.position.z=center.z;
+}
+
+function resetCamera(){if(models.length>0)fitCameraToModel();}
+
+let cameraMode='perspective';
+function setCameraMode(mode){
+  cameraMode=mode;
+  document.getElementById('btn-cam-persp').classList.toggle('active',mode==='perspective');
+  document.getElementById('btn-cam-ortho').classList.toggle('active',mode==='orthographic');
+  if(mode==='orthographic'){
+    const w=vp.clientWidth,h=vp.clientHeight;
+    const r=orb.sph.radius;const aspect=w/h;
+    const frustH=r*Math.tan(camera.fov*Math.PI/360);
+    orthoCamera=new THREE.OrthographicCamera(-frustH*aspect,frustH*aspect,frustH,-frustH,camera.near,camera.far);
+    orthoCamera.position.copy(camera.position);
+    orthoCamera.quaternion.copy(camera.quaternion);
+    orthoCamera.lookAt(orb.tgt);
+    activeCamera=orthoCamera;
+  } else {
+    orthoCamera=null;activeCamera=camera;
+  }
+}
+window.setCameraMode=setCameraMode;
+
+function setStdView(view){
+  const box=new THREE.Box3();
+  scene.traverse(obj=>{if(obj.isMesh&&obj.visible&&obj.userData.expressID!==undefined){
+    obj.geometry.computeBoundingBox();box.union(obj.geometry.boundingBox.clone().applyMatrix4(obj.matrixWorld));
+  }});
+  if(box.isEmpty()) return;
+  const center=new THREE.Vector3();box.getCenter(center);
+  const size=new THREE.Vector3();box.getSize(size);
+  const dist=Math.max(size.x,size.y,size.z)*1.6;
+  orb.tgt.copy(center);orb.sph.radius=dist;
+  if(view==='top'){orb.sph.phi=0.01;orb.sph.theta=0;}
+  else if(view==='front'){orb.sph.phi=Math.PI/2;orb.sph.theta=0;}
+  else if(view==='right'){orb.sph.phi=Math.PI/2;orb.sph.theta=Math.PI/2;}
+  else if(view==='back'){orb.sph.phi=Math.PI/2;orb.sph.theta=Math.PI;}
+  applyOrb();
+}
+window.setStdView=setStdView;
+window.resetCamera=resetCamera;
+
+function toggleAutoRotate(){
+  orb.ar=!orb.ar;
+  document.getElementById('btn-autorot').classList.toggle('active',orb.ar);
+}
+window.toggleAutoRotate=toggleAutoRotate;
+
+// ═══════════════════════════════ SHADING ═════════════════════════════════════
+function applyShading(){
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      // Always read original color from userData (set at creation time)
+      const origColor=ch.userData._origColor||new THREE.Color(0xcccccc);
+      const origOpacity=ch.userData._origOpacity!==undefined?ch.userData._origOpacity:1;
+      if(shading==='wire'){
+        ch.material=new THREE.MeshBasicMaterial({color:0x16a34a,wireframe:true});
+      } else if(shading==='xray'){
+        ch.material=new THREE.MeshBasicMaterial({
+          color:origColor,wireframe:false,transparent:true,opacity:0.15,
+          side:THREE.DoubleSide,depthWrite:false
+        });
+      } else {
+        ch.material=new THREE.MeshStandardMaterial({
+          color:origColor,roughness:0.65,metalness:0.05,
+          transparent:origOpacity<0.99,opacity:origOpacity,
+          side:THREE.DoubleSide,
+        });
+      }
+    });
+  });
+}
+
+function setShading(m){
+  shading=m;
+  ['solid','wire','xray'].forEach(k=>{const el=document.getElementById('btn-'+k);if(el)el.classList.toggle('active',k===m);});
+  applyShading();
+}
+window.setShading=setShading;
+
+// ═══════════════════════════════ SELECT / PROPERTIES ═════════════════════════
+let selectMode=false;
+let selectedMeshes=[]; // array for multi-select
+let highlightMat=new THREE.MeshBasicMaterial({color:0x2563eb,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthTest:true});
+
+function toggleSelectMode(){
+  selectMode=!selectMode;
+  document.getElementById('btn-select').classList.toggle('active',selectMode);
+  vp.style.cursor=selectMode?'pointer':'';
+  if(!selectMode) clearSelection();
+}
+window.toggleSelectMode=toggleSelectMode;
+
+function clearSelection(){
+  selectedMeshes.forEach(sm=>{
+    if(sm._origMat){sm.material=sm._origMat;sm._origMat=null;}
+  });
+  selectedMeshes=[];
+  document.getElementById('props-panel').classList.remove('visible');
+}
+
+function handleSelect(ex,ey,e){
+  const hit=hitModel(ex,ey);
+  if(!hit) return;
+  const mesh=hit.object;
+  if(!mesh.userData.expressID) return;
+
+  // Shift/Ctrl: add to selection. No modifier: replace selection.
+  const addToSelection=e&&(e.shiftKey||e.ctrlKey||e.metaKey);
+
+  if(!addToSelection){
+    // Deselect all except if clicking same mesh
+    const alreadySelected=selectedMeshes.indexOf(mesh);
+    if(alreadySelected>=0){
+      // Toggle off
+      if(mesh._origMat){mesh.material=mesh._origMat;mesh._origMat=null;}
+      selectedMeshes.splice(alreadySelected,1);
+      if(selectedMeshes.length===0) document.getElementById('props-panel').classList.remove('visible');
+      else showProperties(selectedMeshes[selectedMeshes.length-1].userData.modelId,selectedMeshes[selectedMeshes.length-1].userData.expressID,selectedMeshes[selectedMeshes.length-1].userData.ifcType);
+      updateSelectionCount();
+      return;
+    }
+    clearSelection();
+  }
+
+  // Check if already in selection
+  if(selectedMeshes.indexOf(mesh)>=0) return;
+
+  // Add to selection
+  mesh._origMat=mesh.material;
+  mesh.material=highlightMat.clone();
+  selectedMeshes.push(mesh);
+  updateSelectionCount();
+
+  // Show properties for last selected
+  showProperties(mesh.userData.modelId,mesh.userData.expressID,mesh.userData.ifcType);
+}
+
+function updateSelectionCount(){
+  const header=document.querySelector('#props-header span');
+  if(header){
+    if(selectedMeshes.length>1) header.textContent='Egenskaper ('+selectedMeshes.length+' valgt)';
+    else header.textContent='Egenskaper';
+  }
+}
+
+async function showProperties(modelId,expressID,ifcType){
+  const panel=document.getElementById('props-panel');
+  const body=document.getElementById('props-body');
+  body.innerHTML='<div style="color:var(--muted);font-size:0.75rem;padding:0.5rem">Henter egenskaper...</div>';
+  panel.classList.add('visible');
+
+  try{
+    const line=ifcApi.GetLine(modelId,expressID,true);
+    let html=`<div class="prop-section">${ifcType} #${expressID}</div>`;
+    if(line){
+      const skip=new Set(['expressID','type','constructor','__proto__']);
+      for(const key of Object.keys(line)){
+        if(skip.has(key)) continue;
+        let val=line[key];
+        if(val===null||val===undefined) continue;
+        if(typeof val==='object'&&val.value!==undefined) val=val.value;
+        if(typeof val==='object') val=JSON.stringify(val).slice(0,80);
+        html+=`<div class="prop-row"><span class="prop-key">${key}</span><span class="prop-val">${val}</span></div>`;
+      }
+    }
+
+    // Try property sets
+    try{
+      const psets=ifcApi.GetLine(modelId,expressID,true,true);
+      if(psets&&psets!==line){
+        html+=`<div class="prop-section">Egenskapssett</div>`;
+        for(const key of Object.keys(psets)){
+          if(key==='expressID'||key==='type') continue;
+          let val=psets[key];
+          if(val===null||val===undefined) continue;
+          if(typeof val==='object'&&val.value!==undefined) val=val.value;
+          if(typeof val==='object') continue;
+          html+=`<div class="prop-row"><span class="prop-key">${key}</span><span class="prop-val">${val}</span></div>`;
+        }
+      }
+    }catch(e){}
+
+    body.innerHTML=html;
+  }catch(err){
+    body.innerHTML=`<div style="color:var(--muted);font-size:0.75rem;padding:0.5rem">Kunne ikke lese egenskaper: ${err.message}</div>`;
+  }
+}
+
+function closeProps(){document.getElementById('props-panel').classList.remove('visible');}
+window.closeProps=closeProps;
+
+// Isolate/show all — supports multi-select
+function isolateSelected(){
+  if(!selectedMeshes.length) return;
+  const eids=new Set(selectedMeshes.map(m=>m.userData.expressID));
+  models.forEach(mdl=>{
+    mdl.group.traverse(ch=>{
+      if(ch.isMesh) ch.visible=eids.has(ch.userData.expressID);
+    });
+  });
+}
+window.isolateSelected=isolateSelected;
+
+function showAll(){
+  clearSelection();
+  models.forEach(mdl=>{mdl.group.traverse(ch=>{if(ch.isMesh)ch.visible=true;});});
+  applyShading();
+}
+window.showAll=showAll;
+
+// Grid size control
+function setGridSize(sz){
+  gridSize=sz;
+  const gy=gridHelper?gridHelper.position.y:-0.01;
+  const gx=gridHelper?gridHelper.position.x:0;
+  const gz=gridHelper?gridHelper.position.z:0;
+  createGrid();
+  gridHelper.position.set(gx,gy,gz);
+  // Update active button
+  ['grid-01','grid-1','grid-5','grid-10'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.classList.remove('active');
+  });
+  const map={'0.1':'grid-01','1':'grid-1','5':'grid-5','10':'grid-10'};
+  const el=document.getElementById(map[String(sz)]);if(el)el.classList.add('active');
+}
+window.setGridSize=setGridSize;
+
+function toggleGrid(){
+  gridHelper.visible=!gridHelper.visible;
+  document.getElementById('btn-grid-toggle').classList.toggle('active',!gridHelper.visible);
+}
+window.toggleGrid=toggleGrid;
+
+// ═══════════════════════════════ SPATIAL TREE ════════════════════════════════
+let treeVisible=false;
+function toggleTree(){
+  treeVisible=!treeVisible;
+  document.getElementById('tree-panel').classList.toggle('visible',treeVisible);
+  document.getElementById('btn-tree').classList.toggle('active',treeVisible);
+  if(treeVisible) buildTree();
+}
+window.toggleTree=toggleTree;
+
+function buildTree(){
+  const body=document.getElementById('tree-body');
+  if(models.length===0){body.innerHTML='<div style="color:var(--muted);font-size:0.75rem;padding:0.5rem">Ingen modell lastet</div>';return;}
+
+  // Group by IFC type
+  const types={};
+  models.forEach(mdl=>{
+    if(!mdl.expressIDs) return;
+    mdl.expressIDs.forEach((info,eid)=>{
+      const t=info.type||'UNKNOWN';
+      if(!types[t]) types[t]=[];
+      types[t].push({eid,mdl,mesh:info.mesh});
+    });
+  });
+
+  let html='';
+  const sortedTypes=Object.keys(types).sort();
+  for(const t of sortedTypes){
+    const items=types[t];
+    const cleanName=t.replace('IFC','').replace(/([A-Z])/g,' $1').trim();
+    html+=`<div class="tree-node" style="font-weight:700;color:var(--dot-blue)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+      <span class="tree-toggle">▸</span> ${cleanName} (${items.length})
+    </div><div style="padding-left:16px;display:none">`;
+    for(const item of items){
+      html+=`<div class="tree-node" onclick="window._selectByExpressID(${item.eid})">#${item.eid}</div>`;
+    }
+    html+=`</div>`;
+  }
+  body.innerHTML=html;
+}
+
+window._selectByExpressID=function(eid){
+  clearSelection();
+  for(const mdl of models){
+    const info=mdl.expressIDs.get(eid);
+    if(info&&info.mesh){
+      info.mesh._origMat=info.mesh.material;
+      info.mesh.material=highlightMat.clone();
+      selectedMeshes.push(info.mesh);
+      showProperties(mdl.modelId,eid,info.type);
+
+      // Zoom to element
+      info.mesh.geometry.computeBoundingBox();
+      const b=info.mesh.geometry.boundingBox.clone().applyMatrix4(info.mesh.matrixWorld);
+      const center=new THREE.Vector3();b.getCenter(center);
+      const size=new THREE.Vector3();b.getSize(size);
+      orb.tgt.copy(center);
+      orb.sph.radius=Math.max(size.x,size.y,size.z)*3;
+      applyOrb();
+      break;
+    }
+  }
+};
+
+// ═══════════════════════════════ MEASURE ═════════════════════════════════════
+let interactMode='navigate';
+let measurePts=[];
+let measureMousePos=null;
+const measurements=[];
+let measureIdCounter=0;
+
+const hintEl=document.getElementById('measure-hint');
+
+function setMeasureMode(m){
+  if(interactMode===m){cancelMeasure();return;}
+  cancelMeasure();
+  if(m==='length'){
+    interactMode='length';
+    document.getElementById('btn-m-length').classList.add('active');
+    hintEl.textContent='Klikk punkter på modell. Enter fullfører. ESC avbryt.';
+    hintEl.classList.add('visible');
+    vp.className='m-length';
+    document.addEventListener('keydown',measureKeyHandler);
+  }
+}
+window.setMeasureMode=setMeasureMode;
+
+function cancelMeasure(){
+  interactMode='navigate';measurePts=[];measureMousePos=null;
+  hintEl.classList.remove('visible');vp.className='m-nav';
+  document.getElementById('btn-m-length').classList.remove('active');
+  document.removeEventListener('keydown',measureKeyHandler);
+}
+
+function measureKeyHandler(e){
+  if(e.key==='Escape'){cancelMeasure();return;}
+  if(e.key==='Enter'&&measurePts.length>=2){
+    finalizeMeasure([...measurePts]);cancelMeasure();
+  }
+  if(e.key==='Backspace'&&measurePts.length>0){e.preventDefault();measurePts.pop();}
+}
+
+function handleMeasureClick(ex,ey){
+  const hit=hitModel(ex,ey);
+  if(!hit) return;
+  measurePts.push(hit.point.clone());
+  if(measurePts.length>=2){
+    hintEl.textContent=measurePts.length+' noder — Enter fullfør. Backspace angre.';
+  }
+}
+
+function finalizeMeasure(pts){
+  let totalLen=0;
+  for(let i=1;i<pts.length;i++) totalLen+=pts[i-1].distanceTo(pts[i]);
+  const label=totalLen.toFixed(3)+' m';
+  measurements.push({id:measureIdCounter++,type:'length',pts,label,totalLen});
+  renderMeasureList();
+  document.getElementById('measure-panel').classList.add('visible');
+}
+
+function deleteMeasurement(id){
+  const idx=measurements.findIndex(m=>m.id===id);if(idx>=0)measurements.splice(idx,1);
+  renderMeasureList();
+  if(measurements.length===0) document.getElementById('measure-panel').classList.remove('visible');
+}
+window.deleteMeasurement=deleteMeasurement;
+
+function clearMeasurements(){
+  measurements.length=0;
+  document.getElementById('measure-panel').classList.remove('visible');
+  renderMeasureList();
+}
+window.clearMeasurements=clearMeasurements;
+
+function renderMeasureList(){
+  document.getElementById('measure-list').innerHTML=measurements.map(m=>`
+    <div class="measure-item">
+      <div class="measure-item-row">
+        <div class="measure-item-left">
+          <span class="measure-badge badge-length">LENGDE</span>
+          <span class="measure-val">${m.label}</span>
+        </div>
+        <button class="measure-del" onclick="deleteMeasurement(${m.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════ SVG ANNOTATIONS ═════════════════════════════
+const svg=document.getElementById('measure-svg');
+function mkSVG(tag,attrs){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el;
+}
+function drawSVGLabel(x,y,txt,color){
+  const W=txt.length*7+18;const H=22;
+  svg.appendChild(mkSVG('rect',{x:x-W/2,y:y-H/2,width:W,height:H,rx:4,fill:'rgba(15,23,42,0.92)',stroke:color,'stroke-width':'1'}));
+  const t=mkSVG('text',{x,y,fill:color,'text-anchor':'middle','dominant-baseline':'central','font-size':'11','font-family':'system-ui,sans-serif','font-weight':'600'});
+  t.textContent=txt;svg.appendChild(t);
+}
+
+function redrawSVG(){
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+
+  // Draw measurements
+  for(const m of measurements){
+    const p2=m.pts.map(p=>worldToScreen(p));
+    if(m.type==='length'&&p2.length>=2){
+      for(let i=1;i<p2.length;i++){
+        const a=p2[i-1],b=p2[i];
+        if(a.behind||b.behind) continue;
+        svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#2563eb','stroke-width':'2'}));
+      }
+      for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:4,fill:'#fff',stroke:'#2563eb','stroke-width':'2'}));
+      const vis=p2.filter(p=>!p.behind);
+      if(vis.length>=2){
+        const mid=vis[Math.floor((vis.length-1)/2)];
+        drawSVGLabel(mid.x,mid.y-14,m.label,'#60a5fa');
+      }
+    }
+  }
+
+  // Draw active measurement points
+  if(interactMode==='length'&&measurePts.length>0){
+    const p2=measurePts.map(p=>worldToScreen(p));
+    for(let i=1;i<p2.length;i++){
+      const a=p2[i-1],b=p2[i];
+      if(a.behind||b.behind) continue;
+      svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#60a5fa','stroke-width':'1.5','stroke-dasharray':'4,3'}));
+    }
+    // Mouse line
+    if(measureMousePos&&p2.length>0){
+      const last=p2[p2.length-1];
+      if(!last.behind){
+        const hit=hitModel(measureMousePos.x,measureMousePos.y);
+        if(hit){
+          const ms=worldToScreen(hit.point);
+          if(!ms.behind){
+            svg.appendChild(mkSVG('line',{x1:last.x,y1:last.y,x2:ms.x,y2:ms.y,stroke:'#60a5fa','stroke-width':'1','stroke-dasharray':'2,2'}));
+          }
+        }
+      }
+    }
+    for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:4,fill:'#2563eb',stroke:'#fff','stroke-width':'1.5'}));
+  }
+}
+
+// ═══════════════════════════════ THEME ════════════════════════════════════════
+const themeBgs={'dark':0x0b1220,'light':0xf3f4f6,'black':0x000000};
+function setTheme(name,el){
+  document.body.className=name==='dark'?'theme-dark':name==='light'?'theme-light':'theme-black';
+  renderer.setClearColor(themeBgs[name]||0x0b1220);
+  document.querySelectorAll('.ec-preset').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  // Recreate grid with theme colors, preserve position
+  const gy=gridHelper?gridHelper.position.y:-0.01;
+  const gx=gridHelper?gridHelper.position.x:0;
+  const gz=gridHelper?gridHelper.position.z:0;
+  createGrid();
+  gridHelper.position.set(gx,gy,gz);
+}
+window.setTheme=setTheme;
+
+// ═══════════════════════════════ CAM POS BAR ════════════════════════════════
+function updateCamPosBar(){
+  const pos=camera.position;const tgt=orb.tgt;
+  const dx=pos.x-tgt.x,dy=pos.y-tgt.y,dz=pos.z-tgt.z;
+  const horizDist=Math.sqrt(dx*dx+dz*dz);
+  const thetaDeg=((Math.atan2(dx,dz)*180/Math.PI)+360)%360;
+  const pitchDeg=Math.atan2(dy,horizDist)*180/Math.PI;
+  const el=document.getElementById('cam-pos-text');
+  if(el){
+    el.innerHTML='Retning: <b>'+thetaDeg.toFixed(1)+'°</b> &nbsp; Helning: <b>'+(pitchDeg>=0?'+':'')+pitchDeg.toFixed(1)+'°</b> &nbsp; Avstand: <b>'+orb.sph.radius.toFixed(1)+'</b>';
+  }
+}
+
+// ═══════════════════════════════ CAR SYSTEM ══════════════════════════════════
+
+// ── Configurable parameters (bound to devtools sliders) ──
+const carPhys={gravity:20,accel:15,brake:20,maxSpeed:25,steerSpeed:2.5,camHeight:1.5,
+  fpOffX:0,fpOffY:0,fpOffZ:0,fpFov:75};
+const carDims={length:4.2,width:2.0,bodyH:0.7,cabH:0.6,wheelR:0.35,wheelW:0.25};
+const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connected:false};
+let carSeeThrough=false;
+window.carPhys=carPhys;window.carDims=carDims;window.carXbox=carXbox;
+
+let carMode=false;
+let carDriving=false;
+let carMesh=null;
+let carGhost=null;
+let carYaw=0;
+let carSpeed=0;
+let carVelY=0;
+let carOnGround=false;
+let carCamYaw=0;
+let carCamPitch=0.3;
+let carCamDist=8;
+window.carCamDist=carCamDist; // expose for slider
+Object.defineProperty(window,'carCamDist',{get(){return carCamDist;},set(v){carCamDist=v;}});
+let carCamMode='3rd-free'; // '3rd-free' | '3rd-locked' | '1st'
+const carKeys={w:false,a:false,s:false,d:false};
+let carMouseDown=false;
+let carMouseLX=0,carMouseLY=0;
+
+// ── Camera mode switcher ──
+function setCarCam(mode){
+  carCamMode=mode;
+  ['cam-3rd-free','cam-3rd-locked','cam-1st'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.classList.remove('active');
+  });
+  const map={'3rd-free':'cam-3rd-free','3rd-locked':'cam-3rd-locked','1st':'cam-1st'};
+  const el=document.getElementById(map[mode]);if(el)el.classList.add('active');
+  if(mode==='3rd-locked') carCamYaw=0;
+  if(mode==='1st') carCamYaw=0;
+  applyCarVisibility();
+  // Update hint if driving
+  if(carDriving){
+    const hints={'3rd-free':'WASD kjør · Mus roter kamera · Scrollhjul zoom · ESC avslutt',
+      '3rd-locked':'WASD kjør · Scrollhjul zoom · ESC avslutt',
+      '1st':'WASD kjør · Mus se rundt · ESC avslutt'};
+    hintEl.textContent=hints[mode]||hints['3rd-free'];
+  }
+}
+window.setCarCam=setCarCam;
+
+// ── Build car from carDims ──
+function buildCarModel(ghost){
+  const d=carDims;
+  const g=new THREE.Group();
+
+  // Body
+  const bodyGeo=new THREE.BoxGeometry(d.width,d.bodyH,d.length);
+  const bodyMat=new THREE.MeshStandardMaterial({
+    color:0x2563eb,roughness:0.4,metalness:0.3,
+    transparent:!!ghost,opacity:ghost?0.35:1
+  });
+  const body=new THREE.Mesh(bodyGeo,bodyMat);
+  body.position.y=d.wheelR+d.bodyH/2;
+  g.add(body);
+
+  // Cabin
+  const cabW=d.width*0.85;
+  const cabL=d.length*0.52;
+  const cabGeo=new THREE.BoxGeometry(cabW,d.cabH,cabL);
+  const cabMat=new THREE.MeshStandardMaterial({
+    color:ghost?0x88bbff:0x1e40af,roughness:0.3,metalness:0.1,
+    transparent:true,opacity:ghost?0.25:0.7
+  });
+  const cab=new THREE.Mesh(cabGeo,cabMat);
+  cab.position.set(0,d.wheelR+d.bodyH+d.cabH/2,-d.length*0.04);
+  g.add(cab);
+
+  // Wheels
+  const wheelGeo=new THREE.CylinderGeometry(d.wheelR,d.wheelR,d.wheelW,12);
+  const wheelMat=new THREE.MeshStandardMaterial({
+    color:0x222222,roughness:0.9,metalness:0.1,
+    transparent:!!ghost,opacity:ghost?0.3:1
+  });
+  const wx=d.width/2+d.wheelW/2-0.05;
+  const wz=d.length*0.31;
+  [[-wx,d.wheelR,wz],[wx,d.wheelR,wz],[-wx,d.wheelR,-wz],[wx,d.wheelR,-wz]].forEach(([x,y,z])=>{
+    const w=new THREE.Mesh(wheelGeo,wheelMat);
+    w.rotation.z=Math.PI/2;
+    w.position.set(x,y,z);
+    g.add(w);
+  });
+
+  // Headlights
+  const lR=Math.min(0.12,d.bodyH*0.17);
+  const lightGeo=new THREE.SphereGeometry(lR,8,8);
+  const lightMat=new THREE.MeshBasicMaterial({color:0xffffcc,transparent:!!ghost,opacity:ghost?0.3:1});
+  const lx=d.width*0.3;
+  const lz=d.length/2;
+  const ly=d.wheelR+d.bodyH*0.5;
+  [[-lx,ly,lz],[lx,ly,lz]].forEach(([x,y,z])=>{
+    g.add(new THREE.Mesh(lightGeo,lightMat).translateX(x).translateY(y).translateZ(z));
+  });
+
+  // Taillights
+  const tailMat=new THREE.MeshBasicMaterial({color:0xff2222,transparent:!!ghost,opacity:ghost?0.3:1});
+  [[-lx,ly,-lz],[lx,ly,-lz]].forEach(([x,y,z])=>{
+    g.add(new THREE.Mesh(lightGeo.clone(),tailMat).translateX(x).translateY(y).translateZ(z));
+  });
+
+  return g;
+}
+
+// ── Live rebuild while driving ──
+function rebuildActiveCar(){
+  if(!carMesh||!carDriving) return;
+  const pos=carMesh.position.clone();
+  const rot=carMesh.rotation.y;
+  scene.remove(carMesh);
+  carMesh=buildCarModel(false);
+  carMesh.position.copy(pos);
+  carMesh.rotation.y=rot;
+  scene.add(carMesh);
+}
+window.rebuildActiveCar=rebuildActiveCar;
+
+// ── See-through: hide car mesh so 1st person cam can see through ──
+function toggleCarSeeThrough(){
+  carSeeThrough=!carSeeThrough;
+  const el=document.getElementById('dev-seethrough-status');
+  if(el) el.textContent=carSeeThrough?'PÅ':'AV';
+  if(el) el.style.color=carSeeThrough?'var(--dot-green)':'var(--muted)';
+  applyCarVisibility();
+}
+window.toggleCarSeeThrough=toggleCarSeeThrough;
+
+function applyCarVisibility(){
+  if(!carMesh) return;
+  if(carCamMode==='1st'&&carSeeThrough){
+    carMesh.traverse(ch=>{if(ch.isMesh) ch.visible=false;});
+  } else {
+    carMesh.traverse(ch=>{if(ch.isMesh) ch.visible=true;});
+  }
+}
+
+// ── Xbox gamepad for car ──
+window.addEventListener('gamepadconnected',e=>{
+  const id=e.gamepad.id.toLowerCase();
+  carXbox.index=e.gamepad.index;
+  carXbox.connected=true;
+  const status=document.getElementById('dev-xbox-status');
+  if(status){status.textContent=e.gamepad.id.split('(')[0]||'Kontroller tilkoblet';status.style.background='rgba(22,163,74,0.15)';status.style.color='var(--dot-green)';}
+  const live=document.getElementById('dev-xbox-live');if(live)live.style.display='block';
+  console.log('Car Xbox connected:',e.gamepad.id);
+});
+window.addEventListener('gamepaddisconnected',e=>{
+  if(carXbox.index===e.gamepad.index){
+    carXbox.connected=false;carXbox.index=null;
+    const status=document.getElementById('dev-xbox-status');
+    if(status){status.textContent='Ikke tilkoblet';status.style.background='var(--btn-bg)';status.style.color='var(--muted)';}
+    const live=document.getElementById('dev-xbox-live');if(live)live.style.display='none';
+  }
+});
+
+function processCarXbox(dt){
+  if(!carXbox.connected||carXbox.index===null||!carDriving) return;
+  const gp=navigator.getGamepads()[carXbox.index];
+  if(!gp) return;
+  const dz=carXbox.deadzone;
+  const adz=v=>Math.abs(v)<dz?0:v;
+
+  const lx=adz(gp.axes[0]); // left stick X = steering
+  const ly=adz(gp.axes[1]); // left stick Y (unused or forward)
+  const rx=adz(gp.axes[2]); // right stick X = camera yaw
+  const ry=adz(gp.axes[3]); // right stick Y = camera pitch
+  const rt=gp.buttons[7]?.value||0; // right trigger = gas
+  const lt=gp.buttons[6]?.value||0; // left trigger = brake/reverse
+
+  // Live display
+  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v.toFixed(2);};
+  setT('xl-lx',gp.axes[0]);setT('xl-ly',gp.axes[1]);
+  setT('xl-rx',gp.axes[2]);setT('xl-ry',gp.axes[3]);
+  setT('xl-lt',lt);setT('xl-rt',rt);
+
+  const P=carPhys;
+
+  // Steering from left stick
+  if(lx!==0){
+    const steerDir=carSpeed>0?1:carSpeed<0?-1:0;
+    carYaw-=lx*P.steerSpeed*carXbox.steerMult*dt*steerDir;
+  }
+
+  // Gas (RT) / Brake (LT)
+  if(rt>0.05) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*carXbox.accelMult*rt*dt);
+  else if(lt>0.05) carSpeed=Math.max(-P.maxSpeed*0.4,carSpeed-P.accel*carXbox.accelMult*lt*dt);
+  else {
+    // No trigger input — apply friction only if keyboard also idle
+    if(!carKeys.w&&!carKeys.s){
+      if(carSpeed>0)carSpeed=Math.max(0,carSpeed-P.brake*dt);
+      else if(carSpeed<0)carSpeed=Math.min(0,carSpeed+P.brake*dt);
+    }
+  }
+
+  // Camera from right stick
+  if(carCamMode==='3rd-free'||carCamMode==='1st'){
+    if(rx!==0) carCamYaw-=rx*0.05*carXbox.camMult;
+    if(ry!==0) carCamPitch=Math.max(-0.5,Math.min(1.2,carCamPitch+ry*0.03*carXbox.camMult));
+  }
+
+  // Buttons: A = handbrake (instant stop), B = exit
+  if(gp.buttons[0]?.pressed) carSpeed*=0.9; // A = soft brake
+  if(gp.buttons[1]?.pressed) exitCarDriving(); // B = exit
+}
+
+function toggleCarMode(){
+  if(carDriving){exitCarDriving();return;}
+  carMode=!carMode;
+  document.getElementById('btn-car').classList.toggle('active',carMode);
+  if(carMode){
+    carGhost=buildCarModel(true);
+    scene.add(carGhost);
+    vp.style.cursor='crosshair';
+    document.addEventListener('mousemove',carPlacementMove);
+    tc.addEventListener('click',carPlacementClick);
+  } else {
+    cancelCarPlacement();
+  }
+}
+window.toggleCarMode=toggleCarMode;
+
+function cancelCarPlacement(){
+  carMode=false;
+  document.getElementById('btn-car').classList.remove('active');
+  if(carGhost){scene.remove(carGhost);carGhost=null;}
+  vp.style.cursor='';
+  document.removeEventListener('mousemove',carPlacementMove);
+  tc.removeEventListener('click',carPlacementClick);
+}
+
+function carPlacementMove(e){
+  if(!carGhost||!carMode) return;
+  const hit=hitModel(e.clientX,e.clientY);
+  if(hit){
+    carGhost.position.copy(hit.point);
+    const camDir=camera.getWorldDirection(new THREE.Vector3());
+    carGhost.rotation.y=Math.atan2(camDir.x,camDir.z);
+  }
+}
+
+function carPlacementClick(e){
+  if(!carMode||!carGhost) return;
+  e.stopPropagation();e.preventDefault();
+  const hit=hitModel(e.clientX,e.clientY);
+  if(!hit) return;
+  scene.remove(carGhost);carGhost=null;
+  carMesh=buildCarModel(false);
+  carMesh.position.copy(hit.point);
+  const camDir=camera.getWorldDirection(new THREE.Vector3());
+  carYaw=Math.atan2(camDir.x,camDir.z);
+  carMesh.rotation.y=carYaw;
+  scene.add(carMesh);
+  carMode=false;
+  document.getElementById('btn-car').classList.remove('active');
+  document.getElementById('btn-car').textContent='🚗 Bil (ESC avslutt)';
+  document.getElementById('btn-car').classList.add('active-green');
+  vp.style.cursor='';
+  document.removeEventListener('mousemove',carPlacementMove);
+  tc.removeEventListener('click',carPlacementClick);
+  enterCarDriving();
+}
+
+// ── Driving mode ──
+function enterCarDriving(){
+  carDriving=true;
+  carSpeed=0;carVelY=0;carOnGround=true;
+  if(carCamMode==='3rd-free') carCamYaw=0;
+  carCamPitch=0.3;
+  document.addEventListener('keydown',carKeyDown);
+  document.addEventListener('keyup',carKeyUp);
+  tc.addEventListener('mousedown',carMouseDownH);
+  window.addEventListener('mouseup',carMouseUpH);
+  window.addEventListener('mousemove',carMouseMoveH);
+  tc.addEventListener('wheel',carWheelH,{passive:false});
+  const hints={'3rd-free':'WASD kjør · Mus roter kamera · Scrollhjul zoom · ESC avslutt',
+    '3rd-locked':'WASD kjør · Scrollhjul zoom · ESC avslutt',
+    '1st':'WASD kjør · Mus se rundt · ESC avslutt'};
+  hintEl.textContent=hints[carCamMode]||hints['3rd-free'];
+  hintEl.classList.add('visible');
+}
+
+function exitCarDriving(){
+  carDriving=false;
+  carKeys.w=carKeys.a=carKeys.s=carKeys.d=false;
+  document.removeEventListener('keydown',carKeyDown);
+  document.removeEventListener('keyup',carKeyUp);
+  tc.removeEventListener('mousedown',carMouseDownH);
+  window.removeEventListener('mouseup',carMouseUpH);
+  window.removeEventListener('mousemove',carMouseMoveH);
+  tc.removeEventListener('wheel',carWheelH);
+  if(carMesh){scene.remove(carMesh);carMesh=null;}
+  camera.fov=45;camera.updateProjectionMatrix();
+  document.getElementById('btn-car').textContent='🚗 Bil';
+  document.getElementById('btn-car').classList.remove('active','active-green');
+  hintEl.classList.remove('visible');
+  fitCameraToModel();
+}
+
+function carKeyDown(e){
+  if(e.key==='Escape'){exitCarDriving();return;}
+  const k=e.key.toLowerCase();
+  if(k==='w')carKeys.w=true;if(k==='a')carKeys.a=true;
+  if(k==='s')carKeys.s=true;if(k==='d')carKeys.d=true;
+}
+function carKeyUp(e){
+  const k=e.key.toLowerCase();
+  if(k==='w')carKeys.w=false;if(k==='a')carKeys.a=false;
+  if(k==='s')carKeys.s=false;if(k==='d')carKeys.d=false;
+}
+function carMouseDownH(e){
+  if(e.button===0||e.button===2){carMouseDown=true;carMouseLX=e.clientX;carMouseLY=e.clientY;}
+  e.preventDefault();
+}
+function carMouseUpH(){carMouseDown=false;}
+function carMouseMoveH(e){
+  if(!carMouseDown) return;
+  const dx=e.clientX-carMouseLX,dy=e.clientY-carMouseLY;
+  carMouseLX=e.clientX;carMouseLY=e.clientY;
+  if(carCamMode==='3rd-free'){
+    carCamYaw-=dx*0.004;
+    carCamPitch=Math.max(-0.2,Math.min(1.2,carCamPitch+dy*0.004));
+  } else if(carCamMode==='1st'){
+    carCamYaw-=dx*0.003;
+    carCamPitch=Math.max(-0.5,Math.min(0.8,carCamPitch+dy*0.003));
+  }
+  // 3rd-locked: no mouse rotation
+}
+function carWheelH(e){
+  if(carCamMode!=='1st'){
+    carCamDist=Math.max(3,Math.min(40,carCamDist+e.deltaY*0.01));
+    const sl=document.getElementById('dev-camdist-slider');
+    if(sl){sl.value=carCamDist;document.getElementById('dev-camdist-val').textContent=carCamDist.toFixed(1);}
+  }
+  e.preventDefault();
+}
+
+// ── Raycast ground ──
+const _carDownRay=new THREE.Raycaster();
+function carFindGround(pos){
+  _carDownRay.set(new THREE.Vector3(pos.x,pos.y+50,pos.z),new THREE.Vector3(0,-1,0));
+  const allMeshes=[];
+  models.forEach(m=>{if(m.visible) m.group.traverse(ch=>{if(ch.isMesh&&ch.visible) allMeshes.push(ch);});});
+  const hits=_carDownRay.intersectObjects(allMeshes,false);
+  return hits.length?hits[0].point.y:null;
+}
+
+// ── Physics update ──
+function updateCar(dt){
+  if(!carDriving||!carMesh) return;
+  const P=carPhys;
+
+  // Steering
+  const steerDir=carSpeed>0?1:carSpeed<0?-1:0;
+  if(carKeys.a) carYaw+=P.steerSpeed*dt*steerDir;
+  if(carKeys.d) carYaw-=P.steerSpeed*dt*steerDir;
+
+  // Acceleration
+  if(carKeys.w) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*dt);
+  else if(carKeys.s) carSpeed=Math.max(-P.maxSpeed*0.4,carSpeed-P.accel*dt);
+  else {
+    if(carSpeed>0) carSpeed=Math.max(0,carSpeed-P.brake*dt);
+    else if(carSpeed<0) carSpeed=Math.min(0,carSpeed+P.brake*dt);
+  }
+
+  // Move
+  const fwd=new THREE.Vector3(Math.sin(carYaw),0,Math.cos(carYaw));
+  carMesh.position.addScaledVector(fwd,carSpeed*dt);
+
+  // Gravity & ground snap
+  const groundY=carFindGround(carMesh.position);
+  if(groundY!==null){
+    if(carMesh.position.y>groundY+0.05){
+      carVelY-=P.gravity*dt;
+      carMesh.position.y+=carVelY*dt;
+      if(carMesh.position.y<=groundY){carMesh.position.y=groundY;carVelY=0;carOnGround=true;}
+    } else {
+      carMesh.position.y=groundY;carVelY=0;carOnGround=true;
+    }
+  } else {
+    carVelY-=P.gravity*dt;
+    carMesh.position.y+=carVelY*dt;
+  }
+
+  carMesh.rotation.y=carYaw;
+
+  // ── Xbox gamepad input ──
+  processCarXbox(dt);
+
+  // ── FOV management ──
+  const targetFov=carCamMode==='1st'?P.fpFov:45;
+  if(Math.abs(camera.fov-targetFov)>0.5){camera.fov+=(targetFov-camera.fov)*0.15;camera.updateProjectionMatrix();}
+
+  // ── Car visibility for see-through ──
+  applyCarVisibility();
+
+  // ── Camera ──
+  const carPos=carMesh.position;
+  const D=carDims;
+
+  if(carCamMode==='1st'){
+    // First person — driver seat with adjustable offsets
+    const baseZ=-D.length*0.1+P.fpOffZ;
+    const baseY=D.wheelR+D.bodyH+D.cabH*0.6+P.fpOffY;
+    const baseX=P.fpOffX;
+    // Rotate offset by car yaw
+    const cosY=Math.cos(carYaw),sinY=Math.sin(carYaw);
+    const seatX=carPos.x+sinY*baseZ+cosY*baseX;
+    const seatZ=carPos.z+cosY*baseZ-sinY*baseX;
+    const seatY=carPos.y+baseY;
+
+    camera.position.set(seatX,seatY,seatZ);
+    const lookAngle=carYaw+carCamYaw;
+    const lookDist=10;
+    const lookX=seatX+Math.sin(lookAngle)*lookDist*Math.cos(carCamPitch);
+    const lookZ=seatZ+Math.cos(lookAngle)*lookDist*Math.cos(carCamPitch);
+    const lookY=seatY-lookDist*Math.sin(carCamPitch);
+    camera.lookAt(lookX,lookY,lookZ);
+
+  } else if(carCamMode==='3rd-locked'){
+    const camAngle=carYaw;
+    const cx=carPos.x-Math.sin(camAngle)*carCamDist*Math.cos(carCamPitch);
+    const cz=carPos.z-Math.cos(camAngle)*carCamDist*Math.cos(carCamPitch);
+    const cy=carPos.y+P.camHeight+carCamDist*Math.sin(carCamPitch);
+    camera.position.set(cx,cy,cz);
+    camera.lookAt(carPos.x,carPos.y+P.camHeight*0.8,carPos.z);
+
+  } else {
+    const camAngle=carYaw+carCamYaw;
+    const cx=carPos.x-Math.sin(camAngle)*carCamDist*Math.cos(carCamPitch);
+    const cz=carPos.z-Math.cos(camAngle)*carCamDist*Math.cos(carCamPitch);
+    const cy=carPos.y+P.camHeight+carCamDist*Math.sin(carCamPitch);
+    camera.position.set(cx,cy,cz);
+    camera.lookAt(carPos.x,carPos.y+P.camHeight*0.8,carPos.z);
+  }
+
+  camera.up.set(0,1,0);
+  orb.tgt.copy(carPos);
+  orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
+}
+
+// ═══════════════════════════════ RENDER LOOP ═════════════════════════════════
+const clk=new THREE.Clock();
+(function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(clk.getDelta(),0.05);
+
+  if(carDriving){
+    updateCar(dt);
+  } else {
+    if(orb.ar){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
+  }
+
+  renderer.render(scene,activeCamera);
+  updateCamPosBar();
+  redrawSVG();
+})();
+
+</script>
+</body>
+</html>
