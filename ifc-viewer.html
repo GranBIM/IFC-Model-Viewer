@@ -534,9 +534,9 @@ body{
     <div style="padding:0.2rem 0.6rem 0.1rem;font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Rutenett</div>
     <div style="display:flex;gap:4px;padding:0.2rem 0.5rem">
       <button class="tb-hdrop-btn" id="grid-01" onclick="setGridSize(0.1)" style="flex:1;text-align:center">0.1m</button>
-      <button class="tb-hdrop-btn active" id="grid-1" onclick="setGridSize(1)" style="flex:1;text-align:center">1m</button>
+      <button class="tb-hdrop-btn" id="grid-1" onclick="setGridSize(1)" style="flex:1;text-align:center">1m</button>
       <button class="tb-hdrop-btn" id="grid-5" onclick="setGridSize(5)" style="flex:1;text-align:center">5m</button>
-      <button class="tb-hdrop-btn" id="grid-10" onclick="setGridSize(10)" style="flex:1;text-align:center">10m</button>
+      <button class="tb-hdrop-btn active" id="grid-10" onclick="setGridSize(10)" style="flex:1;text-align:center">10m</button>
     </div>
     <button class="tb-hdrop-btn" id="btn-grid-toggle" onclick="toggleGrid()">▦ Vis/skjul rutenett</button>
   </div>
@@ -601,6 +601,19 @@ body{
         <span id="dev-merge-status" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
       </div>
       <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.15rem">Slår sammen geometri per IFC-type = færre draw calls</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0;cursor:pointer" onclick="toggleOctree()">
+        <span style="font-size:0.72rem;color:var(--text)">Octree spatial index</span>
+        <span id="dev-octree-status" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+      <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.1rem">Romlig indeks — rask frustum culling uten a sjekke hvert objekt</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0;cursor:pointer" onclick="toggleInstancing()">
+        <span style="font-size:0.72rem;color:var(--text)">Instanced rendering</span>
+        <span id="dev-instancing-status" style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+      <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.15rem">Grupperer identiske objekter til ett draw call per type</div>
+      <div style="font-family:monospace;font-size:0.58rem;color:var(--muted);padding:0.15rem;background:var(--btn-bg);border-radius:0.25rem;display:none" id="dev-instancing-stats"></div>
     </div>
 
     <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
@@ -622,6 +635,9 @@ body{
       </div>
       <div class="dev-slider"><label>Maks trekanter <span id="dev-filter-tris-val">500</span></label><input type="range" min="10" max="5000" step="10" value="500" oninput="objFilterCfg.maxTris=+this.value;document.getElementById('dev-filter-tris-val').textContent=this.value;applyObjFilter()"></div>
       <div class="dev-slider"><label>Maks volum <span id="dev-filter-vol-val">1.0</span> m3</label><input type="range" min="0.01" max="20" step="0.01" value="1" oninput="objFilterCfg.maxVol=+this.value;document.getElementById('dev-filter-vol-val').textContent=(+this.value).toFixed(2);applyObjFilter()"></div>
+
+      <button class="tb-hdrop-btn" onclick="hideCommonSmallTypes()" style="font-size:0.7rem;margin:0.2rem 0;text-align:center;border:1px solid var(--border);width:100%">Skjul detaljobjekter</button>
+      <div style="font-size:0.55rem;color:var(--muted);padding:0 0 0.1rem">Stair, Member, DistributionElement, FlowSegment, Window, Door</div>
 
       <div class="tb-hdrop-sep" style="margin:0.2rem 0"></div>
       <div style="font-size:0.6rem;color:var(--muted);padding:0 0 0.1rem">Filtrer etter IFC-type</div>
@@ -650,6 +666,11 @@ body{
       <div class="dev-slider"><label>Friksjon/brems <span id="dev-brake-val">20</span> m/s2</label><input type="range" min="1" max="60" step="0.5" value="20" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label><input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Styrefolsomhet <span id="dev-steer-val">2.5</span> rad/s</label><input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value"></div>
+      <div class="tb-hdrop-sep" style="margin:0.15rem 0"></div>
+      <div style="font-size:0.58rem;color:var(--muted);padding:0.1rem 0">Helning (4-punkt hjul)</div>
+      <div class="dev-slider"><label>Tilt smoothing <span id="dev-tilt-smooth-val">0.15</span></label><input type="range" min="0.01" max="0.5" step="0.01" value="0.15" oninput="carPhys.tiltSmooth=+this.value;document.getElementById('dev-tilt-smooth-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Maks tilt vinkel <span id="dev-tilt-max-val">30</span> grader</label><input type="range" min="5" max="60" step="1" value="30" oninput="carPhys.maxTiltDeg=+this.value;document.getElementById('dev-tilt-max-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Ray hoyde over bil <span id="dev-ray-h-val">2.0</span> m</label><input type="range" min="0.5" max="10" step="0.1" value="2" oninput="carPhys.rayHeight=+this.value;document.getElementById('dev-ray-h-val').textContent=(+this.value).toFixed(1)"></div>
     </div>
 
     <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 3. person</div>
@@ -778,15 +799,16 @@ const dl2=new THREE.DirectionalLight(0xffffff,0.25);dl2.position.set(-4,-3,-4);s
 const hl=new THREE.HemisphereLight(0xadd8e6,0x6b4423,0.3);scene.add(hl);
 
 // Grid helper — 1x1m cells, large extent
-let gridSize=1; // meters per cell
+let gridSize=10; // meters per cell
 let gridHelper=null;
 function createGrid(){
   if(gridHelper){scene.remove(gridHelper);gridHelper.geometry.dispose();gridHelper.material.dispose();}
-  // extent: enough cells to cover model, min 200m
   const extent=Math.max(200,gridSize*200);
   const divisions=Math.round(extent/gridSize);
-  const isDark=!document.body.classList.contains('theme-light');
-  gridHelper=new THREE.GridHelper(extent,divisions,isDark?0x334155:0xcccccc,isDark?0x1e293b:0xe5e7eb);
+  const isLight=document.body.classList.contains('theme-light');
+  const colorMain=isLight?0x222222:0x334155;
+  const colorSub=isLight?0x444444:0x1e293b;
+  gridHelper=new THREE.GridHelper(extent,divisions,colorMain,colorSub);
   gridHelper.position.y=-0.01;
   scene.add(gridHelper);
 }
@@ -1221,10 +1243,10 @@ document.getElementById('file-input').addEventListener('change',e=>{
 
 const dz=document.getElementById('drop-zone');
 dz.addEventListener('click',()=>document.getElementById('file-input').click());
-dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();dz.classList.add('drag-over');});
 dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
 dz.addEventListener('drop',e=>{
-  e.preventDefault();dz.classList.remove('drag-over');
+  e.preventDefault();e.stopPropagation();dz.classList.remove('drag-over');
   const ifcFiles=[...e.dataTransfer.files].filter(f=>f.name.toLowerCase().endsWith('.ifc'));
   _pendingLoads+=ifcFiles.length;
   for(const f of ifcFiles) loadIFCFile(f);
@@ -1232,6 +1254,8 @@ dz.addEventListener('drop',e=>{
 vp.addEventListener('dragover',e=>e.preventDefault());
 vp.addEventListener('drop',e=>{
   e.preventDefault();
+  // Only handle if drop-zone is hidden (model already loaded), otherwise dz handler fires
+  if(!dz.classList.contains('hidden')) return;
   const ifcFiles=[...e.dataTransfer.files].filter(f=>f.name.toLowerCase().endsWith('.ifc'));
   _pendingLoads+=ifcFiles.length;
   for(const f of ifcFiles) loadIFCFile(f);
@@ -1840,6 +1864,27 @@ function objFilterSelectAll(show){
 }
 window.objFilterSelectAll=objFilterSelectAll;
 
+const COMMON_SMALL_TYPES=['STAIR','STAIRFLIGHT','MEMBER','DISTRIBUTIONELEMENT','FLOWSEGMENT','WINDOW','DOOR'];
+let _detailObjectsHidden=false;
+
+function hideCommonSmallTypes(){
+  _detailObjectsHidden=!_detailObjectsHidden;
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      const t=(ch.userData.ifcType||'').toUpperCase();
+      const match=COMMON_SMALL_TYPES.some(s=>t.includes(s));
+      if(match) ch.visible=!_detailObjectsHidden;
+    });
+  });
+  // Update button text
+  const btns=document.querySelectorAll('[onclick="hideCommonSmallTypes()"]');
+  btns.forEach(b=>b.textContent=_detailObjectsHidden?'Vis detaljobjekter':'Skjul detaljobjekter');
+  updateInfoBar();
+}
+window.hideCommonSmallTypes=hideCommonSmallTypes;
+
 function applyObjFilter(){
   if(!objFilterCfg.enabled) return;
   let total=0,visible=0,hidden=0;
@@ -1923,7 +1968,8 @@ let activeVehicleType='personbil';
 
 // ── Configurable parameters (bound to devtools sliders) ──
 const carPhys={gravity:20,accel:18,brake:20,maxSpeed:30,steerSpeed:2.5,camHeight:1.5,
-  fpOffX:0,fpOffY:0,fpOffZ:0,fpFov:75};
+  fpOffX:0,fpOffY:0,fpOffZ:0,fpFov:75,
+  tiltSmooth:0.15,maxTiltDeg:30,rayHeight:2};
 const carDims={length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
   bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7};
 const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connected:false};
@@ -2475,7 +2521,7 @@ function carRayDown(x,z,startY){
 // Find ground at car center — cast from just above current position (not 50m up)
 function carFindGround(pos){
   // Cast from 2m above car — enough for bumps, but won't reach a bridge 10m above
-  const startY=pos.y+2;
+  const startY=pos.y+(carPhys.rayHeight||2);
   const y=carRayDown(pos.x,pos.z,startY);
   return y!==null?{y}:null;
 }
@@ -2486,17 +2532,19 @@ function carSampleWheelHeights(pos,yaw){
   const cosY=Math.cos(yaw),sinY=Math.sin(yaw);
   const hw=d.width/2;
   const hl=d.length*0.35;
-  // 4 corners in local space: FL, FR, RL, RR
+  // 4 corners in local space: [localX, localZ]
+  // Car forward = +Z in local, yaw rotates around Y
   const corners=[
     [-hw, hl],  // front-left
     [ hw, hl],  // front-right
     [-hw,-hl],  // rear-left
     [ hw,-hl],  // rear-right
   ];
-  const startY=pos.y+2;
+  const startY=pos.y+(carPhys.rayHeight||2);
   const heights=corners.map(([lx,lz])=>{
-    const wx=pos.x+cosY*lx+sinY*lz;
-    const wz=pos.z-sinY*lx+cosY*lz;
+    // Rotate local offset by yaw: standard 2D rotation
+    const wx=pos.x+cosY*lx-sinY*lz;
+    const wz=pos.z+sinY*lx+cosY*lz;
     return carRayDown(wx,wz,startY);
   });
   return heights; // [FL, FR, RL, RR] — null if no ground
@@ -2616,13 +2664,17 @@ function updateCar(dt){
     const frontAvg=(fl+fr)/2;
     const rearAvg=(rl+rr)/2;
     const targetPitch=-Math.atan2(frontAvg-rearAvg,wheelbase);
-    // Roll: average left vs average right
+    // Roll: left lower = negative roll (tilt left)
     const leftAvg=(fl+rl)/2;
     const rightAvg=(fr+rr)/2;
-    const targetRoll=Math.atan2(leftAvg-rightAvg,track);
+    const targetRoll=-Math.atan2(leftAvg-rightAvg,track);
     // Smooth
-    carTiltPitch+=(targetPitch-carTiltPitch)*0.15;
-    carTiltRoll+=(targetRoll-carTiltRoll)*0.15;
+    const maxTilt=(carPhys.maxTiltDeg||30)*Math.PI/180;
+    const clampedPitch=Math.max(-maxTilt,Math.min(maxTilt,targetPitch));
+    const clampedRoll=Math.max(-maxTilt,Math.min(maxTilt,targetRoll));
+    const sm=carPhys.tiltSmooth||0.15;
+    carTiltPitch+=(clampedPitch-carTiltPitch)*sm;
+    carTiltRoll+=(clampedRoll-carTiltRoll)*sm;
   }
 
   carMesh.rotation.set(carTiltPitch,carYaw,carTiltRoll,'YXZ');
@@ -2684,6 +2736,8 @@ const streamCfg={
   enabled:false,
   occlusion:false,
   mergeMeshes:false,
+  octree:false,
+  instancing:false,
   nearDist:50,
   farDist:150,
   cullDist:300,
@@ -2878,10 +2932,224 @@ function undoMeshMerge(){
     scene.remove(m.mesh);
     m.mesh.geometry.dispose();
     if(m.mesh.material.dispose) m.mesh.material.dispose();
-    // Restore originals
     for(const orig of m.originals) orig.visible=true;
   }
   _mergedMeshes=[];
+}
+
+// ═══════════════════════ OCTREE SPATIAL INDEX ════════════════════════════════
+// Simple octree that groups meshes by spatial location.
+// Frustum culling tests octree nodes first — if a node is outside the frustum,
+// all meshes inside it are skipped without individual bounding sphere tests.
+
+class OctreeNode {
+  constructor(box,depth){
+    this.box=box;
+    this.depth=depth;
+    this.children=null; // 8 child nodes
+    this.meshes=[]; // leaf meshes
+  }
+}
+
+let _octree=null;
+const OCTREE_MAX_DEPTH=6;
+const OCTREE_MAX_MESHES_PER_NODE=20;
+
+function buildOctree(){
+  // Collect all IFC meshes with bounding spheres
+  const allMeshes=[];
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh||ch.userData._isMerged) return;
+      if(!ch.geometry.boundingSphere) ch.geometry.computeBoundingSphere();
+      if(!ch.geometry.boundingBox) ch.geometry.computeBoundingBox();
+      const worldBox=ch.geometry.boundingBox.clone().applyMatrix4(ch.matrixWorld);
+      ch._octreeBox=worldBox;
+      allMeshes.push(ch);
+    });
+  });
+  if(!allMeshes.length){_octree=null;return;}
+
+  // Compute root bounding box
+  const rootBox=new THREE.Box3();
+  allMeshes.forEach(m=>rootBox.union(m._octreeBox));
+  // Pad slightly
+  rootBox.expandByScalar(1);
+
+  _octree=new OctreeNode(rootBox,0);
+  for(const m of allMeshes) octreeInsert(_octree,m);
+
+  console.log('Octree built:',allMeshes.length,'meshes');
+}
+
+function octreeInsert(node,mesh){
+  // If leaf and under capacity or max depth, just add
+  if(!node.children&&(node.meshes.length<OCTREE_MAX_MESHES_PER_NODE||node.depth>=OCTREE_MAX_DEPTH)){
+    node.meshes.push(mesh);return;
+  }
+  // Subdivide if needed
+  if(!node.children) octreeSubdivide(node);
+  // Find which child the mesh center falls into
+  const center=new THREE.Vector3();
+  mesh._octreeBox.getCenter(center);
+  const mid=new THREE.Vector3();
+  node.box.getCenter(mid);
+  const ix=center.x>=mid.x?1:0;
+  const iy=center.y>=mid.y?1:0;
+  const iz=center.z>=mid.z?1:0;
+  const ci=ix+iy*2+iz*4;
+  octreeInsert(node.children[ci],mesh);
+}
+
+function octreeSubdivide(node){
+  const b=node.box;
+  const mid=new THREE.Vector3();b.getCenter(mid);
+  node.children=[];
+  for(let i=0;i<8;i++){
+    const ix=i&1,iy=(i>>1)&1,iz=(i>>2)&1;
+    const min=new THREE.Vector3(
+      ix?mid.x:b.min.x, iy?mid.y:b.min.y, iz?mid.z:b.min.z
+    );
+    const max=new THREE.Vector3(
+      ix?b.max.x:mid.x, iy?b.max.y:mid.y, iz?b.max.z:mid.z
+    );
+    node.children.push(new OctreeNode(new THREE.Box3(min,max),node.depth+1));
+  }
+  // Re-insert existing meshes
+  const existing=node.meshes;node.meshes=[];
+  for(const m of existing) octreeInsert(node,m);
+}
+
+function octreeCullFrustum(node,frustum,camPos,results){
+  // Test node box against frustum
+  if(!frustum.intersectsBox(node.box)){
+    // Entire node is outside — hide all meshes in this branch
+    octreeSetVisible(node,false);
+    results.culled+=octreeCountMeshes(node);
+    return;
+  }
+  // Node is (partially) visible — check children or leaf meshes
+  if(node.children){
+    for(const child of node.children) octreeCullFrustum(child,frustum,camPos,results);
+  } else {
+    for(const mesh of node.meshes){
+      results.total++;
+      // Individual distance LOD
+      if(!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+      const sp=mesh.geometry.boundingSphere.clone().applyMatrix4(mesh.matrixWorld);
+      const dist=camPos.distanceTo(sp.center);
+      if(dist>streamCfg.cullDist){
+        mesh.visible=false;results.culled++;
+      } else if(dist>streamCfg.farDist){
+        mesh.visible=true;
+        if(!_streamOrigMats.has(mesh)) _streamOrigMats.set(mesh,mesh.material);
+        mesh.material=getStreamLodMat(mesh);
+        results.visible++;results.far++;
+      } else {
+        mesh.visible=true;
+        const orig=_streamOrigMats.get(mesh);
+        if(orig&&mesh.material!==orig) mesh.material=orig;
+        results.visible++;results.near++;
+      }
+    }
+  }
+}
+
+function octreeSetVisible(node,vis){
+  if(node.children) for(const c of node.children) octreeSetVisible(c,vis);
+  for(const m of node.meshes) m.visible=vis;
+}
+
+function octreeCountMeshes(node){
+  let c=node.meshes.length;
+  if(node.children) for(const ch of node.children) c+=octreeCountMeshes(ch);
+  return c;
+}
+
+function toggleOctree(){
+  streamCfg.octree=!streamCfg.octree;
+  const el=document.getElementById('dev-octree-status');
+  if(el){el.textContent=streamCfg.octree?'PA':'AV';el.style.color=streamCfg.octree?'var(--dot-green)':'var(--muted)';}
+  if(streamCfg.octree) buildOctree();
+  else _octree=null;
+}
+window.toggleOctree=toggleOctree;
+
+// ═══════════════════════ INSTANCED RENDERING ═════════════════════════════════
+// Finds groups of meshes with identical geometry (same vertex count + index count)
+// and replaces them with InstancedMesh — one draw call per group.
+
+let _instancedMeshes=[]; // {instMesh, originals[], geoKey}
+
+function toggleInstancing(){
+  streamCfg.instancing=!streamCfg.instancing;
+  const el=document.getElementById('dev-instancing-status');
+  if(el){el.textContent=streamCfg.instancing?'PA':'AV';el.style.color=streamCfg.instancing?'var(--dot-green)':'var(--muted)';}
+  if(streamCfg.instancing) performInstancing();
+  else undoInstancing();
+}
+window.toggleInstancing=toggleInstancing;
+
+function performInstancing(){
+  undoInstancing();
+  // Group meshes by geometry signature (vertex count + index count + IFC type)
+  const groups={};
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh||!ch.geometry) return;
+      const geo=ch.geometry;
+      const vc=geo.attributes.position?geo.attributes.position.count:0;
+      const ic=geo.index?geo.index.count:0;
+      const type=ch.userData.ifcType||'X';
+      const key=type+'_'+vc+'_'+ic;
+      if(!groups[key]) groups[key]={meshes:[],geo:null,color:null};
+      groups[key].meshes.push(ch);
+      if(!groups[key].geo) groups[key].geo=geo;
+      if(!groups[key].color) groups[key].color=ch.userData._origColor||new THREE.Color(0xcccccc);
+    });
+  });
+
+  let totalInstanced=0,groupCount=0;
+  const statsEl=document.getElementById('dev-instancing-stats');
+
+  for(const[key,grp] of Object.entries(groups)){
+    if(grp.meshes.length<3) continue; // not worth instancing small groups
+    const count=grp.meshes.length;
+    const mat=new THREE.MeshStandardMaterial({
+      color:grp.color,roughness:0.65,metalness:0.05,side:THREE.DoubleSide
+    });
+    const instMesh=new THREE.InstancedMesh(grp.geo,mat,count);
+    const dummy=new THREE.Matrix4();
+    for(let i=0;i<count;i++){
+      // Get world matrix of each original mesh
+      grp.meshes[i].updateMatrixWorld(true);
+      instMesh.setMatrixAt(i,grp.meshes[i].matrixWorld);
+      grp.meshes[i].visible=false; // hide original
+    }
+    instMesh.instanceMatrix.needsUpdate=true;
+    instMesh.userData._isInstanced=true;
+    scene.add(instMesh);
+    _instancedMeshes.push({instMesh,originals:grp.meshes,geoKey:key});
+    totalInstanced+=count;groupCount++;
+  }
+
+  if(statsEl){
+    statsEl.style.display='block';
+    statsEl.textContent=totalInstanced+' objekter i '+groupCount+' grupper';
+  }
+}
+
+function undoInstancing(){
+  for(const ig of _instancedMeshes){
+    scene.remove(ig.instMesh);
+    if(ig.instMesh.material.dispose) ig.instMesh.material.dispose();
+    for(const orig of ig.originals) orig.visible=true;
+  }
+  _instancedMeshes=[];
+  const statsEl=document.getElementById('dev-instancing-stats');
+  if(statsEl) statsEl.style.display='none';
 }
 
 // ═══════════════════════ MAIN UPDATE ═════════════════════════════════════════
@@ -2900,9 +3168,7 @@ function updateStreaming(){
   streamProjMat.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse);
   streamFrustum.setFromProjectionMatrix(streamProjMat);
 
-  // Occlusion pass (expensive but effective)
   if(streamCfg.occlusion&&_occRT){
-    // Temporarily show all for depth pass
     models.forEach(mdl=>{if(mdl.visible)mdl.group.traverse(ch=>{if(ch.isMesh)ch.visible=true;});});
     renderOcclusionPass(cam);
   }
@@ -2910,51 +3176,37 @@ function updateStreaming(){
   const camPos=cam.position;
   let total=0,visible=0,near=0,far=0,culled=0,occluded=0;
 
-  models.forEach(mdl=>{
-    if(!mdl.visible) return;
-    mdl.group.traverse(ch=>{
-      if(!ch.isMesh) return;
-      if(ch.userData._isMerged) return; // skip merged meshes
-      // Skip originals that are hidden by merge
-      if(streamCfg.mergeMeshes){
-        const isMergedOrig=_mergedMeshes.some(mm=>mm.originals.includes(ch));
-        if(isMergedOrig){ch.visible=false;total++;culled++;return;}
-      }
-      total++;
-
-      // Bounding sphere
-      if(!ch.geometry.boundingSphere) ch.geometry.computeBoundingSphere();
-      _sphere.copy(ch.geometry.boundingSphere).applyMatrix4(ch.matrixWorld);
-
-      // 1. Frustum culling
-      if(!streamFrustum.intersectsSphere(_sphere)){
-        ch.visible=false;culled++;return;
-      }
-
-      // 2. Occlusion culling
-      if(streamCfg.occlusion&&_occRT){
-        if(isOccluded(_sphere,cam)){
-          ch.visible=false;occluded++;culled++;return;
+  // ── OCTREE PATH ──
+  if(streamCfg.octree&&_octree){
+    const r={total:0,visible:0,near:0,far:0,culled:0};
+    octreeCullFrustum(_octree,streamFrustum,camPos,r);
+    total=r.total;visible=r.visible;near=r.near;far=r.far;culled=r.culled;
+  } else {
+    // ── LINEAR PATH ──
+    models.forEach(mdl=>{
+      if(!mdl.visible) return;
+      mdl.group.traverse(ch=>{
+        if(!ch.isMesh) return;
+        if(ch.userData._isMerged||ch.userData._isInstanced) return;
+        if(streamCfg.mergeMeshes&&_mergedMeshes.some(mm=>mm.originals.includes(ch))){ch.visible=false;total++;culled++;return;}
+        if(streamCfg.instancing&&_instancedMeshes.some(ig=>ig.originals.includes(ch))) return;
+        total++;
+        if(!ch.geometry.boundingSphere) ch.geometry.computeBoundingSphere();
+        _sphere.copy(ch.geometry.boundingSphere).applyMatrix4(ch.matrixWorld);
+        if(!streamFrustum.intersectsSphere(_sphere)){ch.visible=false;culled++;return;}
+        if(streamCfg.occlusion&&_occRT&&isOccluded(_sphere,cam)){ch.visible=false;occluded++;culled++;return;}
+        const dist=camPos.distanceTo(_sphere.center);
+        if(dist>streamCfg.cullDist){ch.visible=false;culled++;}
+        else if(dist>streamCfg.farDist){
+          ch.visible=true;if(!_streamOrigMats.has(ch))_streamOrigMats.set(ch,ch.material);
+          ch.material=getStreamLodMat(ch);visible++;far++;
+        } else {
+          ch.visible=true;const orig=_streamOrigMats.get(ch);
+          if(orig&&ch.material!==orig)ch.material=orig;visible++;near++;
         }
-      }
-
-      // 3. Distance LOD
-      const dist=camPos.distanceTo(_sphere.center);
-      if(dist>streamCfg.cullDist){
-        ch.visible=false;culled++;
-      } else if(dist>streamCfg.farDist){
-        ch.visible=true;
-        if(!_streamOrigMats.has(ch)) _streamOrigMats.set(ch,ch.material);
-        ch.material=getStreamLodMat(ch);
-        visible++;far++;
-      } else {
-        ch.visible=true;
-        const orig=_streamOrigMats.get(ch);
-        if(orig&&ch.material!==orig) ch.material=orig;
-        visible++;near++;
-      }
+      });
     });
-  });
+  }
 
   const dc=renderer.info.render.calls;
   const el=document.getElementById('dev-stream-stats');
