@@ -379,10 +379,25 @@ body{
   <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-vehicle">Kjøretøy <span class="tb-caret">▾</span></div>
   </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-analyse">Analyse <span class="tb-caret">▾</span></div>
+  </div>
 
   <div id="toolbar-title-wrap">
     <span id="toolbar-title">IFC Viewer</span>
   </div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-gamemode">GameMode <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup" id="gta-toolbar-group" style="display:none">
+    <div class="tb-hgroup-trigger" data-drop="drop-gta" style="color:#ef4444;border-color:#ef4444">GTA <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep" id="gta-toolbar-sep" style="display:none"></div>
 
   <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-devtools">Utviklerverktøy <span class="tb-caret">▾</span></div>
@@ -400,7 +415,7 @@ body{
   <svg id="measure-svg"></svg>
   <div id="pivot-dot"></div>
   <div id="watermark">Utviklet og vedlikeholdt av<br>Mathias Weiseth Gran</div>
-  <div id="last-updated">Sist oppdatert 06.04.2026</div>
+  <div id="last-updated">Sist oppdatert 07.04.2026<br>Under utvikling...</div>
 
   <div id="drop-zone">
     <div class="drop-icon-wrap">
@@ -473,13 +488,98 @@ body{
     <span class="info-chip">Rot <strong id="i-car-rot">0°</strong></span>
     <span class="ib-sep"></span>
     <span class="info-chip">Helning <strong id="i-car-tilt">0°</strong></span>
+    <span class="ib-sep"></span>
+    <span class="info-chip">Sving <strong id="i-car-steer">0°</strong></span>
   </span>
   <span style="flex:1"></span>
+  <span id="bvh-status" style="font-size:0.68rem;color:var(--muted);font-family:monospace"></span>
+  <span class="ib-sep"></span>
   <span class="info-chip" id="cam-pos-text" style="font-family:monospace;font-size:0.72rem;letter-spacing:0.02em"></span>
 </div>
 
 <!-- ══════════════ DROPDOWN PORTAL ══════════════ -->
 <div id="drop-portal">
+
+  <div class="tb-hdrop" id="drop-gta" style="min-width:300px;max-height:85vh;overflow-y:auto;padding:0.45rem 0.4rem;">
+    <div style="font-size:0.7rem;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">GTA — Arm &amp; Pistol</div>
+    <div style="display:flex;gap:6px;padding:0 0.2rem 0.3rem">
+      <button class="tb-hdrop-btn" onclick="gtaMirror()" style="flex:1;text-align:center;font-size:0.75rem">⟺ Speil (Y)</button>
+      <button class="tb-hdrop-btn" onclick="gtaReset()" style="flex:1;text-align:center;font-size:0.75rem">↺ Nullstill</button>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.2rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Gruppe — posisjon</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>X (venstre+) <span id="gta-gx-val">0.46</span></label><input type="range" min="-2" max="2" step="0.01" value="0.46" oninput="gtaCfg.gx=+this.value;document.getElementById('gta-gx-val').textContent=(+this.value).toFixed(2);gtaApply()"></div>
+      <div class="dev-slider"><label>Y (opp+) <span id="gta-gy-val">0.02</span></label><input type="range" min="-1" max="2" step="0.01" value="0.02" oninput="gtaCfg.gy=+this.value;document.getElementById('gta-gy-val').textContent=(+this.value).toFixed(2);gtaApply()"></div>
+      <div class="dev-slider"><label>Z (frem+) <span id="gta-gz-val">-0.41</span></label><input type="range" min="-2" max="2" step="0.01" value="-0.41" oninput="gtaCfg.gz=+this.value;document.getElementById('gta-gz-val').textContent=(+this.value).toFixed(2);gtaApply()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Gruppe — rotasjon</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>Rx <span id="gta-grx-val">-1</span>°</label><input type="range" min="-180" max="180" step="1" value="-1" oninput="gtaCfg.grx=+this.value;document.getElementById('gta-grx-val').textContent=this.value;gtaApply()"></div>
+      <div class="dev-slider"><label>Ry <span id="gta-gry-val">180</span>°</label><input type="range" min="-180" max="180" step="1" value="180" oninput="gtaCfg.gry=+this.value;document.getElementById('gta-gry-val').textContent=this.value;gtaApply()"></div>
+      <div class="dev-slider"><label>Rz <span id="gta-grz-val">0</span>°</label><input type="range" min="-180" max="180" step="1" value="0" oninput="gtaCfg.grz=+this.value;document.getElementById('gta-grz-val').textContent=this.value;gtaApply()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Overarm</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>X <span id="gta-uax-val">0.27</span></label><input type="range" min="-0.5" max="1.5" step="0.01" value="0.27" oninput="gtaCfg.uax=+this.value;document.getElementById('gta-uax-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Y <span id="gta-uay-val">0.00</span></label><input type="range" min="-0.5" max="0.5" step="0.01" value="0" oninput="gtaCfg.uay=+this.value;document.getElementById('gta-uay-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Z <span id="gta-uaz-val">0.04</span></label><input type="range" min="-0.5" max="0.5" step="0.01" value="0.04" oninput="gtaCfg.uaz=+this.value;document.getElementById('gta-uaz-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Lengde <span id="gta-ual-val">0.58</span></label><input type="range" min="0.1" max="1.5" step="0.01" value="0.58" oninput="gtaCfg.ual=+this.value;document.getElementById('gta-ual-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Rx <span id="gta-uarx-val">0</span>°</label><input type="range" min="-180" max="180" step="1" value="0" oninput="gtaCfg.uarx=+this.value;document.getElementById('gta-uarx-val').textContent=this.value;gtaRebuild()"></div>
+      <div class="dev-slider"><label>Ry <span id="gta-uary-val">0</span>°</label><input type="range" min="-180" max="180" step="1" value="0" oninput="gtaCfg.uary=+this.value;document.getElementById('gta-uary-val').textContent=this.value;gtaRebuild()"></div>
+      <div class="dev-slider"><label>Rz <span id="gta-uarz-val">0</span>°</label><input type="range" min="-180" max="180" step="1" value="0" oninput="gtaCfg.uarz=+this.value;document.getElementById('gta-uarz-val').textContent=this.value;gtaRebuild()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Underarm</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>X <span id="gta-fax-val">0.53</span></label><input type="range" min="-0.5" max="2.0" step="0.01" value="0.53" oninput="gtaCfg.fax=+this.value;document.getElementById('gta-fax-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Y <span id="gta-fay-val">0.02</span></label><input type="range" min="-0.5" max="0.5" step="0.01" value="0.02" oninput="gtaCfg.fay=+this.value;document.getElementById('gta-fay-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Z <span id="gta-faz-val">-0.18</span></label><input type="range" min="-0.8" max="0.4" step="0.01" value="-0.18" oninput="gtaCfg.faz=+this.value;document.getElementById('gta-faz-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Lengde <span id="gta-fal-val">0.52</span></label><input type="range" min="0.1" max="1.5" step="0.01" value="0.52" oninput="gtaCfg.fal=+this.value;document.getElementById('gta-fal-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Rx <span id="gta-farx-val">0</span>°</label><input type="range" min="-180" max="180" step="1" value="0" oninput="gtaCfg.farx=+this.value;document.getElementById('gta-farx-val').textContent=this.value;gtaRebuild()"></div>
+      <div class="dev-slider"><label>Ry <span id="gta-fary-val">79</span>°</label><input type="range" min="-180" max="180" step="1" value="79" oninput="gtaCfg.fary=+this.value;document.getElementById('gta-fary-val').textContent=this.value;gtaRebuild()"></div>
+      <div class="dev-slider"><label>Rz <span id="gta-farz-val">6</span>°</label><input type="range" min="-180" max="180" step="1" value="6" oninput="gtaCfg.farz=+this.value;document.getElementById('gta-farz-val').textContent=this.value;gtaRebuild()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Hånd</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>X <span id="gta-hx-val">0.58</span></label><input type="range" min="-0.5" max="2.5" step="0.01" value="0.58" oninput="gtaCfg.hx=+this.value;document.getElementById('gta-hx-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Y <span id="gta-hy-val">0.03</span></label><input type="range" min="-0.5" max="0.5" step="0.01" value="0.03" oninput="gtaCfg.hy=+this.value;document.getElementById('gta-hy-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Z <span id="gta-hz-val">-0.46</span></label><input type="range" min="-1.0" max="0.4" step="0.01" value="-0.46" oninput="gtaCfg.hz=+this.value;document.getElementById('gta-hz-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Pistol — kropp</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>X <span id="gta-gbx-val">0.59</span></label><input type="range" min="-0.5" max="2.5" step="0.01" value="0.59" oninput="gtaCfg.gbx=+this.value;document.getElementById('gta-gbx-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Y <span id="gta-gby-val">0.25</span></label><input type="range" min="-0.5" max="0.5" step="0.01" value="0.25" oninput="gtaCfg.gby=+this.value;document.getElementById('gta-gby-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Z <span id="gta-gbz-val">-0.58</span></label><input type="range" min="-1.5" max="0.4" step="0.01" value="-0.58" oninput="gtaCfg.gbz=+this.value;document.getElementById('gta-gbz-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Rx <span id="gta-gbrx-val">0</span>°</label><input type="range" min="-90" max="90" step="1" value="0" oninput="gtaCfg.gbrx=+this.value;document.getElementById('gta-gbrx-val').textContent=this.value;gtaRebuild()"></div>
+      <div class="dev-slider"><label>Ry <span id="gta-gbry-val">0</span>°</label><input type="range" min="-180" max="180" step="1" value="0" oninput="gtaCfg.gbry=+this.value;document.getElementById('gta-gbry-val').textContent=this.value;gtaRebuild()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Pistol — løp</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div class="dev-slider"><label>X <span id="gta-glx-val">0.59</span></label><input type="range" min="-0.5" max="2.5" step="0.01" value="0.59" oninput="gtaCfg.glx=+this.value;document.getElementById('gta-glx-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Y <span id="gta-gly-val">0.26</span></label><input type="range" min="-0.5" max="0.5" step="0.01" value="0.26" oninput="gtaCfg.gly=+this.value;document.getElementById('gta-gly-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Z <span id="gta-glz-val">-0.69</span></label><input type="range" min="-2.0" max="0.4" step="0.01" value="-0.69" oninput="gtaCfg.glz=+this.value;document.getElementById('gta-glz-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Lengde <span id="gta-gll-val">0.38</span></label><input type="range" min="0.05" max="1.5" step="0.01" value="0.38" oninput="gtaCfg.gll=+this.value;document.getElementById('gta-gll-val').textContent=(+this.value).toFixed(2);gtaRebuild()"></div>
+      <div class="dev-slider"><label>Rx <span id="gta-glrx-val">0</span>°</label><input type="range" min="-90" max="90" step="1" value="0" oninput="gtaCfg.glrx=+this.value;document.getElementById('gta-glrx-val').textContent=this.value;gtaRebuild()"></div>
+    </div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.04em;padding:0.3rem 0.2rem 0.15rem;border-bottom:1px solid var(--border-soft)">Demper-bounce</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.2rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0">
+        <span style="font-size:0.73rem;color:var(--text)">Bounce</span>
+        <button id="btn-bounce-toggle" onclick="gtaBounce.enabled=!gtaBounce.enabled;this.textContent=gtaBounce.enabled?'PÅ':'AV';this.style.background=gtaBounce.enabled?'rgba(22,163,74,0.12)':'rgba(220,38,38,0.10)';this.style.color=gtaBounce.enabled?'var(--dot-green)':'#dc2626';this.style.borderColor=gtaBounce.enabled?'var(--border)':'#dc2626'"
+          style="font-size:0.68rem;padding:0.22rem 0.5rem;border-radius:0.3rem;border:1px solid var(--dot-green);background:rgba(22,163,74,0.12);color:var(--dot-green);cursor:pointer;font-family:inherit">PÅ</button>
+      </div>
+      <div class="dev-slider"><label>Frekvens <span id="gta-bounce-freq-val">1.5</span> /sek</label><input type="range" min="0.5" max="10" step="0.1" value="1.5" oninput="gtaBounce.freq=+this.value;document.getElementById('gta-bounce-freq-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Amplitude <span id="gta-bounce-amp-val">0.065</span> m</label><input type="range" min="0.005" max="0.25" step="0.005" value="0.065" oninput="gtaBounce.amp=+this.value;document.getElementById('gta-bounce-amp-val').textContent=(+this.value).toFixed(3)"></div>
+      <div class="dev-slider"><label>Per-hjul fase <span id="gta-bounce-phase-val">0.00</span></label><input type="range" min="0" max="1.57" step="0.01" value="0" oninput="gtaBounce.phase=+this.value;document.getElementById('gta-bounce-phase-val').textContent=(+this.value).toFixed(2)"></div>
+    </div>
+  </div>
 
   <div class="tb-hdrop" id="drop-file" style="min-width:240px;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0.5rem 0.15rem">
@@ -558,9 +658,6 @@ body{
   <div class="tb-hdrop" id="drop-vehicle" style="min-width:220px;">
     <div style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding:0.2rem 0.5rem 0.15rem">Plasser kjøretøy</div>
     <button class="tb-hdrop-btn" id="btn-car" onclick="selectVehicle('personbil')">Personbil</button>
-    <button class="tb-hdrop-btn" onclick="selectVehicle('varebil')">Varebil</button>
-    <button class="tb-hdrop-btn" onclick="selectVehicle('lastebil')">Lastebil</button>
-    <button class="tb-hdrop-btn" onclick="selectVehicle('brannbil')">Brannbil</button>
     <div class="tb-hdrop-sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0.5rem">
       <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte</span>
@@ -568,6 +665,212 @@ body{
     </div>
     <div id="vehicle-list" style="max-height:180px;overflow-y:auto;padding:0 0.2rem"></div>
     <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
+  </div>
+
+  <div class="tb-hdrop" id="drop-analyse" style="min-width:270px;max-width:310px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
+
+    <!-- Modus -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Simuleringsmodus</div>
+    <div style="display:flex;gap:4px;padding:0.25rem 0.1rem 0.1rem">
+      <button class="ec-preset active" id="btn-mode-ball" onclick="setSimMode('ball',this)">⬤ Ball</button>
+      <button class="ec-preset" id="btn-mode-water" onclick="setSimMode('water',this)">💧 Vann</button>
+    </div>
+    <div id="sim-mode-desc" style="font-size:0.63rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem">Ball med bounce og friksjon</div>
+
+    <div class="tb-hdrop-sep"></div>
+
+    <!-- Enkeltplassering -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Enkeltplassering</div>
+    <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()" style="margin-top:0.2rem">⬤ Klikk i modell</button>
+
+    <div class="tb-hdrop-sep"></div>
+
+    <!-- Grid-regn -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Grid-regn</div>
+    <button class="tb-hdrop-btn" id="btn-ball-grid" onclick="toggleBallGrid()" style="margin-top:0.2rem">⊞ Klikk for grid-senter</button>
+    <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
+      <div class="dev-slider"><label>Tetthet (per rad) <span id="ball-grid-n-val">5</span></label>
+        <input type="range" min="2" max="20" step="1" value="5" oninput="ballCfg.gridN=+this.value;document.getElementById('ball-grid-n-val').textContent=this.value;rebuildGridGhost()"></div>
+      <div class="dev-slider"><label>Grid-størrelse <span id="ball-grid-size-val">10</span> m</label>
+        <input type="range" min="1" max="100" step="1" value="10" oninput="ballCfg.gridSize=+this.value;document.getElementById('ball-grid-size-val').textContent=this.value;rebuildGridGhost()"></div>
+      <div class="dev-slider"><label>Slipphøyde <span id="ball-drop-h-val">10</span> m</label>
+        <input type="range" min="1" max="200" step="1" value="10" oninput="ballCfg.dropHeight=+this.value;document.getElementById('ball-drop-h-val').textContent=this.value"></div>
+    </div>
+
+    <div class="tb-hdrop-sep"></div>
+
+    <!-- Partikkel-egenskaper -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Partikkel-egenskaper</div>
+    <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
+      <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
+        <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
+      <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
+        <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
+      <div class="dev-slider"><label>Stripelengde <span id="ball-trail-len-val">100</span> pkt</label>
+        <input type="range" min="5" max="500" step="5" value="100" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-fade-val">8</span> s</label>
+        <input type="range" min="1" max="60" step="1" value="8" oninput="ballCfg.trailFade=+this.value;document.getElementById('ball-trail-fade-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">2.0</span> s</label>
+        <input type="range" min="0.5" max="10" step="0.5" value="2" oninput="ballCfg.sleepDelay=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
+        <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
+    </div>
+
+    <div class="tb-hdrop-sep"></div>
+
+    <!-- Plasserte -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
+      <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+    </div>
+    <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
+    <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
+  </div>
+
+  <div class="tb-hdrop" id="drop-gamemode" style="min-width:280px;max-width:320px;max-height:85vh;overflow-y:auto;padding:0.45rem 0.4rem;">
+    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">GameMode</div>
+
+    <!-- ── KAMERAVISNING ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
+    <div style="display:flex;flex-direction:column;gap:2px;padding:0.2rem 0">
+      <button class="tb-hdrop-btn active" id="cam-3rd-free" onclick="setCarCam('3rd-free')" style="font-size:0.73rem">3. person — frivinkel</button>
+      <button class="tb-hdrop-btn" id="cam-3rd-locked" onclick="setCarCam('3rd-locked')" style="font-size:0.73rem">3. person — låst vinkel</button>
+      <button class="tb-hdrop-btn" id="cam-1st" onclick="setCarCam('1st')" style="font-size:0.73rem">1. person — førersete</button>
+    </div>
+
+    <!-- ── FYSIKK ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Fysikk</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+      <div class="dev-slider"><label>Gravitasjon <span id="dev-grav-val">20</span> m/s²</label><input type="range" min="0" max="50" step="0.5" value="20" oninput="carPhys.gravity=+this.value;document.getElementById('dev-grav-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Akselerasjon <span id="dev-accel-val">15</span> m/s²</label><input type="range" min="1" max="50" step="0.5" value="15" oninput="carPhys.accel=+this.value;document.getElementById('dev-accel-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Friksjon/brems <span id="dev-brake-val">56</span> m/s²</label><input type="range" min="1" max="60" step="0.5" value="56" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label><input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Styrefølsomhet <span id="dev-steer-val">2.5</span> rad/s</label><input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value"></div>
+      <div class="tb-hdrop-sep" style="margin:0.1rem 0"></div>
+      <div style="font-size:0.58rem;color:var(--muted)">Helning (4-punkt hjul)</div>
+      <div class="dev-slider"><label>Tilt smoothing <span id="dev-tilt-smooth-val">0.50</span></label><input type="range" min="0.01" max="0.5" step="0.01" value="0.50" oninput="carPhys.tiltSmooth=+this.value;document.getElementById('dev-tilt-smooth-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Maks tilt <span id="dev-tilt-max-val">33</span>°</label><input type="range" min="5" max="60" step="1" value="33" oninput="carPhys.maxTiltDeg=+this.value;document.getElementById('dev-tilt-max-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Tilt-terskel <span id="dev-tilt-thresh-val">10</span>°</label><input type="range" min="0" max="30" step="1" value="10" oninput="carPhys.tiltThreshDeg=+this.value;document.getElementById('dev-tilt-thresh-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Ray-høyde over bil <span id="dev-ray-h-val">2.9</span> m</label><input type="range" min="0.5" max="10" step="0.1" value="2.9" oninput="carPhys.rayHeight=+this.value;document.getElementById('dev-ray-h-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="tb-hdrop-sep" style="margin:0.1rem 0"></div>
+      <div style="font-size:0.58rem;color:var(--muted)">Fjæring / dempere</div>
+      <div class="dev-slider"><label>Fjærstivhet <span id="dev-susp-k-val">60</span></label><input type="range" min="1" max="60" step="1" value="60" oninput="carPhys.suspStiffness=+this.value;document.getElementById('dev-susp-k-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Demping <span id="dev-susp-d-val">20</span></label><input type="range" min="0" max="20" step="0.5" value="20" oninput="carPhys.suspDamping=+this.value;document.getElementById('dev-susp-d-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Slaglengde <span id="dev-susp-t-val">1.00</span> m</label><input type="range" min="0.05" max="1.0" step="0.05" value="1.00" oninput="carPhys.suspTravel=+this.value;document.getElementById('dev-susp-t-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Hvilehøyde <span id="dev-susp-r-val">0.00</span> m</label><input type="range" min="0" max="0.5" step="0.01" value="0.00" oninput="carPhys.suspRest=+this.value;document.getElementById('dev-susp-r-val').textContent=(+this.value).toFixed(2)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0">
+        <span style="font-size:0.73rem;color:var(--text)">Pitch-retning</span>
+        <div style="display:flex;gap:3px">
+          <button id="btn-pitch-pos" onclick="carPhys.pitchSign=1;document.getElementById('btn-pitch-pos').classList.add('active');document.getElementById('btn-pitch-neg').classList.remove('active')" class="tb-hdrop-btn active" style="padding:0.1rem 0.4rem;font-size:0.68rem">+</button>
+          <button id="btn-pitch-neg" onclick="carPhys.pitchSign=-1;document.getElementById('btn-pitch-neg').classList.add('active');document.getElementById('btn-pitch-pos').classList.remove('active')" class="tb-hdrop-btn" style="padding:0.1rem 0.4rem;font-size:0.68rem">−</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0">
+        <span style="font-size:0.73rem;color:var(--text)">Roll-retning</span>
+        <div style="display:flex;gap:3px">
+          <button id="btn-roll-pos" onclick="carPhys.rollSign=1;document.getElementById('btn-roll-pos').classList.add('active');document.getElementById('btn-roll-neg').classList.remove('active')" class="tb-hdrop-btn active" style="padding:0.1rem 0.4rem;font-size:0.68rem">+</button>
+          <button id="btn-roll-neg" onclick="carPhys.rollSign=-1;document.getElementById('btn-roll-neg').classList.add('active');document.getElementById('btn-roll-pos').classList.remove('active')" class="tb-hdrop-btn" style="padding:0.1rem 0.4rem;font-size:0.68rem">−</button>
+        </div>
+      </div>
+      <div id="tilt-debug" style="font-family:monospace;font-size:0.6rem;color:var(--muted);background:var(--btn-bg);border-radius:0.3rem;padding:0.3rem 0.4rem;line-height:1.7;display:none">
+        <div>FL <span id="td-fl">—</span>  FR <span id="td-fr">—</span></div>
+        <div>RL <span id="td-rl">—</span>  RR <span id="td-rr">—</span></div>
+        <div>Pitch <span id="td-pitch">—</span>°  Roll <span id="td-roll">—</span>°</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0;cursor:pointer" onclick="const d=document.getElementById('tilt-debug');d.style.display=d.style.display==='none'?'block':'none'">
+        <span style="font-size:0.68rem;color:var(--muted)">Vis hjørne-debug</span>
+        <span style="font-size:0.6rem;color:var(--muted)">▾</span>
+      </div>
+    </div>
+
+    <!-- ── KAMERA 3. PERSON ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 3. person</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+      <div class="dev-slider"><label>Avstand <span id="dev-camdist-val">8</span> m</label><input type="range" min="2" max="40" step="0.5" value="8" id="dev-camdist-slider" oninput="carCamDist=+this.value;document.getElementById('dev-camdist-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Høyde <span id="dev-camht-val">1.5</span> m</label><input type="range" min="0" max="10" step="0.1" value="1.5" oninput="carPhys.camHeight=+this.value;document.getElementById('dev-camht-val').textContent=this.value"></div>
+    </div>
+
+    <!-- ── KAMERA 1. PERSON ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 1. person</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+      <div class="dev-slider"><label>Sete X <span id="dev-fp-x-val">0.00</span> m</label><input type="range" min="-1.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffX=+this.value;document.getElementById('dev-fp-x-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Sete Y <span id="dev-fp-y-val">0.00</span> m</label><input type="range" min="-0.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffY=+this.value;document.getElementById('dev-fp-y-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Sete Z <span id="dev-fp-z-val">0.00</span> m</label><input type="range" min="-3" max="3" step="0.05" value="0" oninput="carPhys.fpOffZ=+this.value;document.getElementById('dev-fp-z-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>FOV <span id="dev-fp-fov-val">75</span>°</label><input type="range" min="40" max="120" step="1" value="75" oninput="carPhys.fpFov=+this.value;document.getElementById('dev-fp-fov-val').textContent=this.value"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleCarSeeThrough()">
+        <span style="font-size:0.73rem;color:var(--text)">Se gjennom bil</span>
+        <span id="dev-seethrough-status" style="font-size:0.68rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      </div>
+    </div>
+
+    <!-- ── DIMENSJONER ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Dimensjoner</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+      <div class="dev-slider"><label>Lengde <span id="dev-carlen-val">4.2</span> m</label><input type="range" min="2" max="12" step="0.1" value="4.2" oninput="carDims.length=+this.value;document.getElementById('dev-carlen-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Bredde <span id="dev-carw-val">2.0</span> m</label><input type="range" min="1" max="5" step="0.1" value="2.0" oninput="carDims.width=+this.value;document.getElementById('dev-carw-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Karosseri høyde <span id="dev-carh-val">0.7</span> m</label><input type="range" min="0.3" max="2" step="0.05" value="0.7" oninput="carDims.bodyH=+this.value;document.getElementById('dev-carh-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Kabin høyde <span id="dev-cabh-val">0.6</span> m</label><input type="range" min="0.2" max="1.5" step="0.05" value="0.6" oninput="carDims.cabH=+this.value;document.getElementById('dev-cabh-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Hjulradius <span id="dev-wheelr-val">0.35</span> m</label><input type="range" min="0.15" max="1.0" step="0.01" value="0.35" oninput="carDims.wheelR=+this.value;document.getElementById('dev-wheelr-val').textContent=this.value;rebuildActiveCar()"></div>
+      <div class="dev-slider"><label>Hjulbredde <span id="dev-wheelw-val">0.25</span> m</label><input type="range" min="0.1" max="0.8" step="0.01" value="0.25" oninput="carDims.wheelW=+this.value;document.getElementById('dev-wheelw-val').textContent=this.value;rebuildActiveCar()"></div>
+    </div>
+
+    <!-- ── SPILLKONTROLLER ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Spillkontroller (Gamepad)</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+      <div style="display:flex;gap:4px;align-items:center">
+        <div id="dev-xbox-status" style="flex:1;font-size:0.7rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ikke tilkoblet</div>
+        <button id="btn-gamepad-toggle" onclick="toggleGamepadEnabled()" style="font-size:0.68rem;padding:0.22rem 0.5rem;border-radius:0.3rem;border:1px solid #dc2626;background:rgba(220,38,38,0.10);color:#dc2626;cursor:pointer;flex-shrink:0;font-family:inherit;white-space:nowrap">AV</button>
+      </div>
+      <div id="dev-gamepad-picker" style="display:none;flex-direction:column;gap:0.2rem">
+        <div style="font-size:0.63rem;color:var(--muted);padding:0.1rem 0">Velg enhet manuelt:</div>
+        <div id="dev-gamepad-list" style="display:flex;flex-direction:column;gap:0.15rem"></div>
+      </div>
+      <button onclick="refreshGamepadList()" style="font-size:0.68rem;padding:0.2rem 0.4rem;border-radius:0.3rem;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:inherit;text-align:left">↻ Oppdater enheter</button>
+      <div style="font-size:0.63rem;color:var(--muted)">RT gass · LT brems · LX styr · RX kamera</div>
+      <div class="dev-slider"><label>Gass/brems sens. <span id="dev-xbox-accel-val">1.0</span>×</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.accelMult=+this.value;document.getElementById('dev-xbox-accel-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Styresensitivitet <span id="dev-xbox-steer-val">1.0</span>×</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.steerMult=+this.value;document.getElementById('dev-xbox-steer-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Kamerasensitivitet <span id="dev-xbox-cam-val">1.0</span>×</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.camMult=+this.value;document.getElementById('dev-xbox-cam-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Deadzone <span id="dev-xbox-dz-val">0.15</span></label><input type="range" min="0.05" max="0.4" step="0.01" value="0.15" oninput="carXbox.deadzone=+this.value;document.getElementById('dev-xbox-dz-val').textContent=(+this.value).toFixed(2)"></div>
+      <div id="dev-xbox-live" style="display:none;font-family:monospace;font-size:0.62rem;color:var(--muted);padding:0.25rem;background:var(--btn-bg);border-radius:0.3rem">LX:<span id="xl-lx">0</span> RX:<span id="xl-rx">0</span> LT:<span id="xl-lt">0</span> RT:<span id="xl-rt">0</span></div>
+    </div>
+
+    <!-- ── 3DCONNEXION SPACEMOUSE ── -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">3Dconnexion SpaceMouse</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
+
+      <!-- Status + toggle -->
+      <div style="display:flex;gap:4px;align-items:center">
+        <div id="sm-status" style="flex:1;font-size:0.7rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center">Ikke tilkoblet</div>
+        <button id="btn-sm-toggle" onclick="toggleSpacemouseEnabled()" style="font-size:0.68rem;padding:0.22rem 0.5rem;border-radius:0.3rem;border:1px solid var(--border);background:rgba(22,163,74,0.12);color:var(--dot-green);cursor:pointer;flex-shrink:0;font-family:inherit">PÅ</button>
+      </div>
+
+      <!-- Live telemetry bar -->
+      <div id="sm-live" style="display:none;font-family:monospace;font-size:0.6rem;color:var(--muted);padding:0.3rem 0.4rem;background:var(--btn-bg);border-radius:0.3rem;line-height:1.8">
+        <div style="display:grid;grid-template-columns:2rem 1fr 2.5rem;gap:0 0.3rem;align-items:center">
+          <span style="color:var(--dot-blue)">Tx</span><input type="range" min="-1" max="1" step="0.001" value="0" id="sm-bar-0" style="height:3px;accent-color:var(--dot-blue);pointer-events:none" readonly><span id="sl-tx" style="text-align:right">0.00</span>
+          <span style="color:var(--dot-blue)">Ty</span><input type="range" min="-1" max="1" step="0.001" value="0" id="sm-bar-1" style="height:3px;accent-color:var(--dot-blue);pointer-events:none" readonly><span id="sl-ty" style="text-align:right">0.00</span>
+          <span style="color:var(--dot-blue)">Tz</span><input type="range" min="-1" max="1" step="0.001" value="0" id="sm-bar-2" style="height:3px;accent-color:var(--dot-blue);pointer-events:none" readonly><span id="sl-tz" style="text-align:right">0.00</span>
+          <span style="color:var(--dot-green)">Rx</span><input type="range" min="-1" max="1" step="0.001" value="0" id="sm-bar-3" style="height:3px;accent-color:var(--dot-green);pointer-events:none" readonly><span id="sl-rx" style="text-align:right">0.00</span>
+          <span style="color:var(--dot-green)">Ry</span><input type="range" min="-1" max="1" step="0.001" value="0" id="sm-bar-4" style="height:3px;accent-color:var(--dot-green);pointer-events:none" readonly><span id="sl-ry" style="text-align:right">0.00</span>
+          <span style="color:var(--dot-green)">Rz</span><input type="range" min="-1" max="1" step="0.001" value="0" id="sm-bar-5" style="height:3px;accent-color:var(--dot-green);pointer-events:none" readonly><span id="sl-rz" style="text-align:right">0.00</span>
+        </div>
+      </div>
+
+      <div class="tb-hdrop-sep" style="margin:0.05rem 0"></div>
+
+      <!-- Axis mapper: one row per axis -->
+      <div style="font-size:0.63rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Aksekobling</div>
+      <div style="font-size:0.6rem;color:var(--muted);margin-top:-0.1rem">Akse → Funksjon · Snu · Følsomhet</div>
+
+      <div id="sm-axis-rows" style="display:flex;flex-direction:column;gap:0.3rem"></div>
+
+      <div class="tb-hdrop-sep" style="margin:0.05rem 0"></div>
+      <div class="dev-slider"><label>Deadzone (alle akser) <span id="sm-dz-val">0.10</span></label>
+        <input type="range" min="0.02" max="0.5" step="0.01" value="0.1" oninput="smCfg.deadzone=+this.value;document.getElementById('sm-dz-val').textContent=(+this.value).toFixed(2)">
+      </div>
+    </div>
+
   </div>
 
   <div class="tb-hdrop" id="drop-devtools" style="min-width:300px;max-width:340px;max-height:80vh;overflow-y:auto;padding:0.5rem 0.4rem;">
@@ -649,78 +952,12 @@ body{
       <div style="font-family:monospace;font-size:0.6rem;color:var(--muted);padding:0.2rem;background:var(--btn-bg);border-radius:0.25rem;margin-top:0.15rem" id="dev-filter-stats">Synlige: -- / -- | Skjulte: --</div>
     </div>
 
-    <div class="tb-hdrop-sep" style="margin:0.3rem 0"></div>
-    <div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.2rem">Kjøretøy</div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
-    <div style="display:flex;flex-direction:column;gap:2px;padding:0.2rem 0">
-      <button class="tb-hdrop-btn active" id="cam-3rd-free" onclick="setCarCam('3rd-free')" style="font-size:0.73rem">3. person — frivinkel</button>
-      <button class="tb-hdrop-btn" id="cam-3rd-locked" onclick="setCarCam('3rd-locked')" style="font-size:0.73rem">3. person — last vinkel</button>
-      <button class="tb-hdrop-btn" id="cam-1st" onclick="setCarCam('1st')" style="font-size:0.73rem">1. person — forersete</button>
-    </div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Fysikk</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div class="dev-slider"><label>Gravitasjon <span id="dev-grav-val">20</span> m/s2</label><input type="range" min="0" max="50" step="0.5" value="20" oninput="carPhys.gravity=+this.value;document.getElementById('dev-grav-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Akselerasjon <span id="dev-accel-val">15</span> m/s2</label><input type="range" min="1" max="50" step="0.5" value="15" oninput="carPhys.accel=+this.value;document.getElementById('dev-accel-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Friksjon/brems <span id="dev-brake-val">20</span> m/s2</label><input type="range" min="1" max="60" step="0.5" value="20" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label><input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Styrefolsomhet <span id="dev-steer-val">2.5</span> rad/s</label><input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value"></div>
-      <div class="tb-hdrop-sep" style="margin:0.15rem 0"></div>
-      <div style="font-size:0.58rem;color:var(--muted);padding:0.1rem 0">Helning (4-punkt hjul)</div>
-      <div class="dev-slider"><label>Tilt smoothing <span id="dev-tilt-smooth-val">0.15</span></label><input type="range" min="0.01" max="0.5" step="0.01" value="0.15" oninput="carPhys.tiltSmooth=+this.value;document.getElementById('dev-tilt-smooth-val').textContent=(+this.value).toFixed(2)"></div>
-      <div class="dev-slider"><label>Maks tilt vinkel <span id="dev-tilt-max-val">30</span> grader</label><input type="range" min="5" max="60" step="1" value="30" oninput="carPhys.maxTiltDeg=+this.value;document.getElementById('dev-tilt-max-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Ray hoyde over bil <span id="dev-ray-h-val">2.0</span> m</label><input type="range" min="0.5" max="10" step="0.1" value="2" oninput="carPhys.rayHeight=+this.value;document.getElementById('dev-ray-h-val').textContent=(+this.value).toFixed(1)"></div>
-    </div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 3. person</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div class="dev-slider"><label>Avstand <span id="dev-camdist-val">8</span> m</label><input type="range" min="2" max="40" step="0.5" value="8" id="dev-camdist-slider" oninput="carCamDist=+this.value;document.getElementById('dev-camdist-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Hoyde <span id="dev-camht-val">1.5</span> m</label><input type="range" min="0" max="10" step="0.1" value="1.5" oninput="carPhys.camHeight=+this.value;document.getElementById('dev-camht-val').textContent=this.value"></div>
-    </div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 1. person</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div class="dev-slider"><label>Sete X-offset <span id="dev-fp-x-val">0.00</span> m</label><input type="range" min="-1.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffX=+this.value;document.getElementById('dev-fp-x-val').textContent=(+this.value).toFixed(2)"></div>
-      <div class="dev-slider"><label>Sete Y-offset <span id="dev-fp-y-val">0.00</span> m</label><input type="range" min="-0.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffY=+this.value;document.getElementById('dev-fp-y-val').textContent=(+this.value).toFixed(2)"></div>
-      <div class="dev-slider"><label>Sete Z-offset <span id="dev-fp-z-val">0.00</span> m</label><input type="range" min="-3" max="3" step="0.05" value="0" oninput="carPhys.fpOffZ=+this.value;document.getElementById('dev-fp-z-val').textContent=(+this.value).toFixed(2)"></div>
-      <div class="dev-slider"><label>Synsfelt (FOV) <span id="dev-fp-fov-val">75</span></label><input type="range" min="40" max="120" step="1" value="75" oninput="carPhys.fpFov=+this.value;document.getElementById('dev-fp-fov-val').textContent=this.value"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0;cursor:pointer" onclick="toggleCarSeeThrough()">
-        <span style="font-size:0.73rem;color:var(--text)">Se gjennom bil</span>
-        <span id="dev-seethrough-status" style="font-size:0.68rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
-      </div>
-    </div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Dimensjoner</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div class="dev-slider"><label>Lengde <span id="dev-carlen-val">4.2</span> m</label><input type="range" min="2" max="12" step="0.1" value="4.2" oninput="carDims.length=+this.value;document.getElementById('dev-carlen-val').textContent=this.value;rebuildActiveCar()"></div>
-      <div class="dev-slider"><label>Bredde <span id="dev-carw-val">2.0</span> m</label><input type="range" min="1" max="5" step="0.1" value="2.0" oninput="carDims.width=+this.value;document.getElementById('dev-carw-val').textContent=this.value;rebuildActiveCar()"></div>
-      <div class="dev-slider"><label>Karosseri hoyde <span id="dev-carh-val">0.7</span> m</label><input type="range" min="0.3" max="2" step="0.05" value="0.7" oninput="carDims.bodyH=+this.value;document.getElementById('dev-carh-val').textContent=this.value;rebuildActiveCar()"></div>
-      <div class="dev-slider"><label>Kabin hoyde <span id="dev-cabh-val">0.6</span> m</label><input type="range" min="0.2" max="1.5" step="0.05" value="0.6" oninput="carDims.cabH=+this.value;document.getElementById('dev-cabh-val').textContent=this.value;rebuildActiveCar()"></div>
-    </div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Hjul</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div class="dev-slider"><label>Hjulradius <span id="dev-wheelr-val">0.35</span> m</label><input type="range" min="0.15" max="1.0" step="0.01" value="0.35" oninput="carDims.wheelR=+this.value;document.getElementById('dev-wheelr-val').textContent=this.value;rebuildActiveCar()"></div>
-      <div class="dev-slider"><label>Hjulbredde <span id="dev-wheelw-val">0.25</span> m</label><input type="range" min="0.1" max="0.8" step="0.01" value="0.25" oninput="carDims.wheelW=+this.value;document.getElementById('dev-wheelw-val').textContent=this.value;rebuildActiveCar()"></div>
-    </div>
-
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.5rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Xbox-kontroller</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div id="dev-xbox-status" style="font-size:0.7rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center">Ikke tilkoblet</div>
-      <div style="font-size:0.63rem;color:var(--muted);padding:0.1rem 0">RT gass - LT brems - LX styr - RX kamera</div>
-      <div class="dev-slider"><label>Gass/brems sens. <span id="dev-xbox-accel-val">1.0</span>x</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.accelMult=+this.value;document.getElementById('dev-xbox-accel-val').textContent=(+this.value).toFixed(1)"></div>
-      <div class="dev-slider"><label>Styresensitivitet <span id="dev-xbox-steer-val">1.0</span>x</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.steerMult=+this.value;document.getElementById('dev-xbox-steer-val').textContent=(+this.value).toFixed(1)"></div>
-      <div class="dev-slider"><label>Kamerasensitivitet <span id="dev-xbox-cam-val">1.0</span>x</label><input type="range" min="0.2" max="3" step="0.1" value="1" oninput="carXbox.camMult=+this.value;document.getElementById('dev-xbox-cam-val').textContent=(+this.value).toFixed(1)"></div>
-      <div class="dev-slider"><label>Deadzone <span id="dev-xbox-dz-val">0.15</span></label><input type="range" min="0.05" max="0.4" step="0.01" value="0.15" oninput="carXbox.deadzone=+this.value;document.getElementById('dev-xbox-dz-val').textContent=(+this.value).toFixed(2)"></div>
-      <div id="dev-xbox-live" style="display:none;font-family:monospace;font-size:0.62rem;color:var(--muted);padding:0.25rem;background:var(--btn-bg);border-radius:0.3rem;margin-top:0.2rem">LX:<span id="xl-lx">0</span> RX:<span id="xl-rx">0</span> LT:<span id="xl-lt">0</span> RT:<span id="xl-rt">0</span></div>
-    </div>
-
   </div>
 
 
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.5.23/build/index.umd.js"></script>
 <script type="module">
 import {IfcAPI} from 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/web-ifc-api.js';
 
@@ -932,6 +1169,7 @@ window.addEventListener('mouseup',e=>{
 
 // Scroll zoom
 tc.addEventListener('wheel',e=>{
+  if(carDriving){e.preventDefault();return;}
   orb.sph.radius=Math.max(0.01,orb.sph.radius*(1+e.deltaY*0.001));
   applyOrb();
   e.preventDefault();
@@ -1010,6 +1248,7 @@ function registerModel(group,name,expressIDs,modelId,fileSize){
   activeModelId=id;
   refreshModelListUI();
   updateInfoBar();
+  markBvhDirty();
   return m;
 }
 
@@ -1023,6 +1262,7 @@ function removeModel(id){
   if(models.length>0) activeModelId=models[models.length-1].id;
   else activeModelId=null;
   refreshModelListUI();updateInfoBar();
+  markBvhDirty();
   if(models.length===0){document.getElementById('drop-zone').classList.remove('hidden');}
 }
 
@@ -1967,12 +2207,13 @@ const VEHICLE_PRESETS={
 let activeVehicleType='personbil';
 
 // ── Configurable parameters (bound to devtools sliders) ──
-const carPhys={gravity:20,accel:18,brake:20,maxSpeed:30,steerSpeed:2.5,camHeight:1.5,
+const carPhys={gravity:20,accel:18,brake:56,maxSpeed:30,steerSpeed:2.5,camHeight:1.5,
   fpOffX:0,fpOffY:0,fpOffZ:0,fpFov:75,
-  tiltSmooth:0.15,maxTiltDeg:30,rayHeight:2};
+  tiltSmooth:0.50,maxTiltDeg:33,rayHeight:2.9,pitchSign:1,rollSign:1,
+  suspStiffness:60,suspDamping:20,suspTravel:1.0,suspRest:0.0,tiltThreshDeg:10};
 const carDims={length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
   bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7};
-const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connected:false};
+const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connected:false,disabled:true};
 let carSeeThrough=false;
 window.carPhys=carPhys;window.carDims=carDims;window.carXbox=carXbox;
 
@@ -2126,21 +2367,39 @@ function buildCarModel(ghost){
   }
 
   // Wheels — extra axle for long vehicles
-  const wheelGeo=new THREE.CylinderGeometry(d.wheelR,d.wheelR,d.wheelW,12);
+  const wheelGeo=new THREE.CylinderGeometry(d.wheelR,d.wheelR,d.wheelW,24);
   const wheelMat=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.9,metalness:0.1,transparent:!!ghost,opacity:ghost?0.3:1});
   const wx=d.width/2+d.wheelW/2-0.05;
   const frontZ=d.length*0.35;
   const rearZ=-d.length*0.35;
-  const axles=[[frontZ],[rearZ]];
-  // Add middle axle for long vehicles
-  if(d.length>=8) axles[1].push(rearZ+d.wheelR*2.5);
-  for(const zArr of axles){
-    for(const z of zArr){
-      [[-wx,d.wheelR,z],[wx,d.wheelR,z]].forEach(([x,y,zz])=>{
-        const w=new THREE.Mesh(wheelGeo,wheelMat);
-        w.rotation.z=Math.PI/2;w.position.set(x,y,zz);g.add(w);
-      });
-    }
+  
+  // FREMHJUL (svingbare) - legg til pivot-grupper
+  g.userData.frontWheels=[];
+  [[-wx,d.wheelR,frontZ],[wx,d.wheelR,frontZ]].forEach(([x,y,z])=>{
+    const pivot=new THREE.Group();
+    pivot.position.set(x,y,z);
+    const w=new THREE.Mesh(wheelGeo,wheelMat);
+    w.rotation.z=Math.PI/2;
+    pivot.add(w);
+    g.add(pivot);
+    g.userData.frontWheels.push(pivot);
+  });
+  
+  // BAKHJUL — pivot-grupper for fjæring
+  g.userData.rearWheelPivots=[];
+  const rearAxles=[rearZ];
+  if(d.length>=8) rearAxles.push(rearZ+d.wheelR*2.5);
+  for(const z of rearAxles){
+    [[-wx,d.wheelR,z],[wx,d.wheelR,z]].forEach(([x,y,zz],idx)=>{
+      const pivot=new THREE.Group();
+      pivot.position.set(x,y,zz);
+      const w=new THREE.Mesh(wheelGeo,wheelMat);
+      w.rotation.z=Math.PI/2;
+      pivot.add(w);
+      g.add(pivot);
+      // Only store first axle pivots (FL→RL, FR→RR mapping)
+      if(rearAxles.indexOf(z)===0) g.userData.rearWheelPivots.push(pivot);
+    });
   }
 
   // Headlights
@@ -2194,24 +2453,282 @@ function applyCarVisibility(){
   }
 }
 
-// ── Xbox gamepad for car ──
+// ── Gamepad for car ──
 window.addEventListener('gamepadconnected',e=>{
-  const id=e.gamepad.id.toLowerCase();
+  if(carXbox.disabled) return; // user has disabled gamepad input
+  // Auto-connect only if no device is already active
+  if(carXbox.connected) return;
   carXbox.index=e.gamepad.index;
   carXbox.connected=true;
-  const status=document.getElementById('dev-xbox-status');
-  if(status){status.textContent=e.gamepad.id.split('(')[0]||'Kontroller tilkoblet';status.style.background='rgba(22,163,74,0.15)';status.style.color='var(--dot-green)';}
-  const live=document.getElementById('dev-xbox-live');if(live)live.style.display='block';
-  console.log('Car Xbox connected:',e.gamepad.id);
+  updateGamepadStatusUI(e.gamepad.id);
+  refreshGamepadList();
+  console.log('Gamepad connected:',e.gamepad.id);
 });
 window.addEventListener('gamepaddisconnected',e=>{
+  refreshGamepadList();
   if(carXbox.index===e.gamepad.index){
     carXbox.connected=false;carXbox.index=null;
     const status=document.getElementById('dev-xbox-status');
-    if(status){status.textContent='Ikke tilkoblet';status.style.background='var(--btn-bg)';status.style.color='var(--muted)';}
+    if(status){status.textContent='Frakoblet';status.style.background='var(--btn-bg)';status.style.color='var(--muted)';}
     const live=document.getElementById('dev-xbox-live');if(live)live.style.display='none';
   }
 });
+
+function updateGamepadStatusUI(name){
+  const status=document.getElementById('dev-xbox-status');
+  if(!status) return;
+  if(carXbox.disabled){
+    status.textContent='Deaktivert';
+    status.style.background='rgba(220,38,38,0.10)';
+    status.style.color='#dc2626';
+  } else if(carXbox.connected&&name){
+    // Trim long device names (Jabra headsets have very long IDs)
+    const short=(name.split('(')[0]||name).trim().slice(0,32);
+    status.textContent=short;
+    status.style.background='rgba(22,163,74,0.15)';
+    status.style.color='var(--dot-green)';
+  } else {
+    status.textContent='Ikke tilkoblet';
+    status.style.background='var(--btn-bg)';
+    status.style.color='var(--muted)';
+  }
+}
+
+function toggleGamepadEnabled(){
+  carXbox.disabled=!carXbox.disabled;
+  const btn=document.getElementById('btn-gamepad-toggle');
+  if(btn){
+    btn.textContent=carXbox.disabled?'AV':'PÅ';
+    btn.style.background=carXbox.disabled?'rgba(220,38,38,0.10)':'rgba(22,163,74,0.12)';
+    btn.style.color=carXbox.disabled?'#dc2626':'var(--dot-green)';
+    btn.style.borderColor=carXbox.disabled?'#dc2626':'var(--border)';
+  }
+  if(carXbox.disabled){
+    // Disconnect active gamepad
+    carXbox.connected=false;
+    const live=document.getElementById('dev-xbox-live');if(live)live.style.display='none';
+  }
+  updateGamepadStatusUI(null);
+  refreshGamepadList();
+}
+window.toggleGamepadEnabled=toggleGamepadEnabled;
+
+function refreshGamepadList(){
+  const picker=document.getElementById('dev-gamepad-picker');
+  const list=document.getElementById('dev-gamepad-list');
+  if(!list) return;
+  const gps=navigator.getGamepads?Array.from(navigator.getGamepads()).filter(Boolean):[];
+  if(gps.length===0){
+    if(picker) picker.style.display='none';
+    return;
+  }
+  if(picker) picker.style.display='flex';
+  list.innerHTML=gps.map(gp=>{
+    const isActive=!carXbox.disabled&&carXbox.index===gp.index&&carXbox.connected;
+    const shortName=(gp.id.split('(')[0]||gp.id).trim().slice(0,36);
+    return `<button onclick="selectGamepad(${gp.index})" style="
+      font-size:0.67rem;padding:0.22rem 0.45rem;border-radius:0.3rem;text-align:left;
+      border:1px solid ${isActive?'var(--dot-green)':'var(--border)'};
+      background:${isActive?'rgba(22,163,74,0.12)':'var(--btn-bg)'};
+      color:${isActive?'var(--dot-green)':'var(--text)'};
+      cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    " title="${gp.id}">${isActive?'✓ ':''}${shortName} <span style="color:var(--muted);font-size:0.6rem">[${gp.axes.length}ax ${gp.buttons.length}btn]</span></button>`;
+  }).join('');
+}
+window.refreshGamepadList=refreshGamepadList;
+
+function selectGamepad(index){
+  if(carXbox.disabled){
+    // Re-enable when user explicitly picks a device
+    carXbox.disabled=false;
+    const btn=document.getElementById('btn-gamepad-toggle');
+    if(btn){btn.textContent='PÅ';btn.style.background='rgba(22,163,74,0.12)';btn.style.color='var(--dot-green)';btn.style.borderColor='var(--border)';}
+  }
+  const gps=navigator.getGamepads?navigator.getGamepads():[];
+  const gp=gps[index];
+  if(!gp) return;
+  carXbox.index=index;
+  carXbox.connected=true;
+  updateGamepadStatusUI(gp.id);
+  const live=document.getElementById('dev-xbox-live');if(live)live.style.display='block';
+  refreshGamepadList();
+}
+window.selectGamepad=selectGamepad;
+
+// ═══════════════════════════════ 3DCONNEXION SPACEMOUSE ══════════════════════
+// 6 DOF axes via Gamepad API: 0=Tx  1=Ty  2=Tz  3=Rx  4=Ry  5=Rz
+// All axes fully user-configurable via smCfg.axisMap
+
+const SM_FUNCTIONS = ['ingen','gass','brems','styring','kamera-pitch','kamera-yaw'];
+const SM_FN_LABELS = {ingen:'Ingen','gass':'Gass / brems','brems':'Kun brems','styring':'Styring','kamera-pitch':'Kamera pitch','kamera-yaw':'Kamera yaw'};
+const SM_AXIS_LABELS = ['Tx  skyv L/R','Ty  skyv opp/ned','Tz  skyv frem/bak','Rx  tilt frem/bak','Ry  roter L/R','Rz  velt L/R'];
+
+const smCfg = {
+  disabled: false,
+  index:    null,
+  deadzone: 0.10,
+  axisMap: [
+    {fn:'ingen',   invert:false, sens:1.0}, // Tx
+    {fn:'gass',    invert:true,  sens:1.0}, // Ty
+    {fn:'ingen',   invert:false, sens:1.0}, // Tz
+    {fn:'ingen',   invert:false, sens:1.0}, // Rx
+    {fn:'ingen',   invert:false, sens:1.0}, // Ry
+    {fn:'styring', invert:false, sens:1.0}, // Rz
+  ]
+};
+window.smCfg = smCfg;
+
+const SM_VENDORS = ['3dconnexion','spacemouse','space mouse','spacepilot','spacenavigator','spaceexplorer','connexion'];
+
+function isSpaceMouse(gp){
+  if(!gp) return false;
+  const id=gp.id.toLowerCase();
+  return SM_VENDORS.some(v=>id.includes(v)) || id.includes('256f') ||
+         (gp.axes.length>=6 && gp.buttons.length<=4 && id.includes('hid'));
+}
+
+function smApplyDeadzone(v){
+  const dz=smCfg.deadzone;
+  if(Math.abs(v)<dz) return 0;
+  return (v-Math.sign(v)*dz)/(1-dz);
+}
+
+// Build axis-mapper rows dynamically
+function buildSmAxisRows(){
+  const container=document.getElementById('sm-axis-rows');
+  if(!container) return;
+  container.innerHTML=smCfg.axisMap.map((ax,i)=>`
+    <div style="display:flex;flex-direction:column;gap:0.1rem;padding:0.22rem 0.3rem;border:1px solid var(--border-soft);border-radius:0.35rem;background:var(--btn-bg)">
+      <div style="display:flex;align-items:center;gap:0.25rem">
+        <span style="font-size:0.62rem;font-weight:700;color:${i<3?'var(--dot-blue)':'var(--dot-green)'};min-width:1.8rem;flex-shrink:0">${['Tx','Ty','Tz','Rx','Ry','Rz'][i]}</span>
+        <span style="font-size:0.6rem;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${SM_AXIS_LABELS[i].split('  ')[1]||''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.25rem">
+        <select onchange="smCfg.axisMap[${i}].fn=this.value" style="flex:1;font-size:0.65rem;padding:0.15rem 0.2rem;border-radius:0.25rem;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-family:inherit">
+          ${SM_FUNCTIONS.map(f=>`<option value="${f}"${ax.fn===f?' selected':''}>${SM_FN_LABELS[f]}</option>`).join('')}
+        </select>
+        <label title="Inverter" style="display:flex;align-items:center;gap:0.15rem;font-size:0.65rem;color:var(--muted);cursor:pointer;flex-shrink:0;white-space:nowrap">
+          <input type="checkbox" ${ax.invert?'checked':''} onchange="smCfg.axisMap[${i}].invert=this.checked" style="cursor:pointer;margin:0">↕
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.25rem">
+        <span style="font-size:0.6rem;color:var(--muted);min-width:1.8rem">sens</span>
+        <input type="range" min="0.1" max="5" step="0.05" value="${ax.sens}"
+          oninput="smCfg.axisMap[${i}].sens=+this.value;this.nextElementSibling.textContent=(+this.value).toFixed(2)"
+          style="flex:1;accent-color:var(--dot-blue);height:3px">
+        <span style="font-size:0.6rem;color:var(--muted);min-width:2rem;text-align:right">${ax.sens.toFixed(2)}</span>
+      </div>
+    </div>`).join('');
+}
+window.buildSmAxisRows=buildSmAxisRows;
+
+function toggleSpacemouseEnabled(){
+  smCfg.disabled=!smCfg.disabled;
+  const btn=document.getElementById('btn-sm-toggle');
+  if(btn){
+    btn.textContent   =smCfg.disabled?'AV':'PÅ';
+    btn.style.background  =smCfg.disabled?'rgba(220,38,38,0.10)':'rgba(22,163,74,0.12)';
+    btn.style.color       =smCfg.disabled?'#dc2626':'var(--dot-green)';
+    btn.style.borderColor =smCfg.disabled?'#dc2626':'var(--border)';
+  }
+  if(smCfg.disabled){smCfg.index=null;updateSmStatusUI('Deaktivert',false);}
+  else detectSpaceMouse();
+}
+window.toggleSpacemouseEnabled=toggleSpacemouseEnabled;
+
+function updateSmStatusUI(label,connected){
+  const el=document.getElementById('sm-status');
+  const live=document.getElementById('sm-live');
+  if(!el) return;
+  if(smCfg.disabled){
+    el.textContent='Deaktivert';el.style.background='rgba(220,38,38,0.08)';el.style.color='#dc2626';
+    if(live)live.style.display='none';return;
+  }
+  if(connected){
+    el.textContent=(label||'SpaceMouse').split('(')[0].trim().slice(0,30);
+    el.style.background='rgba(22,163,74,0.12)';el.style.color='var(--dot-green)';
+    if(live)live.style.display='block';
+  } else {
+    el.textContent=label||'Ikke tilkoblet';el.style.background='var(--btn-bg)';el.style.color='var(--muted)';
+    if(live)live.style.display='none';
+  }
+}
+
+function detectSpaceMouse(){
+  if(smCfg.disabled) return false;
+  const gps=navigator.getGamepads?navigator.getGamepads():[];
+  for(let i=0;i<gps.length;i++){
+    if(gps[i]&&isSpaceMouse(gps[i])){
+      smCfg.index=i;updateSmStatusUI(gps[i].id,true);
+      console.log('SpaceMouse:',gps[i].id);return true;
+    }
+  }
+  return false;
+}
+
+window.addEventListener('gamepadconnected',e=>{
+  if(isSpaceMouse(e.gamepad)&&!smCfg.disabled){smCfg.index=e.gamepad.index;updateSmStatusUI(e.gamepad.id,true);}
+});
+window.addEventListener('gamepaddisconnected',e=>{
+  if(smCfg.index===e.gamepad.index){smCfg.index=null;updateSmStatusUI('Frakoblet',false);}
+});
+
+// ── Read all axes using user's axisMap config ──
+function readSpaceMouse(){
+  if(smCfg.disabled||smCfg.index===null) return null;
+  const gps=navigator.getGamepads?navigator.getGamepads():[];
+  let gp=gps[smCfg.index];
+  if(!gp||!isSpaceMouse(gp)){if(!detectSpaceMouse())return null;gp=gps[smCfg.index];if(!gp)return null;}
+
+  const out={gas:0,brake:0,steer:0,camYaw:0,camPitch:0};
+
+  for(let i=0;i<6;i++){
+    const ax=smCfg.axisMap[i];
+    if(ax.fn==='ingen') continue;
+    const raw=smApplyDeadzone(gp.axes[i]||0);
+    const val=(ax.invert?-raw:raw)*ax.sens;
+    switch(ax.fn){
+      case 'gass':
+        if(val>0) out.gas  =Math.min(1,Math.max(out.gas,  val));
+        else      out.brake=Math.min(1,Math.max(out.brake,-val));
+        break;
+      case 'brems':
+        out.brake=Math.min(1,Math.max(out.brake,Math.abs(val)));
+        break;
+      case 'styring':
+        if(Math.abs(val)>Math.abs(out.steer)) out.steer=Math.max(-1,Math.min(1,val));
+        break;
+      case 'kamera-pitch':
+        out.camPitch+=val*0.025;
+        break;
+      case 'kamera-yaw':
+        out.camYaw+=val*0.04;
+        break;
+    }
+  }
+
+  // Update live telemetry bars + labels
+  const ids=['sl-tx','sl-ty','sl-tz','sl-rx','sl-ry','sl-rz'];
+  const bars=['sm-bar-0','sm-bar-1','sm-bar-2','sm-bar-3','sm-bar-4','sm-bar-5'];
+  for(let i=0;i<6;i++){
+    const v=gp.axes[i]||0;
+    const ve=document.getElementById(ids[i]);  if(ve)  ve.textContent=v.toFixed(2);
+    const be=document.getElementById(bars[i]); if(be)  be.value=v;
+  }
+
+  return out;
+}
+window.readSpaceMouse=readSpaceMouse;
+
+window.addEventListener('wheel', e => {
+  if(smCfg.index !== null && !smCfg.disabled && e.target !== tc){
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, {passive: false, capture: true});
+
+// Build UI rows after DOM is ready
+document.addEventListener('DOMContentLoaded',buildSmAxisRows);
 
 function toggleCarMode(){
   if(carDriving){exitCarDriving();return;}
@@ -2291,6 +2808,7 @@ function enterCarDriving(){
   carDriving=true;
   carSpeed=0;carVelY=0;carOnGround=true;
   carTiltPitch=0;carTiltRoll=0;
+  carSusp=[0,0,0,0];carSuspVel=[0,0,0,0];
   if(carCamMode==='3rd-free') carCamYaw=0;
   carCamPitch=0.3;
   document.addEventListener('keydown',carKeyDown);
@@ -2322,6 +2840,8 @@ function exitCarDriving(){
     if(v){v.yaw=carYaw;v.mesh=carMesh;}
   }
   carMesh=null;carDrivingId=null;
+  if(_gunMesh){if(carMesh)carMesh.remove(_gunMesh);_gunMesh=null;}
+  _ctrlTimes=[];
   camera.fov=45;camera.updateProjectionMatrix();
   hintEl.classList.remove('visible');
   const cg=document.getElementById('car-info-group');if(cg)cg.style.display='none';
@@ -2442,6 +2962,7 @@ function updateCarTelemetry(){
   const posEl=document.getElementById('i-car-pos');
   const rotEl=document.getElementById('i-car-rot');
   const tiltEl=document.getElementById('i-car-tilt');
+  const steerEl=document.getElementById('i-car-steer');
   if(spdEl) spdEl.textContent=Math.abs(carSpeed).toFixed(1);
   if(zEl) zEl.textContent=p.y.toFixed(2);
   if(posEl) posEl.textContent=p.x.toFixed(1)+', '+p.y.toFixed(1)+', '+p.z.toFixed(1);
@@ -2450,6 +2971,10 @@ function updateCarTelemetry(){
     // Tilt angle from vertical
     const tiltAngle=Math.sqrt(carTiltPitch*carTiltPitch+carTiltRoll*carTiltRoll)*180/Math.PI;
     tiltEl.textContent=tiltAngle.toFixed(1)+'°';
+  }
+  if(steerEl&&carMesh.userData.steerAngle!==undefined){
+    const steerDeg=(carMesh.userData.steerAngle*180/Math.PI).toFixed(1);
+    steerEl.textContent=steerDeg+'°';
   }
 }
 
@@ -2464,6 +2989,174 @@ function carKeyUp(e){
   if(k==='w')carKeys.w=false;if(k==='a')carKeys.a=false;
   if(k==='s')carKeys.s=false;if(k==='d')carKeys.d=false;
 }
+
+// ── Lekepistol easter egg: CTRL × 3 innen 5 sek ──
+let _gunMesh=null;
+let _ctrlTimes=[];
+
+const gtaCfg={
+  gx:0.46, gy:0.02, gz:-0.41,
+  grx:-1, gry:180, grz:0,
+  uax:0.27, uay:0, uaz:0.04, ual:0.58, uarx:0, uary:0, uarz:0,
+  fax:0.53, fay:0.02, faz:-0.18, fal:0.52, farx:0, fary:79, farz:6,
+  hx:0.58, hy:0.03, hz:-0.46,
+  gbx:0.59, gby:0.25, gbz:-0.58, gbrx:0, gbry:0,
+  glx:0.59, gly:0.26, glz:-0.69, gll:0.38, glrx:0,
+};
+window.gtaCfg=gtaCfg;
+
+function _buildGunArm(){
+  const g=new THREE.Group();
+  const armMat=new THREE.MeshStandardMaterial({color:0xcc0000,roughness:0.7,metalness:0.1});
+  const gunMat=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.5,metalness:0.3});
+  const R=v=>v*Math.PI/180;
+
+  // Upper arm
+  const uaGeo=new THREE.CylinderGeometry(0.09,0.09,gtaCfg.ual,8);
+  const ua=new THREE.Mesh(uaGeo,armMat);
+  ua.rotation.set(R(gtaCfg.uarx),R(gtaCfg.uary),Math.PI/2+R(gtaCfg.uarz));
+  ua.position.set(gtaCfg.uax,gtaCfg.uay,gtaCfg.uaz);
+  g.add(ua);
+
+  // Forearm
+  const faGeo=new THREE.CylinderGeometry(0.076,0.076,gtaCfg.fal,8);
+  const fa=new THREE.Mesh(faGeo,armMat);
+  fa.rotation.set(R(gtaCfg.farx),R(gtaCfg.fary),Math.PI/2+R(gtaCfg.farz));
+  fa.position.set(gtaCfg.fax,gtaCfg.fay,gtaCfg.faz);
+  g.add(fa);
+
+  // Hand
+  const hGeo=new THREE.SphereGeometry(0.11,8,6);
+  const hand=new THREE.Mesh(hGeo,armMat);
+  hand.position.set(gtaCfg.hx,gtaCfg.hy,gtaCfg.hz);
+  g.add(hand);
+
+  // Gun body
+  const bodyGeo=new THREE.BoxGeometry(0.14,0.18,0.32);
+  const body=new THREE.Mesh(bodyGeo,gunMat);
+  body.rotation.set(R(gtaCfg.gbrx),R(gtaCfg.gbry),0);
+  body.position.set(gtaCfg.gbx,gtaCfg.gby,gtaCfg.gbz);
+  g.add(body);
+
+  // Gun grip
+  const gripGeo=new THREE.BoxGeometry(0.12,0.28,0.10);
+  const grip=new THREE.Mesh(gripGeo,gunMat);
+  grip.rotation.set(R(gtaCfg.gbrx)-0.2,R(gtaCfg.gbry),0);
+  grip.position.set(gtaCfg.gbx,gtaCfg.gby-0.16,gtaCfg.gbz+0.04);
+  g.add(grip);
+
+  // Gun barrel
+  const barrelGeo=new THREE.CylinderGeometry(0.044,0.044,gtaCfg.gll,8);
+  const barrel=new THREE.Mesh(barrelGeo,gunMat);
+  barrel.rotation.set(Math.PI/2+R(gtaCfg.glrx),0,0);
+  barrel.position.set(gtaCfg.glx,gtaCfg.gly,gtaCfg.glz);
+  g.add(barrel);
+
+  return g;
+}
+
+function gtaRebuild(){
+  if(!_gunMesh||!carMesh) return;
+  while(_gunMesh.children.length) _gunMesh.remove(_gunMesh.children[0]);
+  const fresh=_buildGunArm();
+  while(fresh.children.length){const c=fresh.children[0];fresh.remove(c);_gunMesh.add(c);}
+}
+window.gtaRebuild=gtaRebuild;
+
+function gtaApply(){
+  if(!_gunMesh) return;
+  const d=carDims;
+  const R=v=>v*Math.PI/180;
+  _gunMesh.position.set(
+    -(d.width/2+0.30)+gtaCfg.gx,
+    d.wheelR+d.bodyH+d.cabH*0.55+gtaCfg.gy,
+    d.length*0.15+gtaCfg.gz
+  );
+  _gunMesh.rotation.set(R(gtaCfg.grx),R(gtaCfg.gry),R(gtaCfg.grz));
+}
+window.gtaApply=gtaApply;
+
+function gtaMirror(){
+  // Flip the whole group 180° on Y — mirrors arm+gun to other side
+  gtaCfg.gry=(gtaCfg.gry+180)%360;
+  if(gtaCfg.gry>180) gtaCfg.gry-=360;
+  // Update the Ry slider and label
+  const sl=document.querySelector('#drop-gta input[oninput*="gtaCfg.gry"]');
+  if(sl){sl.value=gtaCfg.gry;document.getElementById('gta-gry-val').textContent=gtaCfg.gry;}
+  gtaApply();
+}
+window.gtaMirror=gtaMirror;
+
+function gtaReset(){
+  // Reset all gtaCfg to defaults and sync sliders
+  const def={gx:0.46,gy:0.02,gz:-0.41,grx:-1,gry:180,grz:0,
+    uax:0.27,uay:0,uaz:0.04,ual:0.58,uarx:0,uary:0,uarz:0,
+    fax:0.53,fay:0.02,faz:-0.18,fal:0.52,farx:0,fary:79,farz:6,
+    hx:0.58,hy:0.03,hz:-0.46,
+    gbx:0.59,gby:0.25,gbz:-0.58,gbrx:0,gbry:0,
+    glx:0.59,gly:0.26,glz:-0.69,gll:0.38,glrx:0};
+  Object.assign(gtaCfg,def);
+  // Sync all sliders in the GTA panel
+  document.querySelectorAll('#drop-gta input[type=range]').forEach(sl=>{
+    const m=sl.getAttribute('oninput').match(/gtaCfg\.(\w+)=/);
+    if(m&&def[m[1]]!==undefined){sl.value=def[m[1]];}
+  });
+  document.querySelectorAll('#drop-gta span[id^="gta-"]').forEach(sp=>{
+    const key=sp.id.replace('gta-','').replace('-val','').replace(/-([a-z])/g,(_,c)=>c.toUpperCase());
+    // map id back to cfg key
+  });
+  // Easier: just re-sync labels by iterating sliders
+  document.querySelectorAll('#drop-gta input[type=range]').forEach(sl=>{
+    const oi=sl.getAttribute('oninput');
+    const mKey=oi.match(/gtaCfg\.(\w+)=/);
+    const mEl=oi.match(/getElementById\('([^']+)'\)\.textContent/);
+    if(mKey&&mEl){
+      const el=document.getElementById(mEl[1]);
+      if(el) el.textContent=parseFloat(sl.value).toString();
+    }
+  });
+  gtaRebuild();
+  gtaApply();
+}
+window.gtaReset=gtaReset;
+
+function _toggleGun(){
+  if(!carMesh) return;
+  if(_gunMesh){
+    carMesh.remove(_gunMesh);
+    _gunMesh=null;
+    // Hide GTA toolbar button
+    const grp=document.getElementById('gta-toolbar-group');
+    const sep=document.getElementById('gta-toolbar-sep');
+    if(grp) grp.style.display='none';
+    if(sep) sep.style.display='none';
+    return;
+  }
+  _gunMesh=new THREE.Group();
+  const built=_buildGunArm();
+  while(built.children.length){const c=built.children[0];built.remove(c);_gunMesh.add(c);}
+  gtaApply();
+  carMesh.add(_gunMesh);
+  // Show GTA toolbar button
+  const grp=document.getElementById('gta-toolbar-group');
+  const sep=document.getElementById('gta-toolbar-sep');
+  if(grp) grp.style.display='';
+  if(sep) sep.style.display='';
+}
+
+function _onCarKeyDownGun(e){
+  if(!carDriving) return;
+  if(e.key==='Control'){
+    const now=Date.now();
+    _ctrlTimes=_ctrlTimes.filter(t=>now-t<5000);
+    _ctrlTimes.push(now);
+    if(_ctrlTimes.length>=3){
+      _ctrlTimes=[];
+      _toggleGun();
+    }
+  }
+}
+document.addEventListener('keydown',_onCarKeyDownGun);
 function carMouseDownH(e){
   if(e.button===0||e.button===2){carMouseDown=true;carMouseLX=e.clientX;carMouseLY=e.clientY;}
   e.preventDefault();
@@ -2554,24 +3247,36 @@ function carSampleWheelHeights(pos,yaw){
 let carTiltPitch=0;
 let carTiltRoll=0;
 
+// Per-wheel suspension: smoothed ground-contact Y for each corner [FL, FR, RL, RR]
+// Each value tracks the terrain height under that wheel with spring damping
+let carSusp=[0,0,0,0]; // current damped ground-Y per wheel
+let carSuspVel=[0,0,0,0]; // velocity for spring simulation
+
+// ── GTA bounce ──
+const gtaBounce={enabled:true, freq:1.5, amp:0.065, phase:0.0};
+window.gtaBounce=gtaBounce;
+let _bounceT=0; // time accumulator
+
 // ── Physics update ──
 function updateCar(dt){
   if(!carDriving||!carMesh) return;
   const P=carPhys;
 
   // Poll for gamepad (fallback if gamepadconnected event missed)
-  if(!carXbox.connected){
+  if(!carXbox.connected&&!carXbox.disabled){
     const gps=navigator.getGamepads?navigator.getGamepads():[];
     for(let i=0;i<gps.length;i++){
-      if(gps[i]&&gps[i].axes.length>=4&&gps[i].buttons.length>=8){
+      if(gps[i]&&gps[i].axes.length>=4&&gps[i].buttons.length>=8&&!isSpaceMouse(gps[i])){
         carXbox.index=i;carXbox.connected=true;
-        const status=document.getElementById('dev-xbox-status');
-        if(status){status.textContent=gps[i].id.split('(')[0]||'Kontroller';status.style.background='rgba(22,163,74,0.15)';status.style.color='var(--dot-green)';}
+        updateGamepadStatusUI(gps[i].id);
         const live=document.getElementById('dev-xbox-live');if(live)live.style.display='block';
+        refreshGamepadList();
         break;
       }
     }
   }
+  // Poll for SpaceMouse
+  if(smCfg.index===null&&!smCfg.disabled) detectSpaceMouse();
 
   // ── Gather input from keyboard + Xbox ──
   let inputSteer=0; // -1 left, +1 right
@@ -2586,7 +3291,7 @@ function updateCar(dt){
   if(carKeys.s) inputBrake=1;
 
   // Xbox (additive — stronger of the two wins)
-  if(carXbox.connected&&carXbox.index!==null){
+  if(carXbox.connected&&!carXbox.disabled&&carXbox.index!==null){
     const gp=navigator.getGamepads()[carXbox.index];
     if(gp){
       const dz=carXbox.deadzone;
@@ -2618,9 +3323,59 @@ function updateCar(dt){
     }
   }
 
-  // Steering
+  // ── SpaceMouse input (additive with keyboard, stronger wins over Xbox) ──
+  const sm = readSpaceMouse();
+  if(sm){
+    if(sm.gas   > inputGas)   inputGas   = sm.gas;
+    if(sm.brake > inputBrake) inputBrake = sm.brake;
+    if(Math.abs(sm.steer) > Math.abs(inputSteer)) inputSteer = sm.steer;
+    // Camera — always apply SpaceMouse camera regardless of other inputs
+    if(carCamMode === '3rd-free' || carCamMode === '1st'){
+      if(Math.abs(sm.camYaw)   > 0) carCamYaw   -= sm.camYaw;
+      if(Math.abs(sm.camPitch) > 0) carCamPitch  = Math.max(-0.3, Math.min(1.2, carCamPitch + sm.camPitch));
+    }
+  }
   const steerDir=carSpeed>0?1:carSpeed<0?-1:0;
-  carYaw-=inputSteer*P.steerSpeed*dt*steerDir;
+  const maxSteerAngle=Math.PI/4; // 45 grader
+  const targetSteerAngle=-inputSteer*maxSteerAngle;
+  
+  // Smooth styrevinkel
+  if(!carMesh.userData.steerAngle) carMesh.userData.steerAngle=0;
+  carMesh.userData.steerAngle+=(targetSteerAngle-carMesh.userData.steerAngle)*Math.min(1,dt*8);
+  const steerAngle=carMesh.userData.steerAngle;
+  
+  // Oppdater fronthjul med Ackermann-geometri
+  if(carMesh.userData.frontWheels&&carMesh.userData.frontWheels.length===2){
+    const d=carDims;
+    const wheelbase=d.length*0.7;
+    const trackWidth=d.width;
+    
+    if(Math.abs(steerAngle)>0.001){
+      const R=wheelbase/Math.tan(Math.abs(steerAngle)); // Svingradius til bakaksel
+      const innerAngle=Math.atan(wheelbase/(R-trackWidth/2));
+      const outerAngle=Math.atan(wheelbase/(R+trackWidth/2));
+      
+      if(steerAngle>0){ // Høyresving
+        carMesh.userData.frontWheels[0].rotation.y=outerAngle;  // Venstre hjul (ytre)
+        carMesh.userData.frontWheels[1].rotation.y=innerAngle;  // Høyre hjul (indre)
+      } else { // Venstresving
+        carMesh.userData.frontWheels[0].rotation.y=-innerAngle; // Venstre hjul (indre)
+        carMesh.userData.frontWheels[1].rotation.y=-outerAngle; // Høyre hjul (ytre)
+      }
+      
+      // Beregn rotasjon basert på svingradius
+      const angularVel=carSpeed/R;
+      const rotAngle=angularVel*dt*(steerAngle>0?-1:1);
+      carYaw-=rotAngle;
+    } else {
+      // Rett frem - nullstill hjul
+      carMesh.userData.frontWheels.forEach(w=>w.rotation.y=0);
+      // Ingen endring i carYaw
+    }
+  } else {
+    // Fallback til gammel styringslogikk hvis frontWheels ikke finnes
+    carYaw-=inputSteer*P.steerSpeed*dt*steerDir;
+  }
 
   // Acceleration / braking
   if(inputGas>0.01) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*inputGas*dt);
@@ -2652,32 +3407,128 @@ function updateCar(dt){
     carOnGround=false;
   }
 
-  // 4-point wheel tilt
-  const wh=carSampleWheelHeights(carMesh.position,carYaw);
-  // wh = [FL, FR, RL, RR]
-  const fl=wh[0],fr=wh[1],rl=wh[2],rr=wh[3];
-  if(fl!==null&&fr!==null&&rl!==null&&rr!==null){
+  // ── Per-wheel suspension ──
+  {
     const d=carDims;
-    const wheelbase=d.length*0.7; // front-to-rear distance
-    const track=d.width;          // left-to-right distance
-    // Pitch: average front vs average rear
-    const frontAvg=(fl+fr)/2;
-    const rearAvg=(rl+rr)/2;
-    const targetPitch=-Math.atan2(frontAvg-rearAvg,wheelbase);
-    // Roll: left lower = negative roll (tilt left)
-    const leftAvg=(fl+rl)/2;
-    const rightAvg=(fr+rr)/2;
-    const targetRoll=-Math.atan2(leftAvg-rightAvg,track);
-    // Smooth
-    const maxTilt=(carPhys.maxTiltDeg||30)*Math.PI/180;
-    const clampedPitch=Math.max(-maxTilt,Math.min(maxTilt,targetPitch));
-    const clampedRoll=Math.max(-maxTilt,Math.min(maxTilt,targetRoll));
-    const sm=carPhys.tiltSmooth||0.15;
-    carTiltPitch+=(clampedPitch-carTiltPitch)*sm;
-    carTiltRoll+=(clampedRoll-carTiltRoll)*sm;
-  }
+    const travel = carPhys.suspTravel  ?? 0.3;
+    const rest   = carPhys.suspRest    ?? 0.15;
+    const ks     = carPhys.suspStiffness ?? 18;
+    const kd     = carPhys.suspDamping   ?? 4;
+    const cosY=Math.cos(carYaw), sinY=Math.sin(carYaw);
+    const hw=d.width/2, hl=d.length*0.35;
+    const corners=[[-hw,hl],[hw,hl],[-hw,-hl],[hw,-hl]]; // FL FR RL RR
 
-  carMesh.rotation.set(carTiltPitch,carYaw,carTiltRoll,'YXZ');
+    const meshes=getCarRayMeshes();
+    // Cast from well above current body position
+    const startY=carMesh.position.y+(carPhys.rayHeight ?? 2)+travel+1;
+
+    const rawH=corners.map(([lx,lz])=>{
+      const wx=carMesh.position.x+cosY*lx+sinY*lz;
+      const wz=carMesh.position.z-sinY*lx+cosY*lz;
+      const hit=bvhRayDown(wx,startY,wz,meshes);
+      return (hit&&hit.y<startY)?hit.y:null;
+    });
+
+    const allValid=rawH.every(v=>v!==null);
+
+    if(allValid&&carOnGround){
+      // Wheel centre target = terrain + wheelR
+      const targetY=rawH.map(h=>h+d.wheelR);
+
+      // Init suspension to target on first frame
+      for(let i=0;i<4;i++){
+        if(carSusp[i]===0) carSusp[i]=targetY[i];
+      }
+
+      // Spring-integrate
+      for(let i=0;i<4;i++){
+        const err=targetY[i]-carSusp[i];
+        carSuspVel[i]+=(ks*err - kd*carSuspVel[i])*dt;
+        carSusp[i]+=carSuspVel[i]*dt;
+        if(carSusp[i]<targetY[i]){carSusp[i]=targetY[i]; if(carSuspVel[i]<0) carSuspVel[i]=0;}
+      }
+
+      // Body Y = avg wheel-centre + rest + GTA bounce
+      if(_gunMesh && gtaBounce.enabled){
+        _bounceT+=dt;
+      }
+      const avgSusp=(carSusp[0]+carSusp[1]+carSusp[2]+carSusp[3])/4;
+      let bounceOffset=0;
+      if(_gunMesh && gtaBounce.enabled){
+        bounceOffset=Math.sin(_bounceT*gtaBounce.freq*Math.PI*2)*gtaBounce.amp;
+      }
+      carMesh.position.y=avgSusp + rest + bounceOffset;
+
+      // Surface normal
+      const toW=(lx,lz,gy)=>new THREE.Vector3(
+        carMesh.position.x+cosY*lx+sinY*lz, gy,
+        carMesh.position.z-sinY*lx+cosY*lz
+      );
+      const pFL=toW(-hw, hl,carSusp[0]), pFR=toW( hw, hl,carSusp[1]);
+      const pRL=toW(-hw,-hl,carSusp[2]), pRR=toW( hw,-hl,carSusp[3]);
+      const surfNormal=new THREE.Vector3()
+        .crossVectors(new THREE.Vector3().subVectors(pRR,pFL),
+                      new THREE.Vector3().subVectors(pRL,pFR)).normalize();
+
+      const carFwd  =new THREE.Vector3(sinY,0,cosY);
+      const carRight=new THREE.Vector3(cosY,0,-sinY);
+      const surfPitch=Math.asin(Math.max(-1,Math.min(1,surfNormal.dot(carFwd))));
+      const surfRoll =Math.asin(Math.max(-1,Math.min(1,surfNormal.dot(carRight))));
+
+      const threshRad = (carPhys.tiltThreshDeg ?? 10)*Math.PI/180;
+      const maxTilt   = (carPhys.maxTiltDeg    ?? 30)*Math.PI/180;
+      const denom=Math.max(0.001, maxTilt-threshRad);
+      const blendPitch=Math.max(0,Math.min(1,(Math.abs(surfPitch)-threshRad)/denom));
+      const blendRoll =Math.max(0,Math.min(1,(Math.abs(surfRoll) -threshRad)/denom));
+      const targetPitch=(carPhys.pitchSign ?? 1)*surfPitch*blendPitch;
+      const targetRoll =(carPhys.rollSign  ?? 1)*surfRoll *blendRoll;
+      const sm = carPhys.tiltSmooth ?? 0.15;
+      carTiltPitch+=(Math.max(-maxTilt,Math.min(maxTilt,targetPitch))-carTiltPitch)*sm;
+      carTiltRoll +=(Math.max(-maxTilt,Math.min(maxTilt,targetRoll ))-carTiltRoll )*sm;
+
+      // Apply rotation first, then worldToLocal for pivot Y
+      carMesh.rotation.set(carTiltPitch,carYaw,carTiltRoll,'YXZ');
+      carMesh.updateMatrixWorld(true);
+
+      const cornerPivots=[
+        carMesh.userData.frontWheels?.[0],
+        carMesh.userData.frontWheels?.[1],
+        carMesh.userData.rearWheelPivots?.[0],
+        carMesh.userData.rearWheelPivots?.[1],
+      ];
+      const _tw=new THREE.Vector3(), _tl=new THREE.Vector3();
+      for(let i=0;i<4;i++){
+        const piv=cornerPivots[i];
+        if(!piv) continue;
+        const [lx,lz]=corners[i];
+        // Per-wheel bounce: each wheel gets its own phase offset
+        const wheelBounce=(_gunMesh&&gtaBounce.enabled)
+          ? Math.sin(_bounceT*gtaBounce.freq*Math.PI*2 + i*gtaBounce.phase)*gtaBounce.amp
+          : 0;
+        _tw.set(
+          carMesh.position.x+cosY*lx+sinY*lz,
+          carSusp[i] - bounceOffset + wheelBounce,
+          carMesh.position.z-sinY*lx+cosY*lz
+        );
+        carMesh.worldToLocal(_tl.copy(_tw));
+        piv.position.y=Math.max(d.wheelR-travel, Math.min(d.wheelR+travel, _tl.y));
+      }
+
+      // Debug
+      const dbg=document.getElementById('tilt-debug');
+      if(dbg&&dbg.style.display!=='none'){
+        const f=v=>v.toFixed(3);
+        document.getElementById('td-fl').textContent=f(carSusp[0]);
+        document.getElementById('td-fr').textContent=f(carSusp[1]);
+        document.getElementById('td-rl').textContent=f(carSusp[2]);
+        document.getElementById('td-rr').textContent=f(carSusp[3]);
+        document.getElementById('td-pitch').textContent=(carTiltPitch*180/Math.PI).toFixed(1);
+        document.getElementById('td-roll').textContent=(carTiltRoll*180/Math.PI).toFixed(1);
+      }
+    } else {
+      carMesh.rotation.set(carTiltPitch,carYaw,carTiltRoll,'YXZ');
+    }
+  }
 
   // ── FOV management ──
   const targetFov=carCamMode==='1st'?P.fpFov:45;
@@ -2729,6 +3580,650 @@ function updateCar(dt){
   camera.up.set(0,1,0);
   orb.tgt.copy(carPos);
   orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
+}
+
+// ═══════════════════════════════ BALL / WATER FALL SYSTEM ═══════════════════
+
+// ── Config (UI-bound) ──
+const ballCfg = {
+  radius:       0.3,
+  gridN:        5,
+  gridSize:     10,
+  dropHeight:   10,
+  trailLen:     100,
+  trailFade:    8,
+  sleepDelay:   2.0,
+  friction:     0.970,
+  clusterRadius:0.8,
+  mode:         'ball'
+};
+window.ballCfg = ballCfg;
+
+// Friction slider: 0=ice 50=water 100=clay
+function applyFrictionSlider(v){
+  let f;
+  if(v<=50){ f=0.999-(v/50)*(0.999-0.970); }
+  else      { f=0.970-((v-50)/50)*(0.970-0.850); }
+  ballCfg.friction=f;
+  const names=['Is','Glatt','Vann','Grus','Leire'];
+  document.getElementById('ball-friction-val').textContent=names[Math.min(4,Math.floor(v/20))];
+}
+window.applyFrictionSlider=applyFrictionSlider;
+
+function setSimMode(mode,btn){
+  ballCfg.mode=mode;
+  document.getElementById('btn-mode-ball').classList.toggle('active',mode==='ball');
+  document.getElementById('btn-mode-water').classList.toggle('active',mode==='water');
+  const desc={ball:'Ball med bounce og friksjon',water:'Vann-partikkel: følger terrenggradient, ingen bounce, samler seg i lavpunkter'};
+  document.getElementById('sim-mode-desc').textContent=desc[mode]||'';
+  if(mode==='water'){
+    ballCfg.friction=0.955;
+    const sl=document.getElementById('ball-friction-slider');
+    if(sl){sl.value=60;applyFrictionSlider(60);}
+  }
+}
+window.setSimMode=setSimMode;
+
+const BALL_GRAVITY=20;
+const BALL_RESTITUTION=0.38;
+const BALL_SLEEP_VEL=0.04;
+const WATER_SLEEP_VEL=0.008;
+
+const placedBalls=[];
+let ballFallMode=false;
+let ballGridMode=false;
+let ballGhost=null;
+let ballGridGhost=null;
+
+const _ballDownRay=new THREE.Raycaster();
+const _slopeRay=new THREE.Raycaster();
+
+function getBallRayMeshes(){
+  const arr=[];
+  models.forEach(m=>{if(m.visible)m.group.traverse(ch=>{if(ch.isMesh&&ch.visible)arr.push(ch);});});
+  return arr;
+}
+
+function sampleHeight(x,z,fromY,meshes){
+  _slopeRay.set(new THREE.Vector3(x,fromY,z),new THREE.Vector3(0,-1,0));
+  const hits=_slopeRay.intersectObjects(meshes,false);
+  for(const h of hits) if(h.point.y<fromY) return h.point.y;
+  return null;
+}
+
+function buildBallModel(ghost,radius,mode){
+  const r=radius||ballCfg.radius;
+  const m=mode||ballCfg.mode;
+  const isW=m==='water';
+  const col=ghost?(isW?0x66aaff:0xff6600):(isW?0x1a6dcc:0xff4400);
+  const mat=new THREE.MeshStandardMaterial({
+    color:col,roughness:isW?0.05:0.3,metalness:0.1,transparent:true,
+    opacity:ghost?0.38:(isW?0.72:0.92),
+    emissive:ghost?(isW?0x001133:0x331100):0x000000
+  });
+  const geo=new THREE.SphereGeometry(r,isW?10:20,isW?8:16);
+  return new THREE.Mesh(geo,mat);
+}
+
+function updateGhostSize(){
+  if(ballGhost) ballGhost.scale.setScalar(ballCfg.radius/0.3);
+}
+window.updateGhostSize=updateGhostSize;
+
+function buildTrailObj(mode){
+  const isW=(mode||ballCfg.mode)==='water';
+  const mat=new THREE.LineBasicMaterial({color:isW?0x3399ff:0xff6600,transparent:true,opacity:0.5});
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(600*3),3));
+  geo.setDrawRange(0,0);
+  const line=new THREE.Line(geo,mat);
+  scene.add(line);
+  return {line,segments:[]};
+}
+
+function updateTrail(trail,pos,now){
+  trail.segments.push({pos:pos.clone(),time:now});
+  while(trail.segments.length>ballCfg.trailLen) trail.segments.shift();
+  const oldest=now-ballCfg.trailFade;
+  while(trail.segments.length>0&&trail.segments[0].time<oldest) trail.segments.shift();
+  const segs=trail.segments,n=segs.length;
+  const arr=trail.line.geometry.attributes.position.array;
+  for(let i=0;i<n;i++){arr[i*3]=segs[i].pos.x;arr[i*3+1]=segs[i].pos.y;arr[i*3+2]=segs[i].pos.z;}
+  trail.line.geometry.attributes.position.needsUpdate=true;
+  trail.line.geometry.setDrawRange(0,n);
+  if(n>0){const age=now-segs[0].time;trail.line.material.opacity=Math.max(0,1-age/ballCfg.trailFade)*0.55;}
+}
+
+function spawnBall(x,y,z){
+  const mode=ballCfg.mode,r=ballCfg.radius;
+  const mesh=buildBallModel(false,r,mode);
+  mesh.position.set(x,y,z);
+  scene.add(mesh);
+  const trail=buildTrailObj(mode);
+  const bid='b_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+  const now=performance.now()/1000;
+  const entry={id:bid,mesh,mode,vel:{x:0,y:0,z:0},sleeping:false,frozenAt:null,
+    lastMovedAt:now,lastMovedPos:new THREE.Vector3(x,y,z),trail,radius:r};
+  mesh.userData.ballId=bid;
+  placedBalls.push(entry);
+  return entry;
+}
+
+function toggleBallFall(){
+  if(ballFallMode){cancelBallPlacement();return;}
+  if(ballGridMode) cancelBallGrid();
+  ballFallMode=true;
+  document.getElementById('btn-ball-fall').classList.add('active');
+  ballGhost=buildBallModel(true,ballCfg.radius,ballCfg.mode);
+  scene.add(ballGhost);
+  vp.style.cursor='crosshair';
+  document.addEventListener('mousemove',ballPlacementMove);
+  tc.addEventListener('click',ballPlacementClick);
+  hintEl.textContent='Klikk i modellen for å plassere '+(ballCfg.mode==='water'?'vannpartikkel':'ball')+' · ESC avbryt';
+  hintEl.classList.add('visible');
+}
+window.toggleBallFall=toggleBallFall;
+
+function cancelBallPlacement(){
+  ballFallMode=false;
+  document.getElementById('btn-ball-fall').classList.remove('active');
+  if(ballGhost){scene.remove(ballGhost);ballGhost=null;}
+  vp.style.cursor='';
+  document.removeEventListener('mousemove',ballPlacementMove);
+  tc.removeEventListener('click',ballPlacementClick);
+  hintEl.classList.remove('visible');
+}
+
+function ballPlacementMove(e){
+  if(!ballGhost||!ballFallMode) return;
+  const hit=hitModel(e.clientX,e.clientY);
+  if(hit){ballGhost.position.copy(hit.point);ballGhost.position.y+=ballCfg.radius+0.05;}
+}
+
+function ballPlacementClick(e){
+  if(!ballFallMode||!ballGhost) return;
+  e.stopPropagation();e.preventDefault();
+  const hit=hitModel(e.clientX,e.clientY);
+  if(!hit) return;
+  spawnBall(hit.point.x,hit.point.y+ballCfg.radius+0.05,hit.point.z);
+  refreshBallListUI();
+}
+
+function toggleBallGrid(){
+  if(ballGridMode){cancelBallGrid();return;}
+  if(ballFallMode) cancelBallPlacement();
+  ballGridMode=true;
+  document.getElementById('btn-ball-grid').classList.add('active');
+  ballGridGhost=new THREE.Group();
+  scene.add(ballGridGhost);
+  rebuildGridGhost();
+  vp.style.cursor='crosshair';
+  document.addEventListener('mousemove',ballGridMove);
+  tc.addEventListener('click',ballGridClick);
+  hintEl.textContent='Klikk for grid-senter · ESC avbryt';
+  hintEl.classList.add('visible');
+}
+window.toggleBallGrid=toggleBallGrid;
+
+function rebuildGridGhost(){
+  if(!ballGridGhost) return;
+  ballGridGhost.clear();
+  const n=ballCfg.gridN,half=ballCfg.gridSize/2,step=ballCfg.gridSize/(n-1||1);
+  const isW=ballCfg.mode==='water';
+  const mat=new THREE.MeshBasicMaterial({color:isW?0x3399ff:0x4488ff,transparent:true,opacity:0.32});
+  const geo=new THREE.SphereGeometry(ballCfg.radius,8,6);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+    const m=new THREE.Mesh(geo,mat);
+    m.position.set(-half+i*step,0,-half+j*step);
+    ballGridGhost.add(m);
+  }
+}
+window.rebuildGridGhost=rebuildGridGhost;
+
+function cancelBallGrid(){
+  ballGridMode=false;
+  document.getElementById('btn-ball-grid').classList.remove('active');
+  if(ballGridGhost){scene.remove(ballGridGhost);ballGridGhost=null;}
+  vp.style.cursor='';
+  document.removeEventListener('mousemove',ballGridMove);
+  tc.removeEventListener('click',ballGridClick);
+  hintEl.classList.remove('visible');
+}
+
+function ballGridMove(e){
+  if(!ballGridGhost||!ballGridMode) return;
+  const hit=hitModel(e.clientX,e.clientY);
+  if(hit) ballGridGhost.position.set(hit.point.x,hit.point.y+ballCfg.dropHeight,hit.point.z);
+}
+
+function ballGridClick(e){
+  if(!ballGridMode) return;
+  e.stopPropagation();e.preventDefault();
+  const hit=hitModel(e.clientX,e.clientY);
+  if(!hit) return;
+  const cx=hit.point.x,cy=hit.point.y+ballCfg.dropHeight,cz=hit.point.z;
+  const n=ballCfg.gridN,half=ballCfg.gridSize/2,step=ballCfg.gridSize/(n-1||1);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) spawnBall(cx-half+i*step,cy,cz-half+j*step);
+  refreshBallListUI();
+}
+
+function refreshBallListUI(){
+  const container=document.getElementById('ball-list');
+  const empty=document.getElementById('ball-list-empty');
+  const count=document.getElementById('ball-count');
+  if(count) count.textContent=placedBalls.length;
+  if(!container) return;
+  if(placedBalls.length===0){container.innerHTML='';if(empty)empty.style.display='block';return;}
+  if(empty) empty.style.display='none';
+  const frozen=placedBalls.filter(b=>b.frozenAt!==null).length;
+  const sleeping=placedBalls.filter(b=>b.sleeping&&b.frozenAt===null).length;
+  const active=placedBalls.length-frozen-sleeping;
+  container.innerHTML=`<div style="font-size:0.7rem;color:var(--muted);padding:0.3rem 0.5rem;line-height:1.8">
+    Aktive: <b style="color:var(--dot-green)">${active}</b> &nbsp;
+    Sovende: <b style="color:var(--muted)">${sleeping}</b> &nbsp;
+    Frosset: <b style="color:#60a5fa">${frozen}</b>
+  </div>`;
+}
+window.refreshBallListUI=refreshBallListUI;
+
+function removeBall(id){
+  const idx=placedBalls.findIndex(b=>b.id===id);if(idx<0)return;
+  const b=placedBalls[idx];scene.remove(b.mesh);if(b.trail)scene.remove(b.trail.line);
+  placedBalls.splice(idx,1);refreshBallListUI();
+}
+window.removeBall=removeBall;
+
+function removeAllBalls(){
+  if(ballFallMode)cancelBallPlacement();if(ballGridMode)cancelBallGrid();
+  for(const b of placedBalls){scene.remove(b.mesh);if(b.trail)scene.remove(b.trail.line);}
+  placedBalls.length=0;refreshBallListUI();
+}
+window.removeAllBalls=removeAllBalls;
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(ballFallMode)cancelBallPlacement();if(ballGridMode)cancelBallGrid();}
+});
+
+// ── Cluster colors ──
+const _clusterColor=new THREE.Color(0x1e3a8a);
+const _clusterWaterColor=new THREE.Color(0x0f2060);
+const _defaultBallColor=new THREE.Color(0xff4400);
+const _defaultWaterColor=new THREE.Color(0x1a6dcc);
+const _tmpCluster=new THREE.Vector3();
+
+function updateClusterColors(){
+  const n=placedBalls.length;if(!n)return;
+  const r2=ballCfg.clusterRadius*ballCfg.clusterRadius;
+  for(let i=0;i<n;i++){
+    let inCluster=false;
+    const pa=placedBalls[i].mesh.position;
+    for(let j=0;j<n;j++){
+      if(j===i)continue;
+      _tmpCluster.set(pa.x-placedBalls[j].mesh.position.x,pa.y-placedBalls[j].mesh.position.y,pa.z-placedBalls[j].mesh.position.z);
+      if(_tmpCluster.lengthSq()<r2){inCluster=true;break;}
+    }
+    const mat=placedBalls[i].mesh.material;
+    const isW=placedBalls[i].mode==='water';
+    if(inCluster){mat.color.set(isW?_clusterWaterColor:_clusterColor);mat.emissive.set(0x060e2a);}
+    else{mat.color.set(isW?_defaultWaterColor:_defaultBallColor);mat.emissive.set(0x000000);}
+  }
+}
+
+// ── Mesh cache per render frame ──
+let _ballMeshCacheKey=-1,_ballMeshCache=[];
+function getCachedRayMeshes(){
+  const key=renderer.info.render.calls;
+  if(key!==_ballMeshCacheKey){
+    _ballMeshCache=[];
+    models.forEach(m=>{if(m.visible)m.group.traverse(ch=>{if(ch.isMesh&&ch.visible)_ballMeshCache.push(ch);});});
+    _ballMeshCacheKey=key;
+  }
+  return _ballMeshCache;
+}
+
+// ═══════════════════════════════ BVH ACCELERATION ════════════════════════════
+// three-mesh-bvh patches MeshBVH onto BufferGeometry so intersectObjects
+// becomes O(log n) instead of O(triangles).
+
+let _bvhMergedGeo = null;   // merged BufferGeometry with BVH
+let _bvhMesh      = null;   // invisible THREE.Mesh used for raycasting
+let _bvhDirty     = true;   // rebuild needed after model change
+const _bvhRay     = new THREE.Raycaster();
+
+function isBvhAvailable(){
+  return typeof window.MeshBVH !== 'undefined' ||
+         (window.ThreeMeshBVH && window.ThreeMeshBVH.MeshBVH);
+}
+
+function setupBvhExtensions(){
+  if(!isBvhAvailable()) return;
+  const lib = window.ThreeMeshBVH || window;
+  if(lib.acceleratedRaycast && THREE.Mesh.prototype.raycast !== lib.acceleratedRaycast){
+    THREE.BufferGeometry.prototype.computeBoundsTree = lib.computeBoundsTree;
+    THREE.BufferGeometry.prototype.disposeBoundsTree = lib.disposeBoundsTree;
+    THREE.Mesh.prototype.raycast = lib.acceleratedRaycast;
+  }
+}
+
+// Called after any model load/remove; rebuilds merged BVH geometry
+function rebuildBVH(){
+  _bvhDirty = false;
+  if(!isBvhAvailable()){ return; } // fallback to plain raycasting
+  setupBvhExtensions();
+
+  // Dispose old
+  if(_bvhMesh){ scene.remove(_bvhMesh); }
+  if(_bvhMergedGeo){ _bvhMergedGeo.dispose(); }
+
+  // Collect all visible mesh geometries with world transforms
+  const positions=[], indices=[], normals=[];
+  let vertOffset=0;
+
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh||!ch.visible) return;
+      const geo=ch.geometry;
+      if(!geo.attributes.position) return;
+      ch.updateMatrixWorld(true);
+      const posAttr=geo.attributes.position;
+      const normAttr=geo.attributes.normal;
+      const idxAttr=geo.index;
+      const vCount=posAttr.count;
+      // Transform positions to world space
+      const tmpV=new THREE.Vector3();
+      for(let i=0;i<vCount;i++){
+        tmpV.fromBufferAttribute(posAttr,i).applyMatrix4(ch.matrixWorld);
+        positions.push(tmpV.x,tmpV.y,tmpV.z);
+        if(normAttr){
+          tmpV.fromBufferAttribute(normAttr,i);
+          // transform normal (use normalMatrix equivalent)
+          tmpV.transformDirection(ch.matrixWorld);
+          normals.push(tmpV.x,tmpV.y,tmpV.z);
+        } else { normals.push(0,1,0); }
+      }
+      if(idxAttr){
+        for(let i=0;i<idxAttr.count;i++) indices.push(idxAttr.getX(i)+vertOffset);
+      } else {
+        for(let i=0;i<vCount;i++) indices.push(i+vertOffset);
+      }
+      vertOffset+=vCount;
+    });
+  });
+
+  if(positions.length===0){ _bvhMergedGeo=null; _bvhMesh=null; return; }
+
+  const mg=new THREE.BufferGeometry();
+  mg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(positions),3));
+  mg.setAttribute('normal',  new THREE.BufferAttribute(new Float32Array(normals),3));
+  mg.setIndex(new THREE.BufferAttribute(new Uint32Array(indices),1));
+
+  const lib=window.ThreeMeshBVH||window;
+  mg.computeBoundsTree = lib.computeBoundsTree;
+  mg.computeBoundsTree({ maxLeafTris:8 });
+
+  _bvhMergedGeo=mg;
+  const mat=new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide});
+  _bvhMesh=new THREE.Mesh(mg,mat);
+  _bvhMesh.matrixAutoUpdate=false;
+  _bvhMesh.userData._isBvh=true;
+  // Don't add to scene — raycast directly
+
+  const el=document.getElementById('bvh-status');
+  if(el){ el.textContent='BVH ✓ '+Math.round(positions.length/3/1000)+'k vtx'; el.style.color='var(--dot-green)'; }
+}
+window.rebuildBVH=rebuildBVH;
+
+// Mark dirty when models change (called from registerModel / removeModel)
+function markBvhDirty(){ _bvhDirty=true; }
+window.markBvhDirty=markBvhDirty;
+
+// Fast single downward ray using BVH; fallback to mesh list
+function bvhRayDown(nx,startY,nz,meshes){
+  if(_bvhMesh&&!_bvhDirty){
+    _bvhRay.set(new THREE.Vector3(nx,startY,nz),new THREE.Vector3(0,-1,0));
+    _bvhRay.firstHitOnly=true;
+    const hits=_bvhRay.intersectObject(_bvhMesh,false);
+    if(hits.length>0) return {y:hits[0].point.y, nx:hits[0].face?hits[0].face.normal:null, obj:hits[0].object};
+    return null;
+  }
+  // Fallback
+  _ballDownRay.set(new THREE.Vector3(nx,startY,nz),new THREE.Vector3(0,-1,0));
+  const hits=_ballDownRay.intersectObjects(meshes,false);
+  for(const h of hits) if(h.point.y<startY) return {y:h.point.y, nx:h.face?h.face.normal:null, obj:h.object};
+  return null;
+}
+
+function bvhSampleHeight(x,z,fromY,meshes){
+  if(_bvhMesh&&!_bvhDirty){
+    _slopeRay.set(new THREE.Vector3(x,fromY,z),new THREE.Vector3(0,-1,0));
+    _slopeRay.firstHitOnly=true;
+    const hits=_slopeRay.intersectObject(_bvhMesh,false);
+    if(hits.length>0) return hits[0].point.y;
+    return null;
+  }
+  return sampleHeight(x,z,fromY,meshes);
+}
+
+// ═══════════════════════════════ WORKER POOL ══════════════════════════════════
+// Workers handle: gravity integration, velocity update, friction, sleep timers.
+// Raycasting stays on main thread (needs geometry access).
+// Communication via transferable Float32Arrays to avoid copy overhead.
+//
+// Layout of particle SharedArrayBuffer (per particle, 16 floats):
+// [0]vx [1]vy [2]vz [3]px [4]py [5]pz
+// [6]lastMovedX [7]lastMovedY [8]lastMovedZ
+// [9]lastMovedAt [10]sleeping(0/1) [11]frozenAt(-1=no)
+// [12]radius [13]mode(0=ball,1=water) [14]dt [15]gravity
+
+const PARTICLE_STRIDE = 16;
+const NUM_WORKERS = Math.max(1, Math.min(8, (navigator.hardwareConcurrency||2) - 1));
+
+let _workerPool = [];
+let _workerBusy = new Array(NUM_WORKERS).fill(false);
+let _pendingWorkerResults = new Map(); // workerId -> {resolve}
+
+const WORKER_SRC = `
+'use strict';
+const STRIDE=16;
+const BALL_RESTITUTION=0.38, WATER_RESTITUTION=0.04;
+const BALL_SLEEP=0.04, WATER_SLEEP=0.008;
+
+self.onmessage=function(e){
+  const {buf,count,dt,gravity,friction,sleepDelay,now,groundResults}=e.data;
+  const f=new Float32Array(buf);
+
+  for(let i=0;i<count;i++){
+    const base=i*STRIDE;
+    const frozen=f[base+11];
+    if(frozen>=0) continue; // frozen
+
+    const isW=f[base+13]>0.5;
+    const SLEEP_VEL=isW?WATER_SLEEP:BALL_SLEEP;
+
+    // Apply gravity
+    f[base+1]-=gravity*dt;
+
+    const gr=groundResults[i];
+
+    if(gr&&gr.grounded){
+      f[base+3]=gr.nx; f[base+4]=gr.gy+f[base+12]; f[base+5]=gr.nz;
+      // Bounce / absorb
+      if(isW){ f[base+1]=Math.max(0,f[base+1]*-WATER_RESTITUTION); }
+      else { if(f[base+1]<0) f[base+1]=-f[base+1]*BALL_RESTITUTION; }
+      // Friction
+      const fric=Math.pow(friction,dt*60);
+      f[base+0]*=fric; f[base+2]*=fric;
+      // Slope from main thread
+      if(gr.slopeX) f[base+0]+=gr.slopeX;
+      if(gr.slopeZ) f[base+2]+=gr.slopeZ;
+      // Sleep / freeze
+      const spd=Math.sqrt(f[base+0]*f[base+0]+f[base+1]*f[base+1]+f[base+2]*f[base+2]);
+      if(spd<SLEEP_VEL){
+        f[base+10]=1; // sleeping
+        const dx=f[base+3]-f[base+6], dy=f[base+4]-f[base+7], dz=f[base+5]-f[base+8];
+        const moved=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if(moved<f[base+12]*0.5){
+          if((now-f[base+9])>=sleepDelay){
+            f[base+11]=now; // freeze timestamp
+            f[base+0]=0;f[base+1]=0;f[base+2]=0;
+          }
+        } else {
+          f[base+6]=f[base+3];f[base+7]=f[base+4];f[base+8]=f[base+5];
+          f[base+9]=now;
+        }
+      } else {
+        f[base+10]=0;
+        f[base+6]=f[base+3];f[base+7]=f[base+4];f[base+8]=f[base+5];
+        f[base+9]=now;
+      }
+    } else {
+      // Airborne
+      f[base+3]+=f[base+0]*dt;
+      f[base+4]+=f[base+1]*dt;
+      f[base+5]+=f[base+2]*dt;
+      f[base+10]=0;
+    }
+  }
+  self.postMessage({buf,count},{transfer:[buf]});
+};
+`;
+
+function createWorkerPool(){
+  const blob=new Blob([WORKER_SRC],{type:'application/javascript'});
+  const url=URL.createObjectURL(blob);
+  for(let i=0;i<NUM_WORKERS;i++){
+    const w=new Worker(url);
+    const id=i;
+    // Store pending start index so onmessage knows which slice this was
+    w._pendingStart=0;
+    w.onmessage=e=>{
+      const {buf,count}=e.data;
+      const start=_workerPool[id]._pendingStart;
+      const f=new Float32Array(buf);
+      let frozeAny=false;
+      for(let j=0;j<count;j++){
+        const b=placedBalls[start+j];
+        if(!b) continue;
+        const base=j*PARTICLE_STRIDE;
+        b.vel.x=f[base+0]; b.vel.y=f[base+1]; b.vel.z=f[base+2];
+        b.mesh.position.x=f[base+3]; b.mesh.position.y=f[base+4]; b.mesh.position.z=f[base+5];
+        b.lastMovedPos.set(f[base+6],f[base+7],f[base+8]);
+        b.lastMovedAt=f[base+9];
+        b.sleeping=f[base+10]>0.5;
+        const froze=f[base+11];
+        if(froze>=0&&b.frozenAt===null){
+          b.frozenAt=froze;
+          b.mesh.material.opacity*=0.55;
+          frozeAny=true;
+        }
+      }
+      _workerBusy[id]=false;
+      if(frozeAny) refreshBallListUI();
+      // Post-process spin + trail on main thread
+      const now=performance.now()/1000;
+      for(let j=0;j<count;j++){
+        const b=placedBalls[start+j];
+        if(!b||b.frozenAt!==null) continue;
+        if(b.mode!=='water'){
+          const s2=Math.sqrt(b.vel.x*b.vel.x+b.vel.z*b.vel.z);
+          if(s2>0.01) b.mesh.rotateOnWorldAxis(
+            new THREE.Vector3(b.vel.z,0,-b.vel.x).normalize(),
+            s2*_lastDt/(b.radius||0.3)
+          );
+        }
+        updateTrail(b.trail,b.mesh.position,now);
+      }
+      updateClusterColors();
+    };
+    _workerPool.push(w);
+  }
+  const el=document.getElementById('bvh-status');
+  if(el) el.textContent=(el.textContent||'')+'  Workers: '+NUM_WORKERS;
+}
+
+let _lastDt=0.016;
+
+// ── Physics update — BVH raycasting on main thread, integration on workers ──
+function updateBalls(dt){
+  if(!placedBalls.length) return;
+  _lastDt=dt;
+
+  // Rebuild BVH if dirty (after model load)
+  if(_bvhDirty) rebuildBVH();
+
+  const meshes=getCachedRayMeshes();
+  const now=performance.now()/1000;
+  const n=placedBalls.length;
+
+  // ── 1. RAYCASTING on main thread (needs geometry) ──
+  // Build groundResults array for all active particles
+  const groundResults=new Array(n);
+  for(let i=0;i<n;i++){
+    const b=placedBalls[i];
+    if(b.frozenAt!==null){ groundResults[i]=null; continue; }
+    const r=b.radius, pos=b.mesh.position;
+    const nx=pos.x+b.vel.x*dt, ny=pos.y+b.vel.y*dt-0.5*BALL_GRAVITY*dt*dt, nz=pos.z+b.vel.z*dt;
+    const startY=pos.y+r+0.05;
+    const hit=bvhRayDown(nx,startY,nz,meshes);
+    if(hit&&hit.y<startY&&ny-r<=hit.y){
+      let slopeX=0, slopeZ=0;
+      if(b.mode==='water'){
+        const probe=Math.max(r*1.5,0.15);
+        const hN=bvhSampleHeight(nx,nz-probe,startY+1,meshes);
+        const hS=bvhSampleHeight(nx,nz+probe,startY+1,meshes);
+        const hW=bvhSampleHeight(nx-probe,nz,startY+1,meshes);
+        const hE=bvhSampleHeight(nx+probe,nz,startY+1,meshes);
+        const gAcc=BALL_GRAVITY*0.9*dt;
+        if(hW!==null&&hE!==null) slopeX=(hW-hE)/(2*probe)*gAcc;
+        if(hN!==null&&hS!==null) slopeZ=(hN-hS)/(2*probe)*gAcc;
+      } else if(hit.nx){
+        // Normal-based slope for balls — transform face normal
+        const wn=hit.nx.clone().transformDirection(hit.obj?hit.obj.matrixWorld:new THREE.Matrix4()).normalize();
+        const grav=new THREE.Vector3(0,-BALL_GRAVITY,0);
+        const slide=grav.clone().addScaledVector(wn,-grav.dot(wn));
+        slopeX=slide.x*dt; slopeZ=slide.z*dt;
+      }
+      groundResults[i]={grounded:true, gy:hit.y, nx, nz, slopeX, slopeZ};
+    } else {
+      groundResults[i]={grounded:false};
+    }
+  }
+
+  // ── 2. INTEGRATION on worker pool ──
+  // Split particles across workers
+  const chunkSize=Math.max(1,Math.ceil(n/NUM_WORKERS));
+  for(let w=0;w<NUM_WORKERS;w++){
+    const start=w*chunkSize;
+    const count=Math.min(chunkSize,n-start);
+    if(count<=0) break;
+    if(_workerBusy[w]) continue; // skip if still busy from last frame
+
+    // Pack particle data into Float32Array for this chunk
+    const buf=new Float32Array(count*PARTICLE_STRIDE);
+    for(let j=0;j<count;j++){
+      const b=placedBalls[start+j];
+      const base=j*PARTICLE_STRIDE;
+      buf[base+0]=b.vel.x;    buf[base+1]=b.vel.y;    buf[base+2]=b.vel.z;
+      buf[base+3]=b.mesh.position.x; buf[base+4]=b.mesh.position.y; buf[base+5]=b.mesh.position.z;
+      buf[base+6]=b.lastMovedPos.x;  buf[base+7]=b.lastMovedPos.y;  buf[base+8]=b.lastMovedPos.z;
+      buf[base+9]=b.lastMovedAt;
+      buf[base+10]=b.sleeping?1:0;
+      buf[base+11]=b.frozenAt!==null?b.frozenAt:-1;
+      buf[base+12]=b.radius;
+      buf[base+13]=b.mode==='water'?1:0;
+      buf[base+14]=dt;
+      buf[base+15]=BALL_GRAVITY;
+    }
+    _workerBusy[w]=true;
+    _workerPool[w]._pendingStart=start;
+    _workerPool[w].postMessage({
+      buf:buf.buffer, count, dt,
+      gravity:BALL_GRAVITY, friction:ballCfg.friction,
+      sleepDelay:ballCfg.sleepDelay, now,
+      groundResults:groundResults.slice(start,start+count)
+    },[buf.buffer]);
+  }
 }
 
 // ═══════════════════════════════ STREAMING / LOD ═════════════════════════════
@@ -3218,6 +4713,11 @@ const clk=new THREE.Clock();
 let _fpsFrames=0,_fpsLast=performance.now(),_fpsVal=0;
 const _fpsEl=document.getElementById('fps-counter');
 
+// ── Init worker pool + BVH extensions at startup ──
+setupBvhExtensions();
+createWorkerPool();
+{const el=document.getElementById('bvh-status');if(el)el.textContent='BVH klar · Workers: '+NUM_WORKERS;}
+
 (function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clk.getDelta(),0.05);
@@ -3238,6 +4738,7 @@ const _fpsEl=document.getElementById('fps-counter');
     if(orb.ar){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
   }
 
+  updateBalls(dt);
   updateStreaming();
   renderer.render(scene,activeCamera);
   updateCamPosBar();
