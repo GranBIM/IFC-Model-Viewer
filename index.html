@@ -747,6 +747,8 @@ body{
       <div class="dev-slider"><label>Friksjon/brems <span id="dev-brake-val">56</span> m/s²</label><input type="range" min="1" max="60" step="0.5" value="56" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Maks hastighet <span id="dev-maxspd-val">25</span> m/s</label><input type="range" min="5" max="80" step="1" value="25" oninput="carPhys.maxSpeed=+this.value;document.getElementById('dev-maxspd-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Styrefølsomhet <span id="dev-steer-val">2.5</span> rad/s</label><input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Styring fart-reduksjon <span id="dev-steer-sens-val">1.00</span></label><input type="range" min="0" max="1" step="0.05" value="1.0" oninput="carPhys.steerSensSpeed=+this.value;document.getElementById('dev-steer-sens-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Reduksjon kurve <span id="dev-steer-exp-val">1.0</span></label><input type="range" min="0.2" max="4" step="0.1" value="1.0" oninput="carPhys.steerSensExp=+this.value;document.getElementById('dev-steer-exp-val').textContent=(+this.value).toFixed(1)"></div>
       <div class="tb-hdrop-sep" style="margin:0.1rem 0"></div>
       <div style="font-size:0.58rem;color:var(--muted)">Helning (4-punkt hjul)</div>
       <div class="dev-slider"><label>Tilt smoothing <span id="dev-tilt-smooth-val">0.50</span></label><input type="range" min="0.01" max="0.5" step="0.01" value="0.50" oninput="carPhys.tiltSmooth=+this.value;document.getElementById('dev-tilt-smooth-val').textContent=(+this.value).toFixed(2)"></div>
@@ -2210,7 +2212,8 @@ let activeVehicleType='personbil';
 const carPhys={gravity:20,accel:18,brake:56,maxSpeed:30,steerSpeed:2.5,camHeight:1.5,
   fpOffX:0,fpOffY:0,fpOffZ:0,fpFov:75,
   tiltSmooth:0.50,maxTiltDeg:33,rayHeight:2.9,pitchSign:1,rollSign:1,
-  suspStiffness:60,suspDamping:20,suspTravel:1.0,suspRest:0.0,tiltThreshDeg:10};
+  suspStiffness:60,suspDamping:20,suspTravel:1.0,suspRest:0.0,tiltThreshDeg:10,
+  steerSensSpeed:1.0, steerSensExp:1.0};
 const carDims={length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
   bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7};
 const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connected:false,disabled:true};
@@ -2259,7 +2262,7 @@ let carCamDist=8;
 window.carCamDist=carCamDist; // expose for slider
 Object.defineProperty(window,'carCamDist',{get(){return carCamDist;},set(v){carCamDist=v;}});
 let carCamMode='3rd-free'; // '3rd-free' | '3rd-locked' | '1st'
-const carKeys={w:false,a:false,s:false,d:false};
+const carKeys={w:false,a:false,s:false,d:false,shift:false};
 let carMouseDown=false;
 let carMouseLX=0,carMouseLY=0;
 
@@ -2809,6 +2812,7 @@ function enterCarDriving(){
   carSpeed=0;carVelY=0;carOnGround=true;
   carTiltPitch=0;carTiltRoll=0;
   carSusp=[0,0,0,0];carSuspVel=[0,0,0,0];
+  carKeys.shift=false; // reset in case SHIFT was held before entering
   if(carCamMode==='3rd-free') carCamYaw=0;
   carCamPitch=0.3;
   document.addEventListener('keydown',carKeyDown);
@@ -2828,7 +2832,7 @@ function enterCarDriving(){
 
 function exitCarDriving(){
   carDriving=false;
-  carKeys.w=carKeys.a=carKeys.s=carKeys.d=false;
+  carKeys.w=carKeys.a=carKeys.s=carKeys.d=carKeys.shift=false;
   document.removeEventListener('keydown',carKeyDown);
   document.removeEventListener('keyup',carKeyUp);
   tc.removeEventListener('mousedown',carMouseDownH);
@@ -2980,11 +2984,13 @@ function updateCarTelemetry(){
 
 function carKeyDown(e){
   if(e.key==='Escape'){exitCarDriving();return;}
+  if(e.key==='Shift') carKeys.shift=true;
   const k=e.key.toLowerCase();
   if(k==='w')carKeys.w=true;if(k==='a')carKeys.a=true;
   if(k==='s')carKeys.s=true;if(k==='d')carKeys.d=true;
 }
 function carKeyUp(e){
+  if(e.key==='Shift') carKeys.shift=false;
   const k=e.key.toLowerCase();
   if(k==='w')carKeys.w=false;if(k==='a')carKeys.a=false;
   if(k==='s')carKeys.s=false;if(k==='d')carKeys.d=false;
@@ -3146,11 +3152,11 @@ function _toggleGun(){
 
 function _onCarKeyDownGun(e){
   if(!carDriving) return;
-  if(e.key==='Control'){
+  if(e.key==='Shift'&&!e.repeat){
     const now=Date.now();
     _ctrlTimes=_ctrlTimes.filter(t=>now-t<5000);
     _ctrlTimes.push(now);
-    if(_ctrlTimes.length>=3){
+    if(_ctrlTimes.length>=4){
       _ctrlTimes=[];
       _toggleGun();
     }
@@ -3262,6 +3268,12 @@ function updateCar(dt){
   if(!carDriving||!carMesh) return;
   const P=carPhys;
 
+  // CTRL held = slow/precise mode: cap speed, accel and steer reduction
+  const ctrlMode=carKeys.shift;
+  const _maxSpeed   = ctrlMode ? 5                          : P.maxSpeed;
+  const _accel      = ctrlMode ? 7                          : P.accel;
+  const _steerSens  = ctrlMode ? 0.5                        : (P.steerSensSpeed ?? 1.0);
+
   // Poll for gamepad (fallback if gamepadconnected event missed)
   if(!carXbox.connected&&!carXbox.disabled){
     const gps=navigator.getGamepads?navigator.getGamepads():[];
@@ -3336,8 +3348,16 @@ function updateCar(dt){
     }
   }
   const steerDir=carSpeed>0?1:carSpeed<0?-1:0;
-  const maxSteerAngle=Math.PI/4; // 45 grader
-  const targetSteerAngle=-inputSteer*maxSteerAngle;
+  const maxSteerAngle=Math.PI/4; // 45 grader ved lav fart
+
+  // Speed-sensitive steering: reduce max steer angle at high speed
+  // steerSpeedFactor: 0=no reduction, 1=full reduction at maxSpeed
+  const steerSensExp = carPhys.steerSensExp ?? 1.0;
+  const speedRatio = Math.min(1, Math.abs(carSpeed) / (_maxSpeed || 30));
+  const steerReduction = 1 - _steerSens * Math.pow(speedRatio, steerSensExp);
+  const effectiveMaxSteer = maxSteerAngle * Math.max(0.1, steerReduction);
+
+  const targetSteerAngle=-inputSteer*effectiveMaxSteer;
   
   // Smooth styrevinkel
   if(!carMesh.userData.steerAngle) carMesh.userData.steerAngle=0;
@@ -3378,8 +3398,8 @@ function updateCar(dt){
   }
 
   // Acceleration / braking
-  if(inputGas>0.01) carSpeed=Math.min(P.maxSpeed,carSpeed+P.accel*inputGas*dt);
-  else if(inputBrake>0.01) carSpeed=Math.max(-P.maxSpeed*0.4,carSpeed-P.accel*inputBrake*dt);
+  if(inputGas>0.01) carSpeed=Math.min(_maxSpeed,carSpeed+_accel*inputGas*dt);
+  else if(inputBrake>0.01) carSpeed=Math.max(-_maxSpeed*0.4,carSpeed-_accel*inputBrake*dt);
   else {
     // Friction (only when no input at all)
     if(carSpeed>0) carSpeed=Math.max(0,carSpeed-P.brake*dt);
