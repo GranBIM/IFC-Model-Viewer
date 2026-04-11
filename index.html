@@ -167,7 +167,7 @@ body{
 .info-chip strong{color:var(--text);font-weight:600;}
 .ib-sep{width:1px;height:16px;background:var(--border-soft);}
 
-/* Measure panel */
+/* Measure panel — right side */
 #measure-panel{
   position:absolute;top:8px;bottom:46px;right:12px;
   width:320px;overflow-y:auto;
@@ -175,13 +175,13 @@ body{
   box-shadow:var(--shadow-md);z-index:20;display:none;flex-direction:column;
 }
 #measure-panel.visible{display:flex;}
-/* steepPulse removed — pulsing only in SVG overlay */
+#measure-panel.minimized{height:36px;min-height:36px;overflow:hidden;}
 .mp-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:0.5rem 0.75rem 0.35rem;border-bottom:1px solid var(--border-soft);
   font-size:0.78rem;font-weight:600;color:var(--muted);flex-shrink:0;
 }
-.mp-list{padding:0.35rem 0.5rem;display:flex;flex-direction:column;gap:0.3rem;}
+.mp-list{padding:0.35rem 0.5rem;display:flex;flex-direction:column;gap:0.3rem;overflow-y:auto;flex:1;}
 .measure-item{
   display:flex;flex-direction:column;
   padding:0.4rem 0.55rem;border-radius:0.4rem;
@@ -377,6 +377,10 @@ body{
   <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-measure">Måleverktøy <span class="tb-caret">▾</span></div>
   </div>
+  <div class="tb-sep"></div>
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-sim">Simulering <span class="tb-caret">▾</span></div>
+  </div>
 
   <div id="toolbar-title-wrap">
     <span id="toolbar-title">IFC Viewer</span>
@@ -434,11 +438,7 @@ body{
 
   <div id="measure-hint"></div>
 
-  <div id="fps-counter" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-    font-family:monospace;font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.7);
-    background:rgba(15,23,42,0.6);padding:0.2rem 0.6rem;border-radius:0.3rem;
-    pointer-events:none;z-index:14;backdrop-filter:blur(3px);
-    border:1px solid rgba(255,255,255,0.08)">-- FPS</div>
+
 
   <!-- Properties panel -->
   <div id="props-panel">
@@ -465,6 +465,7 @@ body{
       <div style="display:flex;gap:0.5rem;align-items:center">
         <button id="btn-toggle-labels" style="border:none;background:rgba(37,99,235,0.15);color:var(--dot-blue);cursor:pointer;font-size:0.7rem;padding:0.1rem 0.4rem;border-radius:0.25rem;font-family:inherit" onclick="toggleFallLabels()" title="Vis/skjul etiketter">Labels ✓</button>
         <button style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.75rem" onclick="clearMeasurements()">Fjern alle</button>
+        <button id="btn-minimize-panel" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 0.2rem;line-height:1" onclick="toggleMeasureMinimize()" title="Minimer/utvid">▾</button>
       </div>
     </div>
     <div class="mp-list" id="measure-list"></div>
@@ -472,7 +473,8 @@ body{
 </div>
 
 <!-- ══════════════ INFO BAR ══════════════ -->
-<div class="info-bar" id="info-bar">
+<div class="info-bar" id="info-bar" style="position:relative;">
+  <span id="fps-counter" style="position:absolute;left:50%;transform:translateX(-50%);font-family:monospace;font-size:0.72rem;font-weight:700;color:var(--text)">-- FPS</span>
   <span class="info-chip" id="ic-file" style="display:none"><strong id="i-fname"></strong></span>
   <span class="ib-sep" id="ib-s1" style="display:none"></span>
   <span class="info-chip" id="ic-elements" style="display:none">Elementer <strong id="i-elements">0</strong></span>
@@ -607,6 +609,10 @@ body{
     <button class="tb-hdrop-btn active" id="btn-solid" onclick="setShading('solid')">Solid</button>
     <button class="tb-hdrop-btn" id="btn-wire" onclick="setShading('wire')">Trådramme</button>
     <button class="tb-hdrop-btn" id="btn-xray" onclick="setShading('xray')">Røntgen</button>
+    <div class="tb-hdrop-slider" id="xray-slider-wrap" style="display:none">
+      <label><span>Røntgen-styrke</span><span id="xray-op-val">15%</span></label>
+      <input type="range" id="xray-op-slider" min="1" max="60" step="1" value="15" oninput="xrayOpacity=+this.value/100;document.getElementById('xray-op-val').textContent=this.value+'%';if(shading==='xray')updateXrayOpacityLive()">
+    </div>
   </div>
 
   <div class="tb-hdrop" id="drop-nav">
@@ -619,14 +625,28 @@ body{
     </div>
   </div>
 
-  <div class="tb-hdrop" id="drop-measure" style="min-width:270px;max-width:310px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
+  <div class="tb-hdrop" id="drop-measure" style="min-width:320px;max-width:380px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
     <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Måleverktøy</div>
     <button class="tb-hdrop-btn" id="btn-m-fall" onclick="setMeasureMode('fall')">📐 Fall (A→B)</button>
     <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
       <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Enhet:</span>
       <button id="btn-fall-pct" class="tb-hdrop-btn" onclick="setFallUnit('pct')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">%</button>
       <button id="btn-fall-ratio" class="tb-hdrop-btn" onclick="setFallUnit('ratio')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">1:X</button>
-      <button id="btn-fall-both" class="tb-hdrop-btn active" onclick="setFallUnit('both')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Begge</button>
+      <button id="btn-fall-deg" class="tb-hdrop-btn" onclick="setFallUnit('deg')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Grader</button>
+      <button id="btn-fall-both" class="tb-hdrop-btn active" onclick="setFallUnit('both')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Alle</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
+      <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Farge:</span>
+      <input type="color" id="fall-seg-color" value="#f97316" oninput="setFallSegColor(this.value)" style="width:28px;height:22px;border:1px solid var(--border);border-radius:0.25rem;padding:0;cursor:pointer;background:var(--btn-bg)">
+      <span id="fall-seg-color-label" style="font-size:0.68rem;color:var(--muted)">#f97316</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
+      <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Modus:</span>
+      <button id="btn-fall-normal" class="tb-hdrop-btn active" onclick="setFallMode('normal')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Normal</button>
+      <button id="btn-fall-tek17" class="tb-hdrop-btn" onclick="setFallMode('tek17')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">TEK17</button>
+    </div>
+    <div id="tek17-info" style="display:none;font-size:0.6rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem;line-height:1.5">
+      TEK17: 1:15 for &gt;5m, 1:12 for &le;5m<br>Bratt = rød blink hvert 2s
     </div>
     <div class="tb-hdrop-sep"></div>
     <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">📏 Lengde</button>
@@ -652,70 +672,9 @@ body{
     <div id="vehicle-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
     <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.2rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
 
-    <div class="tb-hdrop-sep" style="margin:0.4rem 0 0.2rem"></div>
-    <div class="dev-group" id="sim-collapsible">
-      <div class="dev-group-head" onclick="(function(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');})(this)">
-        Simulering <span class="dg-arrow">▶</span>
-      </div>
-      <div class="dev-group-body" style="padding:0.3rem 0.2rem;">
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft);margin-bottom:0.2rem">Ball / Vann</div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Simuleringsmodus</div>
-        <div style="display:flex;gap:4px;padding:0.25rem 0.1rem 0.1rem">
-          <button class="ec-preset active" id="btn-mode-ball" onclick="setSimMode('ball',this)">⬤ Ball</button>
-          <button class="ec-preset" id="btn-mode-water" onclick="setSimMode('water',this)">💧 Vann</button>
-        </div>
-        <div id="sim-mode-desc" style="font-size:0.63rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem">Ball med bounce og friksjon</div>
-        <div class="tb-hdrop-sep"></div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Enkeltplassering</div>
-        <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()" style="margin-top:0.2rem">⬤ Klikk i modell</button>
-        <div class="tb-hdrop-sep"></div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Grid-regn</div>
-        <button class="tb-hdrop-btn" id="btn-ball-grid" onclick="toggleBallGrid()" style="margin-top:0.2rem">⊞ Klikk for grid-senter</button>
-        <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
-          <div class="dev-slider"><label>Tetthet (per rad) <span id="ball-grid-n-val">5</span></label>
-            <input type="range" min="2" max="20" step="1" value="5" oninput="ballCfg.gridN=+this.value;document.getElementById('ball-grid-n-val').textContent=this.value;rebuildGridGhost()"></div>
-          <div class="dev-slider"><label>Grid-størrelse <span id="ball-grid-size-val">10</span> m</label>
-            <input type="range" min="1" max="100" step="1" value="10" oninput="ballCfg.gridSize=+this.value;document.getElementById('ball-grid-size-val').textContent=this.value;rebuildGridGhost()"></div>
-          <div class="dev-slider"><label>Slipphøyde <span id="ball-drop-h-val">10</span> m</label>
-            <input type="range" min="1" max="200" step="1" value="10" oninput="ballCfg.dropHeight=+this.value;document.getElementById('ball-drop-h-val').textContent=this.value"></div>
-          <div class="dev-slider"><label>Sim hastighet <span id="grid-speed-val">200</span> ms/ball</label>
-            <input type="range" min="50" max="5000" step="50" value="200" oninput="GRID_MIN_TIME_MS=+this.value;document.getElementById('grid-speed-val').textContent=this.value"></div>
-        </div>
-        <div class="tb-hdrop-sep"></div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Partikkel-egenskaper</div>
-        <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
-          <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
-            <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
-          <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
-            <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
-          <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
-          <div class="dev-slider"><label>Stripepunkter (maks) <span id="ball-trail-len-val">500</span></label>
-            <input type="range" min="50" max="2000" step="50" value="500" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
-          <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-opacity-val">0.92</span></label>
-            <input type="range" min="0.1" max="1" step="0.02" value="0.92" oninput="ballCfg.trailOpacity=+this.value;document.getElementById('ball-trail-opacity-val').textContent=(+this.value).toFixed(2)"></div>
-          <div class="dev-slider"><label>Min segment lengde <span id="ball-trail-mindist-val">0.1</span> m</label>
-            <input type="range" min="0.1" max="10" step="0.1" value="0.1" oninput="ballCfg.trailMinDist=+this.value;document.getElementById('ball-trail-mindist-val').textContent=(+this.value).toFixed(1)"></div>
-          
-          <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">2.0</span> s</label>
-            <input type="range" min="0.5" max="10" step="0.5" value="2" oninput="ballCfg.sleepDelay=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
-          <div class="dev-slider"><label>Vegg-søkeradius <span id="wall-scan-r-val">10</span> m</label>
-            <input type="range" min="1" max="50" step="1" value="10" oninput="wallScanRadius=+this.value;document.getElementById('wall-scan-r-val').textContent=this.value"></div>
-          <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
-            <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
-        </div>
-        <div class="tb-hdrop-sep"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
-          <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
-          <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
-        </div>
-        <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
-        <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
-        <div class="tb-hdrop-sep" style="margin:0.3rem 0 0.25rem"></div>
-        <button id="btn-sim-pause" class="tb-hdrop-btn" onclick="toggleSimPause()" style="width:100%;text-align:center;font-size:0.78rem;padding:0.3rem">⏸ Pause simulering</button>
-      </div>
-    </div>
-  </div>
 
+  </div>
+  
   <div class="tb-hdrop" id="drop-tools">
     <button class="tb-hdrop-btn" id="btn-tree" onclick="toggleTree()">Modelltre</button>
     <button class="tb-hdrop-btn" id="btn-select" onclick="toggleSelectMode()">Velg element</button>
@@ -953,6 +912,13 @@ body{
   <div class="tb-hdrop" id="drop-devtools" style="min-width:300px;max-width:340px;max-height:80vh;overflow-y:auto;padding:0.5rem 0.4rem;">
     <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Utviklerverktøy</div>
 
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.2rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Røntgenboble (B-tast)</div>
+    <div style="padding:0.2rem 0.1rem">
+      <div class="dev-slider"><label>Radius <span id="dev-bubble-r-val">20</span> m</label>
+        <input type="range" min="2" max="200" step="1" value="20" oninput="setBubbleRadius(+this.value)"></div>
+    </div>
+    <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
+
     <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Streaming / LOD</div>
     <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleStreaming()">
@@ -1032,11 +998,58 @@ body{
   </div>
 
 
-</div>
+
+
+  <div class="tb-hdrop" id="drop-sim" style="min-width:320px;max-width:380px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
+    <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Simulering</div>
+
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft);margin-bottom:0.2rem">Ball / Vann</div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Simuleringsmodus</div>
+        <div style="display:flex;gap:4px;padding:0.25rem 0.1rem 0.1rem">
+          <button class="ec-preset active" id="btn-mode-ball" onclick="setSimMode('ball',this)">⬤ Ball</button>
+          <button class="ec-preset" id="btn-mode-water" onclick="setSimMode('water',this)">💧 Vann</button>
+        </div>
+        <div id="sim-mode-desc" style="font-size:0.63rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem">Ball med bounce og friksjon</div>
+        <button id="btn-sim-pause" class="tb-hdrop-btn" onclick="toggleSimPause()" style="width:calc(100% - 0.6rem);margin:0.2rem 0.3rem 0.1rem;text-align:center;font-size:0.75rem;padding:0.25rem">⏸ Pause simulering</button>
+        <div class="tb-hdrop-sep"></div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Enkeltplassering</div>
+        <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()" style="margin-top:0.2rem">⬤ Klikk i modell</button>
+        <div class="tb-hdrop-sep"></div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Partikkel-egenskaper</div>
+        <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
+          <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
+            <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
+          <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
+            <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
+          <div class="dev-slider"><label>Stripepunkter (maks) <span id="ball-trail-len-val">500</span></label>
+            <input type="range" min="50" max="2000" step="50" value="500" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
+          <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-opacity-val">0.92</span></label>
+            <input type="range" min="0.1" max="1" step="0.02" value="0.92" oninput="ballCfg.trailOpacity=+this.value;document.getElementById('ball-trail-opacity-val').textContent=(+this.value).toFixed(2)"></div>
+          <div class="dev-slider"><label>Min segment lengde <span id="ball-trail-mindist-val">0.1</span> m</label>
+            <input type="range" min="0.1" max="10" step="0.1" value="0.1" oninput="ballCfg.trailMinDist=+this.value;document.getElementById('ball-trail-mindist-val').textContent=(+this.value).toFixed(1)"></div>
+          
+          <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">5.0</span> s</label>
+            <input type="range" min="1" max="30" step="0.5" value="5" oninput="ballCfg.freezeTime=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
+          <div class="dev-slider"><label>Vegg-søkeradius <span id="wall-scan-r-val">10</span> m</label>
+            <input type="range" min="1" max="50" step="1" value="10" oninput="wallScanRadius=+this.value;document.getElementById('wall-scan-r-val').textContent=this.value"></div>
+          <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
+            <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
+        </div>
+        <div class="tb-hdrop-sep"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
+          <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
+          <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+        </div>
+        <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
+        <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
+      </div>
+    </div>
+  </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.5.23/build/index.umd.js"></script>
 <script type="module">
-import {IfcAPI} from 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/web-ifc-api.js';
+import {IfcAPI} from 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.77/web-ifc-api.js';
 
 // Early declarations for streaming LOD (used by applyShading and streaming system)
 const _streamOrigMats=new WeakMap();
@@ -1044,7 +1057,7 @@ const _streamLodMats=new WeakMap();
 
 // ═══════════════════════════════ WEB-IFC INIT ════════════════════════════════
 const ifcApi = new IfcAPI();
-ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
+ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.77/');
 
 let ifcReady = false;
 async function ensureIfcReady(){
@@ -1299,7 +1312,7 @@ window.addEventListener('mouseup',e=>{
   if(wasDrag&&e.button===0){
     if(interactMode==='navigate'&&selectMode&&!moved){
       handleSelect(e.clientX,e.clientY,e);
-    } else if(interactMode==='navigate'&&!selectMode&&!moved&&!ballFallMode&&!ballGridMode){
+    } else if(interactMode==='navigate'&&!selectMode&&!moved&&!ballFallMode){
       // Place a temporary node (same as measure tool), then promote to pivot after 0.5s
       const hit=hitModel(e.clientX,e.clientY);
       if(hit){
@@ -1505,12 +1518,18 @@ async function loadIFCFile(file){
 
     setLoader(true,file.name+': Parsing IFC...');
     await new Promise(r=>setTimeout(r,10));
-    const modelId=ifcApi.OpenModel(uint8,{USE_FAST_BOOLS:true});
+    const modelId=ifcApi.OpenModel(uint8,{USE_FAST_BOOLS:true,COORDINATE_TO_ORIGIN:false});
+    console.log('IFC model opened, modelId:',modelId);
+    if(modelId<0){throw new Error('OpenModel returnerte '+modelId+' — filen kunne ikke parses.');}
 
     setLoader(true,file.name+': Genererer geometri...');
     await new Promise(r=>setTimeout(r,10));
     const flatMeshes=ifcApi.LoadAllGeometry(modelId);
     const total=flatMeshes.size();
+    console.log('LoadAllGeometry:',total,'flatMeshes');
+    if(total===0){
+      console.warn('Ingen geometri funnet i IFC-filen. Sjekk at filen inneholder geometriske elementer.');
+    }
 
     const defaultColors={
       'WALL':0xcccccc,'WALLSTANDARDCASE':0xcccccc,
@@ -1727,6 +1746,10 @@ function toggleAutoRotate(){
 window.toggleAutoRotate=toggleAutoRotate;
 
 // ═══════════════════════════════ SHADING ═════════════════════════════════════
+let xrayOpacity=0.15;
+window.xrayOpacity=xrayOpacity;
+Object.defineProperty(window,'xrayOpacity',{get(){return xrayOpacity;},set(v){xrayOpacity=v;}});
+
 function applyShading(){
   models.forEach(mdl=>{
     if(!mdl.visible) return;
@@ -1734,11 +1757,16 @@ function applyShading(){
       if(!ch.isMesh) return;
       const origColor=ch.userData._origColor||new THREE.Color(0xcccccc);
       const origOpacity=ch.userData._origOpacity!==undefined?ch.userData._origOpacity:1;
+      // Dispose old material to prevent memory leak
+      if(ch.material&&ch.material!==highlightMat){
+        const mats=Array.isArray(ch.material)?ch.material:[ch.material];
+        mats.forEach(m=>{if(m.dispose)m.dispose();});
+      }
       if(shading==='wire'){
         ch.material=new THREE.MeshBasicMaterial({color:0x16a34a,wireframe:true});
       } else if(shading==='xray'){
         ch.material=new THREE.MeshBasicMaterial({
-          color:origColor,wireframe:false,transparent:true,opacity:0.15,
+          color:origColor,wireframe:false,transparent:true,opacity:xrayOpacity,
           side:THREE.DoubleSide,depthWrite:false
         });
       } else {
@@ -1758,12 +1786,319 @@ function applyShading(){
 function setShading(m){
   shading=m;
   ['solid','wire','xray'].forEach(k=>{const el=document.getElementById('btn-'+k);if(el)el.classList.toggle('active',k===m);});
+  // Show/hide xray slider
+  const wrap=document.getElementById('xray-slider-wrap');
+  if(wrap) wrap.style.display=(m==='xray')?'':'none';
   applyShading();
   // Re-apply fall xray on top if any fall data exists
   const hasFall=measurements.some(x=>x.type==='fall')||fallHitMeshes.size>0;
   if(shading==='xray'&&hasFall) applyFallXray();
 }
 window.setShading=setShading;
+
+// Live xray opacity update — just tweaks existing material opacity without rebuilding
+function updateXrayOpacityLive(){
+  if(shading!=='xray') return;
+  // Get fall-solid meshes so we don't change their opacity
+  const solidMeshes=getAllFallMeshes();
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh||!ch.material) return;
+      if(solidMeshes.has(ch)) return; // fall-highlighted meshes stay opaque
+      ch.material.opacity=xrayOpacity;
+      ch.material.transparent=true;
+      ch.material.needsUpdate=true;
+    });
+  });
+}
+window.updateXrayOpacityLive=updateXrayOpacityLive;
+
+// ═══════════════════════════════ B-KEY WIREFRAME BUBBLE ══════════════════════
+// Hold B: dual-pass render with screen-space circular mask.
+// RT1: normal render. RT2: rainbow-wireframe render. Composite: circle mask blends them.
+let _bubbleActive=false;
+let _bubbleOutline=null;
+let _bubbleCenter=new THREE.Vector3();
+let _bubbleRadius=20;
+let _bubbleMouseX=0, _bubbleMouseY=0;
+let _bubbleRT=null;
+let _bubbleQuad=null;
+let _bubbleScene=null;
+let _bubbleCam=null;
+
+// Rainbow wireframe shader material — color based on distance from camera
+let _bubbleRainbowMat=null;
+
+function _getRainbowMat(){
+  if(_bubbleRainbowMat) return _bubbleRainbowMat;
+  _bubbleRainbowMat=new THREE.ShaderMaterial({
+    uniforms:{
+      uCamPos:{value:new THREE.Vector3()},
+      uNear:{value:0.0},
+      uRange:{value:100.0},
+    },
+    vertexShader:`
+      varying vec3 vWorldPos;
+      void main(){
+        vec4 wp=modelMatrix*vec4(position,1.0);
+        vWorldPos=wp.xyz;
+        gl_Position=projectionMatrix*viewMatrix*wp;
+      }
+    `,
+    fragmentShader:`
+      uniform vec3 uCamPos;
+      uniform float uNear;
+      uniform float uRange;
+      varying vec3 vWorldPos;
+      // HSL to RGB
+      vec3 hsl2rgb(float h,float s,float l){
+        float c=(1.0-abs(2.0*l-1.0))*s;
+        float x=c*(1.0-abs(mod(h*6.0,2.0)-1.0));
+        float m=l-c*0.5;
+        vec3 rgb;
+        if(h<1.0/6.0) rgb=vec3(c,x,0);
+        else if(h<2.0/6.0) rgb=vec3(x,c,0);
+        else if(h<3.0/6.0) rgb=vec3(0,c,x);
+        else if(h<4.0/6.0) rgb=vec3(0,x,c);
+        else if(h<5.0/6.0) rgb=vec3(x,0,c);
+        else rgb=vec3(c,0,x);
+        return rgb+m;
+      }
+      void main(){
+        float dist=distance(vWorldPos,uCamPos);
+        float t=clamp((dist-uNear)/uRange,0.0,1.0);
+        // Rosa(0) → rød → oransje → gul → grønn → cyan → blå(1)
+        float hue=mix(0.9,0.6,t); // 0.9=rosa/magenta → 0.6=blue
+        if(t<0.5) hue=mix(0.9,0.15,t*2.0); // rosa → gul
+        else hue=mix(0.15,0.55,(t-0.5)*2.0); // gul → cyan
+        vec3 col=hsl2rgb(hue,0.85,0.55);
+        gl_FragColor=vec4(col,1.0);
+      }
+    `,
+    wireframe:true,
+    side:THREE.DoubleSide,
+  });
+  return _bubbleRainbowMat;
+}
+
+function _initBubbleRT(){
+  if(_bubbleRT) return;
+  const w=renderer.domElement.width, h=renderer.domElement.height;
+  _bubbleRT=new THREE.WebGLRenderTarget(w,h,{format:THREE.RGBAFormat});
+
+  const compMat=new THREE.ShaderMaterial({
+    uniforms:{
+      tWire:{value:null},
+      uCenter:{value:new THREE.Vector2(0.5,0.5)},
+      uRadius:{value:0.1},
+      uAspect:{value:w/h},
+    },
+    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.0);}`,
+    fragmentShader:`
+      uniform sampler2D tWire;
+      uniform vec2 uCenter;
+      uniform float uRadius;
+      uniform float uAspect;
+      varying vec2 vUv;
+      void main(){
+        vec2 d=vUv-uCenter;
+        d.x*=uAspect;
+        float dist=length(d);
+        if(dist>uRadius) discard;
+        float edge=smoothstep(uRadius,uRadius-0.004,dist);
+        vec4 wire=texture2D(tWire,vUv);
+        // Only show where wireframe actually drew something (not black bg)
+        float lum=dot(wire.rgb,vec3(0.299,0.587,0.114));
+        if(lum<0.01) discard;
+        gl_FragColor=vec4(wire.rgb,edge);
+      }
+    `,
+    transparent:true,
+    depthTest:false,
+    depthWrite:false,
+  });
+  const quadGeo=new THREE.PlaneGeometry(2,2);
+  _bubbleQuad=new THREE.Mesh(quadGeo,compMat);
+  _bubbleScene=new THREE.Scene();
+  _bubbleScene.add(_bubbleQuad);
+  _bubbleCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+}
+
+function _resizeBubbleRT(){
+  if(!_bubbleRT) return;
+  const w=renderer.domElement.width, h=renderer.domElement.height;
+  if(_bubbleRT.width!==w||_bubbleRT.height!==h) _bubbleRT.setSize(w,h);
+  _bubbleQuad.material.uniforms.uAspect.value=w/h;
+}
+
+function _initBubbleOutline(){
+  if(_bubbleOutline) return;
+  // Solid-edge sphere outline (not wireframe — smooth ring)
+  const geo=new THREE.SphereGeometry(1,64,48);
+  const mat=new THREE.ShaderMaterial({
+    uniforms:{uColor:{value:new THREE.Color(0x2563eb)}},
+    vertexShader:`
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main(){
+        vec4 mvPos=modelViewMatrix*vec4(position,1.0);
+        vViewDir=normalize(-mvPos.xyz);
+        vNormal=normalize(normalMatrix*normal);
+        gl_Position=projectionMatrix*mvPos;
+      }
+    `,
+    fragmentShader:`
+      uniform vec3 uColor;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main(){
+        float edge=1.0-abs(dot(vNormal,vViewDir));
+        float rim=smoothstep(0.65,1.0,edge);
+        if(rim<0.05) discard;
+        gl_FragColor=vec4(uColor,rim*0.7);
+      }
+    `,
+    transparent:true,
+    depthWrite:false,
+    side:THREE.DoubleSide,
+  });
+  _bubbleOutline=new THREE.Mesh(geo,mat);
+  _bubbleOutline.renderOrder=999;
+  _bubbleOutline.userData._isBubble=true;
+}
+
+function _showBubble(worldPt){
+  _initBubbleOutline();
+  _initBubbleRT();
+  _bubbleCenter.copy(worldPt);
+  _bubbleOutline.position.copy(worldPt);
+  _bubbleOutline.scale.setScalar(_bubbleRadius);
+  if(!_bubbleOutline.parent) scene.add(_bubbleOutline);
+  _bubbleActive=true;
+}
+
+function _hideBubble(){
+  _bubbleActive=false;
+  if(_bubbleOutline&&_bubbleOutline.parent) scene.remove(_bubbleOutline);
+}
+
+function _updateBubblePos(){
+  if(!_bubbleActive) return;
+  const hit=hitModel(_bubbleMouseX,_bubbleMouseY);
+  if(hit) _showBubble(hit.point);
+}
+
+function _renderWithBubble(cam){
+  _resizeBubbleRT();
+
+  // ── Pass 1: Normal render to screen ──
+  _bubbleOutline.visible=false;
+  renderer.render(scene,cam);
+
+  // ── Pass 2: Rainbow wireframe render to offscreen RT ──
+  const rainbowMat=_getRainbowMat();
+  rainbowMat.uniforms.uCamPos.value.copy(cam.position);
+  // Compute near/range from bubble
+  const camDist=cam.position.distanceTo(_bubbleCenter);
+  rainbowMat.uniforms.uNear.value=Math.max(0,camDist-_bubbleRadius);
+  rainbowMat.uniforms.uRange.value=_bubbleRadius*2;
+
+  const savedMats=[];
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh||!ch.visible) return;
+      if(ch.userData._isBubble) return;
+      savedMats.push({m:ch,mat:ch.material});
+      ch.material=rainbowMat;
+    });
+  });
+  _bubbleOutline.visible=false;
+
+  const oldRT=renderer.getRenderTarget();
+  renderer.setRenderTarget(_bubbleRT);
+  renderer.setClearColor(0x000000,0);
+  renderer.clear(true,true,false);
+  renderer.render(scene,cam);
+  renderer.setRenderTarget(oldRT);
+
+  // Restore materials
+  for(const e of savedMats) e.m.material=e.mat;
+
+  // Restore clear color
+  const baseHex=themeBgs[currentTheme]||0x0b1220;
+  const bri=brightnessVal/100;
+  renderer.setClearColor(new THREE.Color(
+    ((baseHex>>16)&0xff)/255*bri,
+    ((baseHex>>8)&0xff)/255*bri,
+    (baseHex&0xff)/255*bri
+  ));
+
+  // ── Pass 3: Composite wireframe RT onto screen with circle mask ──
+  const projected=_bubbleCenter.clone().project(cam);
+  const screenU=(projected.x+1)/2;
+  const screenV=(projected.y+1)/2;
+  const aspect=renderer.domElement.width/renderer.domElement.height;
+  const camDir=new THREE.Vector3();
+  cam.getWorldDirection(camDir);
+  const camRight=new THREE.Vector3().crossVectors(cam.up,camDir).normalize();
+  const edgePt=_bubbleCenter.clone().addScaledVector(camRight,_bubbleRadius);
+  const projEdge=edgePt.project(cam);
+  const edgeU=(projEdge.x+1)/2;
+  const edgeV=(projEdge.y+1)/2;
+  const screenRadius=Math.sqrt(((edgeU-screenU)*aspect)**2+(edgeV-screenV)**2);
+
+  const uniforms=_bubbleQuad.material.uniforms;
+  uniforms.tWire.value=_bubbleRT.texture;
+  uniforms.uCenter.value.set(screenU,screenV);
+  uniforms.uRadius.value=screenRadius;
+  uniforms.uAspect.value=aspect;
+
+  renderer.autoClear=false;
+  renderer.render(_bubbleScene,_bubbleCam);
+  renderer.autoClear=true;
+
+  // ── Pass 4: Render outline sphere on top ──
+  _bubbleOutline.visible=true;
+  const hideList=[];
+  scene.traverse(ch=>{
+    if(ch.isMesh&&ch!==_bubbleOutline&&ch.visible){
+      hideList.push(ch);ch.visible=false;
+    }
+  });
+  renderer.autoClear=false;
+  renderer.render(scene,cam);
+  renderer.autoClear=true;
+  for(const m of hideList) m.visible=true;
+}
+
+// Key handlers for B
+document.addEventListener('keydown',e=>{
+  if(e.key==='b'||e.key==='B'){
+    if(e.repeat||carDriving||_bubbleActive) return;
+    _bubbleMouseX=orb.lx||0;
+    _bubbleMouseY=orb.ly||0;
+    const hit=hitModel(_bubbleMouseX,_bubbleMouseY);
+    if(hit) _showBubble(hit.point);
+  }
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='b'||e.key==='B') _hideBubble();
+});
+window.addEventListener('mousemove',e=>{
+  if(_bubbleActive){
+    _bubbleMouseX=e.clientX;
+    _bubbleMouseY=e.clientY;
+    _updateBubblePos();
+  }
+});
+
+function setBubbleRadius(v){
+  _bubbleRadius=v;
+  document.getElementById('dev-bubble-r-val').textContent=v;
+}
+window.setBubbleRadius=setBubbleRadius;
 
 // ── Fall X-ray: xray everything except meshes touched by fall nodes ──
 // fallHitMeshes = meshes hit DURING active drawing (cleared when tool exits)
@@ -1796,7 +2131,7 @@ function applyFallXray(){
         });
       } else {
         ch.material=new THREE.MeshBasicMaterial({
-          color:origColor,wireframe:false,transparent:true,opacity:0.08,
+          color:origColor,wireframe:false,transparent:true,opacity:xrayOpacity,
           side:THREE.DoubleSide,depthWrite:false
         });
       }
@@ -2047,7 +2382,12 @@ let measurePts=[];
 let measureMousePos=null;
 const measurements=[];
 let measureIdCounter=0;
-let fallUnit='both'; // 'pct' | 'ratio' | 'both'
+let fallUnit='both'; // 'pct' | 'ratio' | 'deg' | 'both'
+let fallSegColor='#f97316'; // user-configurable segment color
+
+// Hover tracking for segment highlighting
+window._hoverMeasure=-1; // measurement id being hovered, -1=none
+window._hoverSeg=-1;     // segment index being hovered, -1=none
 
 const hintEl=document.getElementById('measure-hint');
 
@@ -2057,36 +2397,56 @@ function slopeT(dz,dxy){
   return Math.min(Math.abs(dz/dxy)*15, 1);
 }
 
-// Gradient: blue(0%) -> green(midway) -> orange(1:15) -> red(>1:15 blinks)
+// All segments use one user-chosen color; steep segments blink red
 function segColor(dz,dxy){
-  if(isSteep(dz,dxy)) return '#ef4444';
-  const t=slopeT(dz,dxy); // 0=flat, 1=exactly 1:15
-  // 0.0 -> blue  hsl(210,90%,55%)
-  // 0.5 -> green hsl(120,85%,42%)
-  // 1.0 -> orange hsl(28,95%,52%)
-  let h,s,l;
-  if(t<0.5){
-    const u=t*2; // 0..1
-    h=Math.round(210+(120-210)*u); // 210->120
-    s=Math.round(90+(85-90)*u);
-    l=Math.round(55+(42-55)*u);
-  } else {
-    const u=(t-0.5)*2; // 0..1
-    h=Math.round(120+(28-120)*u); // 120->28
-    s=Math.round(85+(95-85)*u);
-    l=Math.round(42+(52-42)*u);
-  }
-  return `hsl(${h},${s}%,${l}%)`;
+  return fallSegColor;
 }
 
-function isSteep(dz,dxy){
-  // steeper than 1:15 => |dz/dxy| > 1/15
-  return dxy>0.001 && Math.abs(dz/dxy)>1/15;
+let fallMode='normal'; // 'normal' | 'tek17'
+
+function isSteep(dz,dxy,segLength){
+  if(dxy<0.001) return false;
+  const slope=Math.abs(dz/dxy);
+  if(fallMode==='tek17'){
+    // TEK17 §8-5/§8-7: 1:12 for strekninger ≤5m, 1:15 for >5m
+    const len=segLength!==undefined?segLength:Math.sqrt(dxy*dxy+dz*dz);
+    if(len<=5.0) return slope>1/12; // 8.33%
+    return slope>1/15; // 6.67%
+  }
+  // Normal: single threshold 1:15
+  return slope>1/15;
 }
+
+function setFallMode(mode){
+  fallMode=mode;
+  ['normal','tek17'].forEach(x=>{
+    const el=document.getElementById('btn-fall-'+x);
+    if(el) el.classList.toggle('active',x===mode);
+  });
+  const info=document.getElementById('tek17-info');
+  if(info) info.style.display=(mode==='tek17')?'block':'none';
+  // Re-evaluate all measurements
+  measurements.forEach(m=>{
+    if(m.type==='fall') m.segments.forEach(s=>{
+      s.label=formatFallLabel(s.dz,s.dxy);
+    });
+  });
+  renderMeasureList();
+}
+window.setFallMode=setFallMode;
+
+function toggleMeasureMinimize(){
+  const panel=document.getElementById('measure-panel');
+  const btn=document.getElementById('btn-minimize-panel');
+  if(!panel) return;
+  panel.classList.toggle('minimized');
+  if(btn) btn.textContent=panel.classList.contains('minimized')?'▸':'▾';
+}
+window.toggleMeasureMinimize=toggleMeasureMinimize;
 
 function setFallUnit(u){
   fallUnit=u;
-  ['pct','ratio','both'].forEach(x=>{
+  ['pct','ratio','deg','both'].forEach(x=>{
     const el=document.getElementById('btn-fall-'+x);
     if(el) el.classList.toggle('active',x===u);
   });
@@ -2100,23 +2460,37 @@ function setFallUnit(u){
 }
 window.setFallUnit=setFallUnit;
 
+function setFallSegColor(hex){
+  fallSegColor=hex;
+  document.getElementById('fall-seg-color-label').textContent=hex;
+  measurements.forEach(m=>{
+    if(m.type==='fall') m.segments.forEach(s=>{s.color=fallSegColor;});
+  });
+  renderMeasureList();
+}
+window.setFallSegColor=setFallSegColor;
+
 function formatFallLabel(dz,dxy){
   if(dxy<0.001) return 'Loddrett';
   const pct=(dz/dxy*100);
   const sign=dz>=0?'+':'';
   const flat=Math.abs(pct)<0.005;
+  const angleDeg=Math.atan2(Math.abs(dz),dxy)*180/Math.PI;
+  const angleStr=(dz<0?'-':'+')+angleDeg.toFixed(1)+'°';
+
   if(fallUnit==='pct') return flat?'Flatt':sign+pct.toFixed(2)+'%';
+  if(fallUnit==='deg') return flat?'Flatt':angleStr;
   if(fallUnit==='ratio'){
     if(flat) return 'Flatt';
     if(Math.abs(dz)<0.0001) return '1:\u221e';
     const ratio=Math.abs(dxy/dz);
     return (dz<0?'\u2212':'')+'1:'+(ratio<1000?ratio.toFixed(1):'\u221e');
   }
-  // both
+  // both — show all three
   if(flat) return 'Flatt';
   const ratioVal=Math.abs(dxy/dz);
   const ratioStr=(Math.abs(dz)<0.0001||ratioVal>=1000)?'\u221e':ratioVal.toFixed(1);
-  return sign+pct.toFixed(2)+'%  (1:'+ratioStr+')';
+  return sign+pct.toFixed(2)+'%  (1:'+ratioStr+')  '+angleStr;
 }
 
 function setMeasureMode(m){
@@ -2237,16 +2611,27 @@ function renderMeasureList(){
   document.getElementById('measure-list').innerHTML=measurements.map(m=>{
     if(m.type==='fall'){
       const collapsed=!!m.collapsed;
-      const anysteep=m.segments.some(s=>isSteep(s.dz,s.dxy));
-      const steepWarn=anysteep?`<span style="font-size:0.65rem;font-weight:700;color:#ef4444;margin-left:0.3rem">Bratt</span>`:'';
+      const anysteep=m.segments.some(s=>isSteep(s.dz,s.dxy,s.slope3d));
+      const steepWarn=anysteep?`<span style="font-size:0.65rem;font-weight:700;color:#ef4444;margin-left:0.3rem">${fallMode==='tek17'?'TEK17':'Bratt'}</span>`:'';
       const arrow=collapsed?'▶':'▾';
       const segRows=collapsed?'':m.segments.map((s,i)=>{
-        const steep=isSteep(s.dz,s.dxy);
+        const steep=isSteep(s.dz,s.dxy,s.slope3d);
         const dzStr=(s.dz>=0?'+':'')+s.dz.toFixed(3)+' m';
         const dxyStr=s.dxy.toFixed(3)+' m';
         const slopeStr=s.slope3d.toFixed(3)+' m';
-        const steepTxt=steep?'<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt</span>':'';
-        return `<div style="display:flex;flex-direction:column;gap:0.1rem;padding:0.25rem 0.55rem;border-radius:0.35rem;border:1.5px solid ${s.color}33;margin-top:0.2rem;background:${s.color}11">
+        const angleDeg=Math.atan2(Math.abs(s.dz),s.dxy)*180/Math.PI;
+        const angleStr=angleDeg.toFixed(1)+'°';
+        let steepTxt='';
+        if(fallMode==='tek17'){
+          const ratio=s.dxy>0.001?Math.abs(s.dxy/s.dz):9999;
+          if(steep) steepTxt='<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt (TEK17: '+(s.slope3d<=5?'maks 1:12':'maks 1:15')+')</span>';
+          else steepTxt='<span style="margin-left:0.35rem;font-size:0.6rem;color:var(--dot-green)">OK</span>';
+        } else {
+          steepTxt=steep?'<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt</span>':'';
+        }
+        return `<div style="display:flex;flex-direction:column;gap:0.1rem;padding:0.25rem 0.55rem;border-radius:0.35rem;border:1.5px solid ${s.color}33;margin-top:0.2rem;background:${s.color}11;cursor:pointer;transition:opacity 0.15s"
+          onmouseenter="window._hoverMeasure=${m.id};window._hoverSeg=${i}"
+          onmouseleave="window._hoverMeasure=-1;window._hoverSeg=-1">
           <div style="display:flex;align-items:center;gap:0.3rem">
             <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
             <span style="font-size:0.68rem;font-weight:700;color:var(--muted)">Seg ${i+1}</span>
@@ -2254,7 +2639,7 @@ function renderMeasureList(){
             ${steepTxt}
           </div>
           <div style="display:flex;gap:0.55rem;font-size:0.7rem;color:var(--muted);padding-left:1.3rem">
-            <span>↕ ${dzStr}</span><span>↔ ${dxyStr}</span><span>↗ ${slopeStr}</span>
+            <span>↕ ${dzStr}</span><span>↔ ${dxyStr}</span><span>↗ ${slopeStr}</span><span>∠ ${angleStr}</span>
           </div>
         </div>`;
       }).join('');
@@ -2305,11 +2690,9 @@ function redrawSVG(){
 
   // Pulse timer for steep segments in SVG
   const now=performance.now();
-  // Double-blink: 2 quick flashes at t~0.1 and t~0.3 within a 2s cycle
+  // Blink: 1 flash per 2 seconds (on for 300ms, off for 1700ms)
   const _t=(now%2000)/2000; // 0..1 over 2s
-  const _b1=(_t>0.05&&_t<0.15)?1:0;
-  const _b2=(_t>0.25&&_t<0.35)?1:0;
-  const pulse=Math.max(_b1,_b2); // 1=fully red, 0=off
+  const pulse=_t<0.15?1:0; // blink for 300ms each 2 seconds
 
   // ── Stored measurements ──
   for(const m of measurements){
@@ -2330,34 +2713,40 @@ function redrawSVG(){
     }
 
     if(m.type==='fall'&&m.segments){
+      const isHoveredMeasure=(window._hoverMeasure===m.id);
+      const hasHover=(window._hoverMeasure>=0);
       for(let i=0;i<m.segments.length;i++){
         const s=m.segments[i];
         const a=worldToScreen(s.a),b=worldToScreen(s.b);
         if(a.behind||b.behind) continue;
         const col=s.color||segColor(i);
-        const steep=isSteep(s.dz,s.dxy);
+        const steep=isSteep(s.dz,s.dxy,s.slope3d);
 
-        // Orange right-angle helpers (horizontal+vertical)
+        // Dim segments that are not hovered
+        const isThisSeg=(isHoveredMeasure&&window._hoverSeg===i);
+        const dimmed=(hasHover&&!isThisSeg);
+        const segOpacity=dimmed?'0.15':'1';
+
         const aH=worldToScreen(new THREE.Vector3(s.b.x,s.a.y,s.b.z));
         if(!aH.behind){
-          svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:aH.x,y2:aH.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':'0.55'}));
-          svg.appendChild(mkSVG('line',{x1:aH.x,y1:aH.y,x2:b.x,y2:b.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':'0.55'}));
+          svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:aH.x,y2:aH.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':dimmed?'0.08':'0.55'}));
+          svg.appendChild(mkSVG('line',{x1:aH.x,y1:aH.y,x2:b.x,y2:b.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':dimmed?'0.08':'0.55'}));
         }
 
         // Slope line — blinks red if steep, otherwise gradient color
-        const lineStroke = (steep && pulse) ? '#ef4444' : col;
-        const lineW = steep ? '3' : '2.5';
-        svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineStroke,'stroke-width':lineW}));
+        const lineStroke = (steep && pulse && !dimmed) ? '#ef4444' : col;
+        const lineW = (isThisSeg) ? '4' : (steep ? '3' : '2.5');
+        svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineStroke,'stroke-width':lineW,opacity:segOpacity}));
 
         // Dots
-        if(i===0) svg.appendChild(mkSVG('circle',{cx:a.x,cy:a.y,r:5,fill:col,stroke:'#fff','stroke-width':'2'}));
-        svg.appendChild(mkSVG('circle',{cx:b.x,cy:b.y,r:4,fill:col,stroke:'#fff','stroke-width':'1.5'}));
+        if(i===0) svg.appendChild(mkSVG('circle',{cx:a.x,cy:a.y,r:isThisSeg?7:5,fill:col,stroke:'#fff','stroke-width':'2',opacity:segOpacity}));
+        svg.appendChild(mkSVG('circle',{cx:b.x,cy:b.y,r:isThisSeg?6:4,fill:col,stroke:'#fff','stroke-width':'1.5',opacity:segOpacity}));
 
         // Per-segment label
         const distStr=s.slope3d.toFixed(2)+'m';
         const lbl=s.label+'  '+distStr;
-        const labelColor=(steep && pulse)?'#ef4444':'#fdba74';
-        if(showFallLabels) drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,labelColor);
+        const labelColor=steep?'#f97316':'#fdba74';
+        if(showFallLabels&&!dimmed) drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,labelColor);
       }
       // Node index labels
       if(showFallLabels) for(let i=0;i<p2.length;i++){
@@ -2396,12 +2785,13 @@ function redrawSVG(){
       if(a.behind||b.behind) continue;
       const dxy=Math.sqrt((measurePts[i].x-measurePts[i-1].x)**2+(measurePts[i].z-measurePts[i-1].z)**2);
       const dz=measurePts[i].y-measurePts[i-1].y;
+      const segLen=measurePts[i-1].distanceTo(measurePts[i]);
       const col=segColor(dz,dxy);
-      const steep=isSteep(dz,dxy);
+      const steep=isSteep(dz,dxy,segLen);
       const lineCol=(steep&&pulse)?'#ef4444':col;
       svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineCol,'stroke-width':'2.5'}));
-      const lbl=formatFallLabel(dz,dxy)+'  '+measurePts[i-1].distanceTo(measurePts[i]).toFixed(2)+'m';
-      drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,(steep&&pulse)?'#ef4444':'#fdba74');
+      const lbl=formatFallLabel(dz,dxy)+'  '+segLen.toFixed(2)+'m';
+      if(showFallLabels) drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,steep?'#f97316':'#fdba74');
     }
     for(let i=0;i<p2.length;i++){
       const p=p2[i];
@@ -2420,10 +2810,11 @@ function redrawSVG(){
           if(!pB.behind){
             const dxy=Math.sqrt((hit.point.x-measurePts[measurePts.length-1].x)**2+(hit.point.z-measurePts[measurePts.length-1].z)**2);
             const dz=hit.point.y-measurePts[measurePts.length-1].y;
-            const steep=isSteep(dz,dxy);
+            const previewLen=measurePts[measurePts.length-1].distanceTo(hit.point);
+            const steep=isSteep(dz,dxy,previewLen);
             svg.appendChild(mkSVG('line',{x1:last.x,y1:last.y,x2:pB.x,y2:pB.y,stroke:(steep&&pulse)?'#ef4444':segColor(dz,dxy),'stroke-width':'1.5','stroke-dasharray':'4,3'}));
-            const lbl=formatFallLabel(dz,dxy)+'  '+measurePts[measurePts.length-1].distanceTo(hit.point).toFixed(2)+'m';
-            if(showFallLabels) drawSVGLabel((last.x+pB.x)/2,(last.y+pB.y)/2-14,lbl,(steep&&pulse)?'#ef4444':'#fdba74');
+            const lbl=formatFallLabel(dz,dxy)+'  '+previewLen.toFixed(2)+'m';
+            if(showFallLabels) drawSVGLabel((last.x+pB.x)/2,(last.y+pB.y)/2-14,lbl,steep?'#f97316':'#fdba74');
           }
         }
       }
@@ -3201,6 +3592,8 @@ window.readSpaceMouse=readSpaceMouse;
 
 window.addEventListener('wheel', e => {
   if(smCfg.index !== null && !smCfg.disabled && e.target !== tc){
+    // Only block scroll on the viewport area, not on UI panels/dropdowns
+    if(!vp.contains(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
   }
@@ -3287,7 +3680,7 @@ function enterCarDriving(){
   carDriving=true;
   carSpeed=0;carVelY=0;carOnGround=true;
   carTiltPitch=0;carTiltRoll=0;
-  carSusp=[0,0,0,0];carSuspVel=[0,0,0,0];
+  carSusp=[null,null,null,null];carSuspVel=[0,0,0,0];
   carKeys.shift=false; // reset in case SHIFT was held before entering
   if(carCamMode==='3rd-free') carCamYaw=0;
   carCamPitch=0.3;
@@ -3319,8 +3712,8 @@ function exitCarDriving(){
     const v=placedVehicles.find(x=>x.id===carDrivingId);
     if(v){v.yaw=carYaw;v.mesh=carMesh;}
   }
-  carMesh=null;carDrivingId=null;
   if(_gunMesh){if(carMesh)carMesh.remove(_gunMesh);_gunMesh=null;}
+  carMesh=null;carDrivingId=null;
   _ctrlTimes=[];
   camera.fov=45;camera.updateProjectionMatrix();
   hintEl.classList.remove('visible');
@@ -3351,7 +3744,7 @@ function refreshVehicleListUI(){
     return;
   }
   if(empty) empty.style.display='none';
-  const colors={personbil:'#3b82f6',varebil:'#16a34a',lastebil:'#eab308',brannbil:'#dc2626'};
+  const colors={liten:'#dc2626',normal:'#16a34a',stor:'#eab308',personbil:'#3b82f6',varebil:'#16a34a',lastebil:'#eab308',brannbil:'#dc2626'};
   container.innerHTML=placedVehicles.map((v,i)=>{
     const preset=VEHICLE_PRESETS[v.type];
     const name=preset?preset.name:v.type;
@@ -3473,7 +3866,7 @@ function carKeyUp(e){
   if(k==='s')carKeys.s=false;if(k==='d')carKeys.d=false;
 }
 
-// ── Lekepistol easter egg: CTRL × 3 innen 5 sek ──
+// ── Lekepistol easter egg: SHIFT × 4 innen 5 sek ──
 let _gunMesh=null;
 let _ctrlTimes=[];
 
@@ -3732,7 +4125,7 @@ let carTiltRoll=0;
 
 // Per-wheel suspension: smoothed ground-contact Y for each corner [FL, FR, RL, RR]
 // Each value tracks the terrain height under that wheel with spring damping
-let carSusp=[0,0,0,0]; // current damped ground-Y per wheel
+let carSusp=[null,null,null,null]; // current damped ground-Y per wheel
 let carSuspVel=[0,0,0,0]; // velocity for spring simulation
 
 // ── GTA bounce ──
@@ -3934,7 +4327,7 @@ function updateCar(dt){
 
       // Init suspension to target on first frame
       for(let i=0;i<4;i++){
-        if(carSusp[i]===0) carSusp[i]=targetY[i];
+        if(carSusp[i]===null) carSusp[i]=targetY[i];
       }
 
       // Spring-integrate
@@ -4083,17 +4476,15 @@ function updateCar(dt){
 
 // ── Config (UI-bound) ──
 let wallScanRadius = 10.0; // meters — scan radius for wall slope direction
-window.wallScanRadius = wallScanRadius;
+Object.defineProperty(window,'wallScanRadius',{get(){return wallScanRadius;},set(v){wallScanRadius=v;}});
 const ballCfg = {
   radius:       0.3,
-  gridN:        5,
-  gridSize:     10,
-  dropHeight:   10,
   trailLen:     500,
   trailFade:    9999,
   trailOpacity: 0.92,
   trailMinDist: 0.1,
   sleepDelay:   2.0,
+  freezeTime:   5.0,
   friction:     0.970,
   clusterRadius:0.8,
   mode:         'ball'
@@ -4132,9 +4523,7 @@ const WATER_SLEEP_VEL=0.008;
 
 const placedBalls=[];
 let ballFallMode=false;
-let ballGridMode=false;
 let ballGhost=null;
-let ballGridGhost=null;
 
 const _ballDownRay=new THREE.Raycaster();
 const _slopeRay=new THREE.Raycaster();
@@ -4192,20 +4581,37 @@ function _makeSegLine(){
   return mesh;
 }
 
-const TRAIL_MIN_DIST=1.0; // minimum 1m between trail points
+function renderTrailSegments(trail){
+  // Just update colors/blink — no position changes
+  if(!trail.segments.length) return;
+  const t=(performance.now()%1000)/1000;
+  const blink=(!_simPausedGlobal)&&(t<0.15); // blink only when not paused
+  for(let i=0;i<trail.segLines.length;i++){
+    const l=trail.segLines[i];
+    if(!l.visible) continue;
+    const a=trail.segments[i], b=trail.segments[i+1];
+    if(!a||!b) continue;
+    const dxy=Math.sqrt((b.pos.x-a.pos.x)**2+(b.pos.z-a.pos.z)**2);
+    const dz=b.pos.y-a.pos.y;
+    const steep=dxy>0.001&&Math.abs(dz/dxy)>1/15;
+    l.material.color.setHex(steep?(blink?0xef4444:0x9933cc):0x9933cc);
+    l.material.opacity=ballCfg.trailOpacity;
+    l.material.needsUpdate=true;
+  }
+}
 
 function updateTrail(trail,pos,now){
-  // Only add point if 1m from last
-  const last=trail.segments.length>0?trail.segments[trail.segments.length-1]:null;
-  if(!last||pos.distanceTo(last.pos)>=ballCfg.trailMinDist){
-    // Store position 1cm above surface
-    const surfPos=pos.clone();
-    surfPos.y-=(trail.ballRadius||0.3)-0.01;
-    trail.segments.push({pos:surfPos,time:now});
+  // Only add points when not paused globally
+  if(!_simPausedGlobal){
+    const last=trail.segments.length>0?trail.segments[trail.segments.length-1]:null;
+    if(!last||pos.distanceTo(last.pos)>=ballCfg.trailMinDist){
+      const surfPos=pos.clone();
+      surfPos.y-=(trail.ballRadius||0.3)-0.01;
+      trail.segments.push({pos:surfPos,time:now});
+    }
+    // Cap at trailLen
+    while(trail.segments.length>ballCfg.trailLen) trail.segments.shift();
   }
-  // (no smoothing — just skip if not far enough yet)
-  // Keep within trailLen count
-  while(trail.segments.length>ballCfg.trailLen) trail.segments.shift();
 
   const segs=trail.segments, n=segs.length;
   const numLines=Math.max(0,n-1);
@@ -4216,8 +4622,8 @@ function updateTrail(trail,pos,now){
     trail.segLines.push(l);
   }
 
-  const t=(performance.now()%2000)/2000;
-  const blink=(t>0.05&&t<0.15)||(t>0.25&&t<0.35);
+  const t=(performance.now()%1000)/1000;
+  const blink=(!_simPausedGlobal)&&(t<0.15);
 
   for(let i=0;i<trail.segLines.length;i++){
     const l=trail.segLines[i];
@@ -4226,13 +4632,13 @@ function updateTrail(trail,pos,now){
     // Position box between a and b
     const mx=(a.pos.x+b.pos.x)/2, my=(a.pos.y+b.pos.y)/2, mz=(a.pos.z+b.pos.z)/2;
     l.position.set(mx,my,mz);
-    const dx=b.pos.x-a.pos.x, dz_=b.pos.z-a.pos.z;
-    const segLen=Math.sqrt(dx*dx+(b.pos.y-a.pos.y)**2+dz_*dz_)||0.01;
+    const dx=b.pos.x-a.pos.x, dy_=b.pos.y-a.pos.y, dz_=b.pos.z-a.pos.z;
+    const segLen=Math.sqrt(dx*dx+dy_*dy_+dz_*dz_)||0.01;
     l.scale.set(segLen,1,1);
-    l.rotation.y=-Math.atan2(dz_,dx);
-    // Tilt to match slope
-    const horizLen=Math.sqrt(dx*dx+dz_*dz_)||0.001;
-    l.rotation.z=Math.atan2(b.pos.y-a.pos.y,horizLen);
+    // Use quaternion to orient box along segment direction (avoids gimbal lock)
+    const dir=new THREE.Vector3(dx,dy_,dz_).normalize();
+    const right=new THREE.Vector3(1,0,0);
+    l.quaternion.setFromUnitVectors(right,dir);
 
     const dxy=Math.sqrt((b.pos.x-a.pos.x)**2+(b.pos.z-a.pos.z)**2);
     const dz=b.pos.y-a.pos.y;
@@ -4300,7 +4706,6 @@ function spawnBall(x,y,z){
 
 function toggleBallFall(){
   if(ballFallMode){cancelBallPlacement();return;}
-  if(ballGridMode) cancelBallGrid();
   ballFallMode=true;
   document.getElementById('btn-ball-fall').classList.add('active');
   ballGhost=buildBallModel(true,ballCfg.radius,ballCfg.mode);
@@ -4335,159 +4740,6 @@ function ballPlacementClick(e){
   const hit=hitModel(e.clientX,e.clientY);
   if(!hit) return;
   spawnBall(hit.point.x,hit.point.y+ballCfg.radius+0.05,hit.point.z);
-  refreshBallListUI();
-}
-
-// ── Grid simulation scheduler ──
-// Balls spawn directly ON surface (via raycast), paused.
-// 2 at a time simulate, rotating every GRID_ROTATE_MS_VAR ms.
-const GRID_BATCH=1;           // 1 ball at a time
-let GRID_ROTATE_MS_VAR=500;   // advance interval (ms) — controlled by slider
-let GRID_MIN_TIME_MS=200;     // minimum time before advancing (speed control)
-let _gridBalls=[];
-let _gridBatchIndex=0;
-let _gridRotateTimer=null;
-
-const GRID_COL_ACTIVE=0x00cc44;  // green
-const GRID_COL_INACTIVE=0xff6600; // orange
-const GRID_COL_FROZEN=0x2266ff;   // blue
-
-function _gridUpdateColors(){
-  for(let i=0;i<_gridBalls.length;i++){
-    const b=_gridBalls[i];
-    let col;
-    if(b.frozenAt!==null) col=GRID_COL_FROZEN;
-    else if(!b._simPaused) col=GRID_COL_ACTIVE;
-    else col=GRID_COL_INACTIVE;
-    if(b.mesh&&b.mesh.material) b.mesh.material.color.setHex(col);
-  }
-}
-
-function _gridSetActiveBatch(){
-  if(!_gridBalls.length) return;
-  for(let i=0;i<_gridBalls.length;i++){
-    const b=_gridBalls[i];
-    if(b.frozenAt!==null){b._simPaused=false;continue;}
-    b._simPaused=!(i>=_gridBatchIndex&&i<_gridBatchIndex+GRID_BATCH);
-  }
-  _gridUpdateColors();
-  const done=_gridBalls.filter(b=>b.frozenAt!==null).length;
-  const total=_gridBalls.length;
-  hintEl.textContent=`Grid: ${_gridBatchIndex+1}/${total} · Frosset: ${done}/${total}`;
-  hintEl.classList.add('visible');
-}
-
-function _gridAdvanceBatch(){
-  let safety=0;
-  do {
-    _gridBatchIndex+=GRID_BATCH;
-    if(_gridBatchIndex>=_gridBalls.length) _gridBatchIndex=0;
-    safety++;
-  } while(
-    safety<_gridBalls.length&&
-    _gridBalls.slice(_gridBatchIndex,_gridBatchIndex+GRID_BATCH).every(b=>b.frozenAt!==null)
-  );
-  _gridSetActiveBatch();
-}
-
-function tickGridQueue(){
-  if(!_gridBalls.length) return;
-  // Check if current active ball is frozen — advance immediately
-  const activeBall=_gridBalls[_gridBatchIndex];
-  if(activeBall&&activeBall.frozenAt!==null){
-    // Check if all done
-    const allFrozen=_gridBalls.every(b=>b.frozenAt!==null);
-    if(allFrozen){
-      if(_gridRotateTimer){clearInterval(_gridRotateTimer);_gridRotateTimer=null;}
-      for(const b of _gridBalls) b._simPaused=false;
-      _gridBalls=[];
-      hintEl.textContent='Grid ferdig — alle baller simulert.';
-      setTimeout(()=>{hintEl.classList.remove('visible');},2500);
-      refreshBallListUI();
-      return;
-    }
-    _gridAdvanceBatch();
-  }
-  _gridUpdateColors();
-}
-
-function toggleBallGrid(){
-  if(ballGridMode){cancelBallGrid();return;}
-  if(ballFallMode) cancelBallPlacement();
-  ballGridMode=true;
-  document.getElementById('btn-ball-grid').classList.add('active');
-  ballGridGhost=new THREE.Group();
-  scene.add(ballGridGhost);
-  rebuildGridGhost();
-  vp.style.cursor='crosshair';
-  document.addEventListener('mousemove',ballGridMove);
-  tc.addEventListener('click',ballGridClick);
-  hintEl.textContent='Klikk for grid-senter · ESC avbryt';
-  hintEl.classList.add('visible');
-}
-window.toggleBallGrid=toggleBallGrid;
-
-function rebuildGridGhost(){
-  if(!ballGridGhost) return;
-  ballGridGhost.clear();
-  const n=ballCfg.gridN,half=ballCfg.gridSize/2,step=ballCfg.gridSize/(n-1||1);
-  const isW=ballCfg.mode==='water';
-  const mat=new THREE.MeshBasicMaterial({color:isW?0x3399ff:0x4488ff,transparent:true,opacity:0.32});
-  const geo=new THREE.SphereGeometry(ballCfg.radius,8,6);
-  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
-    const m=new THREE.Mesh(geo,mat);
-    m.position.set(-half+i*step,0,-half+j*step);
-    ballGridGhost.add(m);
-  }
-}
-window.rebuildGridGhost=rebuildGridGhost;
-
-function cancelBallGrid(){
-  ballGridMode=false;
-  document.getElementById('btn-ball-grid').classList.remove('active');
-  if(ballGridGhost){scene.remove(ballGridGhost);ballGridGhost=null;}
-  vp.style.cursor='';
-  document.removeEventListener('mousemove',ballGridMove);
-  tc.removeEventListener('click',ballGridClick);
-  hintEl.classList.remove('visible');
-}
-
-function ballGridMove(e){
-  if(!ballGridGhost||!ballGridMode) return;
-  const hit=hitModel(e.clientX,e.clientY);
-  if(hit) ballGridGhost.position.set(hit.point.x,hit.point.y+ballCfg.dropHeight,hit.point.z);
-}
-
-function ballGridClick(e){
-  if(!ballGridMode) return;
-  e.stopPropagation();e.preventDefault();
-  const hit=hitModel(e.clientX,e.clientY);
-  if(!hit) return;
-  const cx=hit.point.x,cz_=hit.point.z;
-  const n=ballCfg.gridN,half=ballCfg.gridSize/2,step=ballCfg.gridSize/(n-1||1);
-  _gridBalls=[];
-  _gridBatchIndex=0;
-  if(_gridRotateTimer){clearInterval(_gridRotateTimer);_gridRotateTimer=null;}
-  const meshes=getCachedRayMeshes();
-  const r=ballCfg.radius;
-  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
-    const gx=cx-half+i*step, gz=cz_-half+j*step;
-    // Place each ball ON the surface using downward raycast
-    const surfHit=bvhRayDown(gx, hit.point.y+50, gz, meshes);
-    const spawnY=surfHit ? surfHit.y+r+0.05 : hit.point.y+r;
-    const b=spawnBall(gx, spawnY, gz);
-    b._simPaused=true;   // all paused initially
-    b._hasGrounded=true; // already on surface
-    _gridBalls.push(b);
-  }
-  _gridSetActiveBatch(); // activate first batch of 2
-  // Timer is just a max-time safety fallback; tickGridQueue advances on freeze
-  _gridRotateTimer=setInterval(()=>{
-    if(!_gridBalls.length){clearInterval(_gridRotateTimer);_gridRotateTimer=null;return;}
-    _gridAdvanceBatch();
-  }, GRID_MIN_TIME_MS);
-  hintEl.textContent=`Grid: gruppe 1/${Math.ceil(_gridBalls.length/GRID_BATCH)} · ${_gridBalls.length} baller`;
-  hintEl.classList.add('visible');
   refreshBallListUI();
 }
 
@@ -4530,15 +4782,14 @@ function toggleSimPause(){
 window.toggleSimPause=toggleSimPause;
 
 function removeAllBalls(){
-  if(ballFallMode)cancelBallPlacement();if(ballGridMode)cancelBallGrid();
-  _gridBalls=[];_gridBatchIndex=0;if(_gridRotateTimer){clearInterval(_gridRotateTimer);_gridRotateTimer=null;}
+  if(ballFallMode)cancelBallPlacement();
   for(const b of placedBalls){scene.remove(b.mesh);if(b.trail)removeTrail(b.trail);}
   placedBalls.length=0;refreshBallListUI();
 }
 window.removeAllBalls=removeAllBalls;
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){if(ballFallMode)cancelBallPlacement();if(ballGridMode)cancelBallGrid();}
+  if(e.key==='Escape'){if(ballFallMode)cancelBallPlacement();}
 });
 
 // ── Cluster colors ──
@@ -4734,7 +4985,8 @@ function bvhRaySide(ox,oy,oz,dx,dy,dz,maxDist,meshes){
 // [12]radius [13]mode(0=ball,1=water) [14]dt [15]gravity
 
 const PARTICLE_STRIDE = 16;
-const NUM_WORKERS = Math.max(1, Math.min(8, (navigator.hardwareConcurrency||2) - 1));
+// Use all available cores for workers (leave 1 for main thread)
+const NUM_WORKERS = Math.max(1, navigator.hardwareConcurrency ? navigator.hardwareConcurrency - 1 : 3);
 
 // ── WebGPU integration backend ──────────────────────────────────────────────
 let _gpuDevice=null, _gpuPipeline=null;
@@ -4921,7 +5173,7 @@ async function gpuIntegrate(ballData, groundResults, dt, friction, now, count){
 }
 
 let _workerPool = [];
-let _workerBusy = new Array(NUM_WORKERS).fill(false);
+let _workerBusy = new Array(NUM_WORKERS).fill(false); // one busy flag per worker
 let _pendingWorkerResults = new Map(); // workerId -> {resolve}
 
 const WORKER_SRC = `
@@ -4930,10 +5182,11 @@ const STRIDE=16;
 const BALL_RESTITUTION=0.0, WATER_RESTITUTION=0.0; // no bounce
 const BALL_SLEEP=0.04, WATER_SLEEP=0.008;
 const FREEZE_RADIUS=0.10; // 10cm position radius
-const FREEZE_TIME=5.0;    // 5 seconds
+let FREEZE_TIME=5.0;      // overridden per message
 
 self.onmessage=function(e){
-  const {buf,count,dt,gravity,friction,sleepDelay,now,groundResults}=e.data;
+  const {buf,count,dt,gravity,friction,sleepDelay,now,groundResults,freezeTime}=e.data;
+  if(freezeTime) FREEZE_TIME=freezeTime;
   const f=new Float32Array(buf);
 
   for(let i=0;i<count;i++){
@@ -5025,7 +5278,6 @@ function createWorkerPool(){
         if(froze>=0&&b.frozenAt===null){
           b.frozenAt=froze;
           b.mesh.material.opacity*=0.55;
-          if(_gridBalls.length) b.mesh.material.color.setHex(GRID_COL_FROZEN);
           frozeAny=true;
         }
       }
@@ -5034,7 +5286,7 @@ function createWorkerPool(){
       // Post-process spin + trail on main thread
       const now=performance.now()/1000;
       for(let j=0;j<count;j++){
-        const b=placedBalls[start+j];
+        const b=pendingBalls[j];
         if(!b||b.frozenAt!==null) continue;
         if(b.mode!=='water'){
           const s2=Math.sqrt(b.vel.x*b.vel.x+b.vel.z*b.vel.z);
@@ -5043,8 +5295,7 @@ function createWorkerPool(){
             s2*_lastDt/(b.radius||0.3)
           );
         }
-        updateTrail(b.trail,b.mesh.position,now);
-
+        // Trail handled in render loop for all balls
         // ── Arrow direction: rolling 2s average of movement ──
         if(b.posHistory){
           const p=b.mesh.position;
@@ -5222,13 +5473,13 @@ function updateBalls(dt){
         if(froze>=0&&b.frozenAt===null){b.frozenAt=froze;b.mesh.material.opacity*=0.55;frozeAny=true;}
       }
       if(frozeAny) refreshBallListUI();
-      for(let j=0;j<n;j++){
-        const b=placedBalls[j]; if(!b||b.frozenAt!==null) continue;
+      for(let j=0;j<activeN;j++){
+        const b=activeBalls[j]; if(!b||b.frozenAt!==null) continue;
         if(b.mode!=='water'){
           const s2=Math.sqrt(b.vel.x*b.vel.x+b.vel.z*b.vel.z);
           if(s2>0.01) b.mesh.rotateOnWorldAxis(new THREE.Vector3(b.vel.z,0,-b.vel.x).normalize(),s2*_lastDt/(b.radius||0.3));
         }
-        updateTrail(b.trail,b.mesh.position,now2);
+        // Trail handled in render loop
         if(b.posHistory){
           const p=b.mesh.position;
           b.posHistory.push({x:p.x,y:p.y,z:p.z,t:now2});
@@ -5266,7 +5517,7 @@ function updateBalls(dt){
       _workerBusy[w]=true;
       _workerPool[w]._pendingStart=start;
       _workerPool[w]._pendingBalls=activeBalls.slice(start,start+count);
-      _workerPool[w].postMessage({buf:buf.buffer,count,dt,gravity:BALL_GRAVITY,friction:ballCfg.friction,sleepDelay:ballCfg.sleepDelay,now,groundResults:groundResults.slice(start,start+count)},[buf.buffer]);
+      _workerPool[w].postMessage({buf:buf.buffer,count,dt,gravity:BALL_GRAVITY,friction:ballCfg.friction,sleepDelay:ballCfg.sleepDelay,now,freezeTime:ballCfg.freezeTime,groundResults:groundResults.slice(start,start+count)},[buf.buffer]);
     }
   }
 }
@@ -5757,6 +6008,7 @@ function updateStreaming(){
 const clk=new THREE.Clock();
 let _fpsFrames=0,_fpsLast=performance.now(),_fpsVal=0;
 const _fpsEl=document.getElementById('fps-counter');
+const _upVec=new THREE.Vector3(0,1,0); // reusable up vector for render loop
 
 // ── Init worker pool + BVH extensions at startup ──
 setupBvhExtensions();
@@ -5785,14 +6037,20 @@ initWebGPU();
     if(orb.ar){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
   }
 
-  updateBalls(dt);
-  if(!_simPausedGlobal) tickGridQueue();
-  // Update trail + arrow for ALL non-frozen balls every frame (including paused)
+  if(!_simPausedGlobal){
+    updateBalls(dt);
+  }
+  // Update trails for all balls — add points only when active, blink always
   if(placedBalls.length){
     const now2=performance.now()/1000;
     for(const b of placedBalls){
-      if(b.frozenAt!==null||!b._simPaused) continue;
-      updateTrail(b.trail,b.mesh.position,now2);
+      if(b.frozenAt!==null){
+        // Frozen: just update blink colors, no new points
+        if(b.trail) renderTrailSegments(b.trail);
+      } else {
+        // Active/paused: full update
+        updateTrail(b.trail,b.mesh.position,now2);
+      }
     }
   }
   // Update ball arrow sprites — rotate to point toward camera
@@ -5821,9 +6079,13 @@ initWebGPU();
   updateStreaming();
   if(ptLight.visible){
     const cam=activeCamera||camera;
-    ptLight.position.copy(cam.position).addScaledVector(new THREE.Vector3(0,1,0),_ptHeight);
+    ptLight.position.copy(cam.position).addScaledVector(_upVec,_ptHeight);
   }
-  renderer.render(scene,activeCamera);
+  if(_bubbleActive){
+    _renderWithBubble(activeCamera);
+  } else {
+    renderer.render(scene,activeCamera);
+  }
   updateCamPosBar();
   redrawSVG();
 })();
