@@ -106,6 +106,7 @@ body{
 #viewport.m-nav{cursor:grab;}
 #viewport.m-nav.dragging{cursor:grabbing;}
 #viewport.m-length{cursor:crosshair;}
+#viewport.m-fall{cursor:crosshair;}
 
 /* Pivot snap dot */
 #pivot-dot{
@@ -168,12 +169,13 @@ body{
 
 /* Measure panel */
 #measure-panel{
-  position:absolute;bottom:44px;right:12px;
-  width:320px;max-height:300px;overflow-y:auto;
+  position:absolute;top:8px;bottom:46px;right:12px;
+  width:320px;overflow-y:auto;
   background:var(--card);border:1px solid var(--border);border-radius:0.65rem;
   box-shadow:var(--shadow-md);z-index:20;display:none;flex-direction:column;
 }
 #measure-panel.visible{display:flex;}
+/* steepPulse removed — pulsing only in SVG overlay */
 .mp-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:0.5rem 0.75rem 0.35rem;border-bottom:1px solid var(--border-soft);
@@ -193,6 +195,7 @@ body{
   border-radius:0.3rem;font-size:0.68rem;font-weight:700;letter-spacing:0.03em;flex-shrink:0;
 }
 .badge-length{background:rgba(37,99,235,0.12);color:var(--dot-blue);border:1px solid rgba(37,99,235,0.25);}
+.badge-fall{background:rgba(249,115,22,0.12);color:var(--dot-orange);border:1px solid rgba(249,115,22,0.25);}
 .measure-val{font-weight:600;color:var(--text);white-space:nowrap;font-size:0.85rem;}
 .measure-del{
   padding:0.08rem 0.35rem;border-radius:0.28rem;border:1px solid transparent;
@@ -367,27 +370,22 @@ body{
   <div class="tb-sep"></div>
 
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-measure">Måleverktøy <span class="tb-caret">▾</span></div>
-  </div>
-  <div class="tb-sep"></div>
-
-  <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-tools">Verktøy <span class="tb-caret">▾</span></div>
   </div>
   <div class="tb-sep"></div>
 
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-vehicle">Kjøretøy <span class="tb-caret">▾</span></div>
-  </div>
-  <div class="tb-sep"></div>
-
-  <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-analyse">Analyse <span class="tb-caret">▾</span></div>
+    <div class="tb-hgroup-trigger" data-drop="drop-measure">Måleverktøy <span class="tb-caret">▾</span></div>
   </div>
 
   <div id="toolbar-title-wrap">
     <span id="toolbar-title">IFC Viewer</span>
   </div>
+
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" data-drop="drop-light">Lys <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
 
   <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-gamemode">GameMode <span class="tb-caret">▾</span></div>
@@ -464,7 +462,10 @@ body{
   <div id="measure-panel">
     <div class="mp-header">
       <span>Målinger</span>
-      <button style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.75rem" onclick="clearMeasurements()">Fjern alle</button>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <button id="btn-toggle-labels" style="border:none;background:rgba(37,99,235,0.15);color:var(--dot-blue);cursor:pointer;font-size:0.7rem;padding:0.1rem 0.4rem;border-radius:0.25rem;font-family:inherit" onclick="toggleFallLabels()" title="Vis/skjul etiketter">Labels ✓</button>
+        <button style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.75rem" onclick="clearMeasurements()">Fjern alle</button>
+      </div>
     </div>
     <div class="mp-list" id="measure-list"></div>
   </div>
@@ -618,10 +619,101 @@ body{
     </div>
   </div>
 
-  <div class="tb-hdrop" id="drop-measure">
-    <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">Lengde</button>
+  <div class="tb-hdrop" id="drop-measure" style="min-width:270px;max-width:310px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
+    <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Måleverktøy</div>
+    <button class="tb-hdrop-btn" id="btn-m-fall" onclick="setMeasureMode('fall')">📐 Fall (A→B)</button>
+    <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
+      <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Enhet:</span>
+      <button id="btn-fall-pct" class="tb-hdrop-btn" onclick="setFallUnit('pct')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">%</button>
+      <button id="btn-fall-ratio" class="tb-hdrop-btn" onclick="setFallUnit('ratio')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">1:X</button>
+      <button id="btn-fall-both" class="tb-hdrop-btn active" onclick="setFallUnit('both')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Begge</button>
+    </div>
     <div class="tb-hdrop-sep"></div>
-    <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle</button>
+    <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">📏 Lengde</button>
+    <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle målinger</button>
+    <div class="tb-hdrop-sep" style="margin:0.4rem 0 0.2rem"></div>
+
+    <!-- Kjøretøy — synlig over Simulering -->
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.25rem">Kjøretøy</div>
+    <div style="display:flex;gap:5px;padding:0 0.1rem 0.2rem">
+      <button id="btn-car" class="tb-hdrop-btn" onclick="selectVehicle('normal')"
+        style="flex:1;text-align:center;font-size:0.72rem;border-color:#16a34a;color:#16a34a">Normal</button>
+      <button id="btn-car-liten" class="tb-hdrop-btn" onclick="selectVehicle('liten')"
+        style="flex:1;text-align:center;font-size:0.72rem;border-color:#dc2626;color:#dc2626">Liten</button>
+      <button id="btn-car-stor" class="tb-hdrop-btn" onclick="selectVehicle('stor')"
+        style="flex:1;text-align:center;font-size:0.72rem;border-color:#eab308;color:#eab308">Stor</button>
+    </div>
+    <div style="font-size:0.6rem;color:var(--muted);padding:0 0.3rem 0.1rem" id="vehicle-type-desc">Velg størrelse for å plassere kjøretøy</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.5rem 0.15rem">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte</span>
+      <button class="tb-hdrop-btn" onclick="removeAllVehicles()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+    </div>
+    <div id="vehicle-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
+    <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.2rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
+
+    <div class="tb-hdrop-sep" style="margin:0.4rem 0 0.2rem"></div>
+    <div class="dev-group" id="sim-collapsible">
+      <div class="dev-group-head" onclick="(function(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');})(this)">
+        Simulering <span class="dg-arrow">▶</span>
+      </div>
+      <div class="dev-group-body" style="padding:0.3rem 0.2rem;">
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft);margin-bottom:0.2rem">Ball / Vann</div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Simuleringsmodus</div>
+        <div style="display:flex;gap:4px;padding:0.25rem 0.1rem 0.1rem">
+          <button class="ec-preset active" id="btn-mode-ball" onclick="setSimMode('ball',this)">⬤ Ball</button>
+          <button class="ec-preset" id="btn-mode-water" onclick="setSimMode('water',this)">💧 Vann</button>
+        </div>
+        <div id="sim-mode-desc" style="font-size:0.63rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem">Ball med bounce og friksjon</div>
+        <div class="tb-hdrop-sep"></div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Enkeltplassering</div>
+        <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()" style="margin-top:0.2rem">⬤ Klikk i modell</button>
+        <div class="tb-hdrop-sep"></div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Grid-regn</div>
+        <button class="tb-hdrop-btn" id="btn-ball-grid" onclick="toggleBallGrid()" style="margin-top:0.2rem">⊞ Klikk for grid-senter</button>
+        <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
+          <div class="dev-slider"><label>Tetthet (per rad) <span id="ball-grid-n-val">5</span></label>
+            <input type="range" min="2" max="20" step="1" value="5" oninput="ballCfg.gridN=+this.value;document.getElementById('ball-grid-n-val').textContent=this.value;rebuildGridGhost()"></div>
+          <div class="dev-slider"><label>Grid-størrelse <span id="ball-grid-size-val">10</span> m</label>
+            <input type="range" min="1" max="100" step="1" value="10" oninput="ballCfg.gridSize=+this.value;document.getElementById('ball-grid-size-val').textContent=this.value;rebuildGridGhost()"></div>
+          <div class="dev-slider"><label>Slipphøyde <span id="ball-drop-h-val">10</span> m</label>
+            <input type="range" min="1" max="200" step="1" value="10" oninput="ballCfg.dropHeight=+this.value;document.getElementById('ball-drop-h-val').textContent=this.value"></div>
+          <div class="dev-slider"><label>Sim hastighet <span id="grid-speed-val">200</span> ms/ball</label>
+            <input type="range" min="50" max="5000" step="50" value="200" oninput="GRID_MIN_TIME_MS=+this.value;document.getElementById('grid-speed-val').textContent=this.value"></div>
+        </div>
+        <div class="tb-hdrop-sep"></div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Partikkel-egenskaper</div>
+        <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
+          <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
+            <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
+          <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
+            <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
+          <div class="dev-slider"><label>Stripepunkter (maks) <span id="ball-trail-len-val">500</span></label>
+            <input type="range" min="50" max="2000" step="50" value="500" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
+          <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-opacity-val">0.92</span></label>
+            <input type="range" min="0.1" max="1" step="0.02" value="0.92" oninput="ballCfg.trailOpacity=+this.value;document.getElementById('ball-trail-opacity-val').textContent=(+this.value).toFixed(2)"></div>
+          <div class="dev-slider"><label>Min segment lengde <span id="ball-trail-mindist-val">0.1</span> m</label>
+            <input type="range" min="0.1" max="10" step="0.1" value="0.1" oninput="ballCfg.trailMinDist=+this.value;document.getElementById('ball-trail-mindist-val').textContent=(+this.value).toFixed(1)"></div>
+          
+          <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">2.0</span> s</label>
+            <input type="range" min="0.5" max="10" step="0.5" value="2" oninput="ballCfg.sleepDelay=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
+          <div class="dev-slider"><label>Vegg-søkeradius <span id="wall-scan-r-val">10</span> m</label>
+            <input type="range" min="1" max="50" step="1" value="10" oninput="wallScanRadius=+this.value;document.getElementById('wall-scan-r-val').textContent=this.value"></div>
+          <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
+            <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
+        </div>
+        <div class="tb-hdrop-sep"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
+          <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
+          <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+        </div>
+        <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
+        <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
+        <div class="tb-hdrop-sep" style="margin:0.3rem 0 0.25rem"></div>
+        <button id="btn-sim-pause" class="tb-hdrop-btn" onclick="toggleSimPause()" style="width:100%;text-align:center;font-size:0.78rem;padding:0.3rem">⏸ Pause simulering</button>
+      </div>
+    </div>
   </div>
 
   <div class="tb-hdrop" id="drop-tools">
@@ -655,77 +747,60 @@ body{
     </div>
   </div>
 
-  <div class="tb-hdrop" id="drop-vehicle" style="min-width:220px;">
-    <div style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding:0.2rem 0.5rem 0.15rem">Plasser kjøretøy</div>
-    <button class="tb-hdrop-btn" id="btn-car" onclick="selectVehicle('personbil')">Personbil</button>
-    <div class="tb-hdrop-sep"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0.5rem">
-      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte</span>
-      <button class="tb-hdrop-btn" onclick="removeAllVehicles()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
-    </div>
-    <div id="vehicle-list" style="max-height:180px;overflow-y:auto;padding:0 0.2rem"></div>
-    <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
-  </div>
 
-  <div class="tb-hdrop" id="drop-analyse" style="min-width:270px;max-width:310px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
 
-    <!-- Modus -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Simuleringsmodus</div>
-    <div style="display:flex;gap:4px;padding:0.25rem 0.1rem 0.1rem">
-      <button class="ec-preset active" id="btn-mode-ball" onclick="setSimMode('ball',this)">⬤ Ball</button>
-      <button class="ec-preset" id="btn-mode-water" onclick="setSimMode('water',this)">💧 Vann</button>
-    </div>
-    <div id="sim-mode-desc" style="font-size:0.63rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem">Ball med bounce og friksjon</div>
 
-    <div class="tb-hdrop-sep"></div>
 
-    <!-- Enkeltplassering -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Enkeltplassering</div>
-    <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()" style="margin-top:0.2rem">⬤ Klikk i modell</button>
 
-    <div class="tb-hdrop-sep"></div>
 
-    <!-- Grid-regn -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Grid-regn</div>
-    <button class="tb-hdrop-btn" id="btn-ball-grid" onclick="toggleBallGrid()" style="margin-top:0.2rem">⊞ Klikk for grid-senter</button>
-    <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
-      <div class="dev-slider"><label>Tetthet (per rad) <span id="ball-grid-n-val">5</span></label>
-        <input type="range" min="2" max="20" step="1" value="5" oninput="ballCfg.gridN=+this.value;document.getElementById('ball-grid-n-val').textContent=this.value;rebuildGridGhost()"></div>
-      <div class="dev-slider"><label>Grid-størrelse <span id="ball-grid-size-val">10</span> m</label>
-        <input type="range" min="1" max="100" step="1" value="10" oninput="ballCfg.gridSize=+this.value;document.getElementById('ball-grid-size-val').textContent=this.value;rebuildGridGhost()"></div>
-      <div class="dev-slider"><label>Slipphøyde <span id="ball-drop-h-val">10</span> m</label>
-        <input type="range" min="1" max="200" step="1" value="10" oninput="ballCfg.dropHeight=+this.value;document.getElementById('ball-drop-h-val').textContent=this.value"></div>
+  <div class="tb-hdrop" id="drop-light" style="min-width:260px;max-width:300px;padding:0.45rem 0.4rem;">
+    <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Lysinnstillinger</div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Sollys (retningslys)</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.22rem">
+      <div class="dev-slider"><label>Intensitet <span id="sun-int-val">0.30</span></label>
+        <input type="range" min="0" max="3" step="0.05" value="0.3" oninput="setSunIntensity(+this.value);document.getElementById('sun-int-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Azimut <span id="sun-az-val">18</span>°</label>
+        <input type="range" min="0" max="360" step="1" value="18" oninput="setSunAzimuth(+this.value);document.getElementById('sun-az-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Høyde <span id="sun-el-val">52</span>°</label>
+        <input type="range" min="0" max="90" step="1" value="52" oninput="setSunElevation(+this.value);document.getElementById('sun-el-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Farge <span id="sun-col-val">#f5bf61</span></label>
+        <input type="color" value="#f5bf61" oninput="setSunColor(this.value);document.getElementById('sun-col-val').textContent=this.value" style="width:100%;height:24px;border:none;background:none;cursor:pointer;padding:0"></div>
     </div>
 
-    <div class="tb-hdrop-sep"></div>
-
-    <!-- Partikkel-egenskaper -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Partikkel-egenskaper</div>
-    <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
-      <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
-        <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
-      <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
-        <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
-      <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
-      <div class="dev-slider"><label>Stripelengde <span id="ball-trail-len-val">100</span> pkt</label>
-        <input type="range" min="5" max="500" step="5" value="100" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-fade-val">8</span> s</label>
-        <input type="range" min="1" max="60" step="1" value="8" oninput="ballCfg.trailFade=+this.value;document.getElementById('ball-trail-fade-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">2.0</span> s</label>
-        <input type="range" min="0.5" max="10" step="0.5" value="2" oninput="ballCfg.sleepDelay=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
-      <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
-        <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Bakgrunnslys (ambient)</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.22rem">
+      <div class="dev-slider"><label>Intensitet <span id="amb-int-val">0.30</span></label>
+        <input type="range" min="0" max="2" step="0.05" value="0.30" oninput="setAmbIntensity(+this.value);document.getElementById('amb-int-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Farge <span id="amb-col-val">#4d003e</span></label>
+        <input type="color" value="#4d003e" oninput="setAmbColor(this.value);document.getElementById('amb-col-val').textContent=this.value" style="width:100%;height:24px;border:none;background:none;cursor:pointer;padding:0"></div>
     </div>
 
-    <div class="tb-hdrop-sep"></div>
-
-    <!-- Plasserte -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
-      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
-      <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Fylllys (motlys)</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.22rem">
+      <div class="dev-slider"><label>Intensitet <span id="fill-int-val">2.00</span></label>
+        <input type="range" min="0" max="2" step="0.05" value="2.0" oninput="setFillIntensity(+this.value);document.getElementById('fill-int-val').textContent=(+this.value).toFixed(2)"></div>
     </div>
-    <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
-    <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
+
+    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Punktlys</div>
+    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.22rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0;cursor:pointer" onclick="togglePointLight()">
+        <span style="font-size:0.73rem;color:var(--text)">Aktivert</span>
+        <span id="pt-light-status" style="font-size:0.68rem;padding:0.1rem 0.4rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--dot-green)">PÅ</span>
+      </div>
+      <div class="dev-slider"><label>Intensitet <span id="pt-int-val">1.0</span></label>
+        <input type="range" min="0" max="5" step="0.1" value="1" oninput="setPtIntensity(+this.value);document.getElementById('pt-int-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Rekkevidde <span id="pt-dist-val">59</span> m</label>
+        <input type="range" min="1" max="200" step="1" value="59" oninput="setPtDistance(+this.value);document.getElementById('pt-dist-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Høyde <span id="pt-h-val">6.0</span> m</label>
+        <input type="range" min="0" max="50" step="0.5" value="6" oninput="setPtHeight(+this.value);document.getElementById('pt-h-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Farge <span id="pt-col-val">#850000</span></label>
+        <input type="color" value="#850000" oninput="setPtColor(this.value);document.getElementById('pt-col-val').textContent=this.value" style="width:100%;height:24px;border:none;background:none;cursor:pointer;padding:0"></div>
+      <div style="font-size:0.6rem;color:var(--muted)">Punktlys følger kameraet</div>
+    </div>
+
+    <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
+    <button class="tb-hdrop-btn" onclick="resetLights()" style="width:100%;text-align:center;font-size:0.72rem">↺ Tilbakestill lys</button>
   </div>
 
   <div class="tb-hdrop" id="drop-gamemode" style="min-width:280px;max-width:320px;max-height:85vh;overflow-y:auto;padding:0.45rem 0.4rem;">
@@ -1032,10 +1107,53 @@ let activeCamera=camera;
 let orthoCamera=null;
 
 // Lights
-scene.add(new THREE.AmbientLight(0xffffff,0.55));
-const dl1=new THREE.DirectionalLight(0xffffff,0.9);dl1.position.set(5,10,7);scene.add(dl1);
-const dl2=new THREE.DirectionalLight(0xffffff,0.25);dl2.position.set(-4,-3,-4);scene.add(dl2);
+const ambLight=new THREE.AmbientLight(0x4d003e,0.30);scene.add(ambLight);
+const dl1=new THREE.DirectionalLight(0xf5bf61,0.30);
+{const p=_sunPos(18,52);dl1.position.copy(p);}
+scene.add(dl1);
+const dl2=new THREE.DirectionalLight(0xffffff,2.00);dl2.position.set(-4,-3,-4);scene.add(dl2);
 const hl=new THREE.HemisphereLight(0xadd8e6,0x6b4423,0.3);scene.add(hl);
+// Controllable point light (follows camera)
+const ptLight=new THREE.PointLight(0x850000,1.0,59);ptLight.visible=true;scene.add(ptLight);
+let _sunAz=18,_sunEl=52; // degrees
+let _ptHeight=6.0;
+function _sunPos(az,el){
+  const azR=az*Math.PI/180,elR=el*Math.PI/180;
+  const r=20;
+  return new THREE.Vector3(r*Math.cos(elR)*Math.sin(azR),r*Math.sin(elR),r*Math.cos(elR)*Math.cos(azR));
+}
+function setSunIntensity(v){dl1.intensity=v;}
+function setSunAzimuth(v){_sunAz=v;dl1.position.copy(_sunPos(_sunAz,_sunEl));}
+function setSunElevation(v){_sunEl=v;dl1.position.copy(_sunPos(_sunAz,_sunEl));}
+function setSunColor(hex){dl1.color.set(hex);}
+function setAmbIntensity(v){ambLight.intensity=v;}
+function setAmbColor(hex){ambLight.color.set(hex);}
+function setFillIntensity(v){dl2.intensity=v;}
+function setPtIntensity(v){ptLight.intensity=v;}
+function setPtDistance(v){ptLight.distance=v;}
+function setPtHeight(v){_ptHeight=v;}
+function setPtColor(hex){ptLight.color.set(hex);}
+function togglePointLight(){
+  ptLight.visible=!ptLight.visible;
+  const el=document.getElementById('pt-light-status');
+  if(el){el.textContent=ptLight.visible?'PÅ':'AV';el.style.color=ptLight.visible?'var(--dot-green)':'var(--muted)';}
+}
+function resetLights(){
+  ambLight.intensity=0.30;ambLight.color.set(0x4d003e);
+  dl1.intensity=0.30;dl1.color.set(0xf5bf61);_sunAz=18;_sunEl=52;dl1.position.copy(_sunPos(18,52));
+  dl2.intensity=2.00;
+  ptLight.visible=true;ptLight.intensity=1.0;ptLight.distance=59;ptLight.color.set(0x850000);_ptHeight=6.0;
+  const ids=[['sun-int-val','0.30'],['sun-az-val','18'],['sun-el-val','52'],['sun-col-val','#f5bf61'],
+             ['amb-int-val','0.30'],['amb-col-val','#4d003e'],['fill-int-val','2.00'],
+             ['pt-int-val','1.0'],['pt-dist-val','59'],['pt-h-val','6.0'],['pt-col-val','#850000'],['pt-light-status','PÅ']];
+  ids.forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent=v;});
+  const ptSt=document.getElementById('pt-light-status');if(ptSt){ptSt.style.color='var(--dot-green)';}
+}
+window.setSunIntensity=setSunIntensity;window.setSunAzimuth=setSunAzimuth;window.setSunElevation=setSunElevation;
+window.setSunColor=setSunColor;window.setAmbIntensity=setAmbIntensity;window.setAmbColor=setAmbColor;
+window.setFillIntensity=setFillIntensity;window.setPtIntensity=setPtIntensity;window.setPtDistance=setPtDistance;
+window.setPtHeight=setPtHeight;window.setPtColor=setPtColor;window.togglePointLight=togglePointLight;
+window.resetLights=resetLights;
 
 // Grid helper — 1x1m cells, large extent
 let gridSize=10; // meters per cell
@@ -1117,10 +1235,31 @@ function doPan(dx,dy){
 }
 
 // Mouse
+let _pivotNodeTimer=null;
+let _pivotNodePt=null;
+let _pivotNodeScreen=null;
+let _ctrlMidDrag=false; // true when ctrl+middle drag in measure modes
+function _clearPivotNode(){
+  if(_pivotNodeTimer){clearTimeout(_pivotNodeTimer);_pivotNodeTimer=null;}
+  _pivotNodePt=null;_pivotNodeScreen=null;
+}
 tc.addEventListener('mousedown',e=>{
-  if(carDriving) return; // car handles its own mouse
+  if(carDriving) return;
   if(e.button===0) orb.drag=true;
   if(e.button===1||e.button===2) orb.pan=true;
+  // Ctrl + middle-click in measure modes: orbit rotation
+  if(e.button===1&&e.ctrlKey&&(interactMode==='length'||interactMode==='fall')){
+    orb.pan=false; // override pan with rotation
+    _ctrlMidDrag=true;
+    const hit=hitModel(e.clientX,e.clientY);
+    if(hit){
+      orb.tgt.copy(hit.point);
+      orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
+      camera.lookAt(orb.tgt);
+      const r=vp.getBoundingClientRect();
+      showPivotDot(e.clientX-r.left,e.clientY-r.top);
+    }
+  }
   orb.lx=e.clientX;orb.ly=e.clientY;orb.dnx=e.clientX;orb.dny=e.clientY;
   e.preventDefault();
 });
@@ -1138,8 +1277,14 @@ window.addEventListener('mousemove',e=>{
     camera.up.set(0,1,0);
     applyOrb();
   }
-  if(orb.pan){doPan(dx,dy);}
-  if(interactMode==='length'&&measurePts.length>0){
+  if(_ctrlMidDrag){
+    const speed=0.005;
+    orb.sph.theta-=dx*speed;
+    orb.sph.phi=Math.max(0.05,Math.min(Math.PI-0.05,orb.sph.phi-dy*speed));
+    camera.up.set(0,1,0);
+    applyOrb();
+  } else if(orb.pan){doPan(dx,dy);}
+  if((interactMode==='length'||interactMode==='fall')&&measurePts.length>0){
     measureMousePos={x:e.clientX,y:e.clientY};
   }
 });
@@ -1147,23 +1292,32 @@ window.addEventListener('mousemove',e=>{
 window.addEventListener('mouseup',e=>{
   if(carDriving||carMode) {orb.drag=false;orb.pan=false;return;}
   const wasDrag=orb.drag;
-  const moved=Math.hypot(e.clientX-orb.dnx,e.clientY-orb.dny)>5;
-  orb.drag=false;orb.pan=false;vp.classList.remove('dragging');
+  const dist=Math.hypot(e.clientX-orb.dnx,e.clientY-orb.dny);
+  const moved=dist>5;
+  orb.drag=false;orb.pan=false;_ctrlMidDrag=false;vp.classList.remove('dragging');
 
-  if(!moved&&wasDrag&&e.button===0){
-    // Click on model
-    if(interactMode==='navigate'&&selectMode){
+  if(wasDrag&&e.button===0){
+    if(interactMode==='navigate'&&selectMode&&!moved){
       handleSelect(e.clientX,e.clientY,e);
-    } else if(interactMode==='navigate'){
-      // Pivot snap
+    } else if(interactMode==='navigate'&&!selectMode&&!moved&&!ballFallMode&&!ballGridMode){
+      // Place a temporary node (same as measure tool), then promote to pivot after 0.5s
       const hit=hitModel(e.clientX,e.clientY);
       if(hit){
-        orb.tgt.copy(hit.point);
-        orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
-        camera.lookAt(orb.tgt);
-        showPivotDot(e.clientX-vp.getBoundingClientRect().left,e.clientY-vp.getBoundingClientRect().top);
+        _clearPivotNode();
+        _pivotNodePt=hit.point.clone();
+        const r=vp.getBoundingClientRect();
+        _pivotNodeScreen={x:e.clientX-r.left,y:e.clientY-r.top};
+        showPivotDot(_pivotNodeScreen.x,_pivotNodeScreen.y);
+        _pivotNodeTimer=setTimeout(()=>{
+          if(_pivotNodePt){
+            orb.tgt.copy(_pivotNodePt);
+            orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
+            camera.lookAt(orb.tgt);
+          }
+          _clearPivotNode();
+        },500);
       }
-    } else if(interactMode==='length'){
+    } else if((interactMode==='length'||interactMode==='fall')&&!moved){
       handleMeasureClick(e.clientX,e.clientY);
     }
   }
@@ -1223,14 +1377,6 @@ function hitModel(ex,ey){
   raycaster.setFromCamera(ndcFromEvent(ex,ey),activeCamera||camera);
   const hits=raycaster.intersectObjects(allMeshes,false);
   if(!hits.length) return null;
-  const camDir=camera.getWorldDirection(new THREE.Vector3());
-  const wn=new THREE.Vector3();
-  for(const h of hits){
-    if(h.face){
-      wn.copy(h.face.normal).applyQuaternion(h.object.getWorldQuaternion(new THREE.Quaternion())).normalize();
-      if(wn.dot(camDir)<0) return h;
-    } else return h;
-  }
   return hits[0];
 }
 
@@ -1613,8 +1759,58 @@ function setShading(m){
   shading=m;
   ['solid','wire','xray'].forEach(k=>{const el=document.getElementById('btn-'+k);if(el)el.classList.toggle('active',k===m);});
   applyShading();
+  // Re-apply fall xray on top if any fall data exists
+  const hasFall=measurements.some(x=>x.type==='fall')||fallHitMeshes.size>0;
+  if(shading==='xray'&&hasFall) applyFallXray();
 }
 window.setShading=setShading;
+
+// ── Fall X-ray: xray everything except meshes touched by fall nodes ──
+// fallHitMeshes = meshes hit DURING active drawing (cleared when tool exits)
+// Each finalized measurement stores its own hitMeshes set
+const fallHitMeshes=new Set();
+
+function getAllFallMeshes(){
+  // Union of active drawing + all stored fall measurements
+  const all=new Set(fallHitMeshes);
+  measurements.forEach(m=>{
+    if(m.type==='fall'&&m.hitMeshes) m.hitMeshes.forEach(x=>all.add(x));
+  });
+  return all;
+}
+
+function applyFallXray(){
+  if(shading!=='xray') return;
+  const solid=getAllFallMeshes();
+  models.forEach(mdl=>{
+    if(!mdl.visible) return;
+    mdl.group.traverse(ch=>{
+      if(!ch.isMesh) return;
+      const origColor=ch.userData._origColor||new THREE.Color(0xcccccc);
+      const origOpacity=ch.userData._origOpacity!==undefined?ch.userData._origOpacity:1;
+      if(solid.has(ch)){
+        ch.material=new THREE.MeshStandardMaterial({
+          color:origColor,roughness:0.65,metalness:0.05,
+          transparent:origOpacity<0.99,opacity:Math.max(origOpacity,0.85),
+          side:THREE.DoubleSide,
+        });
+      } else {
+        ch.material=new THREE.MeshBasicMaterial({
+          color:origColor,wireframe:false,transparent:true,opacity:0.08,
+          side:THREE.DoubleSide,depthWrite:false
+        });
+      }
+      _streamOrigMats.delete(ch);
+      _streamLodMats.delete(ch);
+    });
+  });
+}
+
+function clearFallXray(){
+  // Only clears the active-drawing set; stored measurements keep their meshes
+  fallHitMeshes.clear();
+  applyFallXray(); // re-apply: now only stored measurement meshes are solid
+}
 
 // ═══════════════════════════════ SELECT / PROPERTIES ═════════════════════════
 let selectMode=false;
@@ -1836,14 +2032,92 @@ window._selectByExpressID=function(eid){
   }
 };
 
-// ═══════════════════════════════ MEASURE ═════════════════════════════════════
+// ═══════════════════════════════ MEASURE ═════════════════════════════════
+let showFallLabels=true;
+function toggleFallLabels(){
+  showFallLabels=!showFallLabels;
+  const btn=document.getElementById('btn-toggle-labels');
+  if(btn){btn.textContent='Labels '+(showFallLabels?'✓':'✗');
+    btn.style.background=showFallLabels?'rgba(37,99,235,0.15)':'rgba(100,100,100,0.15)';
+    btn.style.color=showFallLabels?'var(--dot-blue)':'var(--muted)';}
+}
+window.toggleFallLabels=toggleFallLabels;
 let interactMode='navigate';
 let measurePts=[];
 let measureMousePos=null;
 const measurements=[];
 let measureIdCounter=0;
+let fallUnit='both'; // 'pct' | 'ratio' | 'both'
 
 const hintEl=document.getElementById('measure-hint');
+
+// t=0: flat(0%), t=1: exactly 1:15 gradient threshold
+function slopeT(dz,dxy){
+  if(dxy<0.001) return 0;
+  return Math.min(Math.abs(dz/dxy)*15, 1);
+}
+
+// Gradient: blue(0%) -> green(midway) -> orange(1:15) -> red(>1:15 blinks)
+function segColor(dz,dxy){
+  if(isSteep(dz,dxy)) return '#ef4444';
+  const t=slopeT(dz,dxy); // 0=flat, 1=exactly 1:15
+  // 0.0 -> blue  hsl(210,90%,55%)
+  // 0.5 -> green hsl(120,85%,42%)
+  // 1.0 -> orange hsl(28,95%,52%)
+  let h,s,l;
+  if(t<0.5){
+    const u=t*2; // 0..1
+    h=Math.round(210+(120-210)*u); // 210->120
+    s=Math.round(90+(85-90)*u);
+    l=Math.round(55+(42-55)*u);
+  } else {
+    const u=(t-0.5)*2; // 0..1
+    h=Math.round(120+(28-120)*u); // 120->28
+    s=Math.round(85+(95-85)*u);
+    l=Math.round(42+(52-42)*u);
+  }
+  return `hsl(${h},${s}%,${l}%)`;
+}
+
+function isSteep(dz,dxy){
+  // steeper than 1:15 => |dz/dxy| > 1/15
+  return dxy>0.001 && Math.abs(dz/dxy)>1/15;
+}
+
+function setFallUnit(u){
+  fallUnit=u;
+  ['pct','ratio','both'].forEach(x=>{
+    const el=document.getElementById('btn-fall-'+x);
+    if(el) el.classList.toggle('active',x===u);
+  });
+  measurements.forEach(m=>{
+    if(m.type==='fall') m.segments.forEach(s=>{
+      s.label=formatFallLabel(s.dz,s.dxy);
+      s.color=segColor(s.dz,s.dxy);
+    });
+  });
+  renderMeasureList();
+}
+window.setFallUnit=setFallUnit;
+
+function formatFallLabel(dz,dxy){
+  if(dxy<0.001) return 'Loddrett';
+  const pct=(dz/dxy*100);
+  const sign=dz>=0?'+':'';
+  const flat=Math.abs(pct)<0.005;
+  if(fallUnit==='pct') return flat?'Flatt':sign+pct.toFixed(2)+'%';
+  if(fallUnit==='ratio'){
+    if(flat) return 'Flatt';
+    if(Math.abs(dz)<0.0001) return '1:\u221e';
+    const ratio=Math.abs(dxy/dz);
+    return (dz<0?'\u2212':'')+'1:'+(ratio<1000?ratio.toFixed(1):'\u221e');
+  }
+  // both
+  if(flat) return 'Flatt';
+  const ratioVal=Math.abs(dxy/dz);
+  const ratioStr=(Math.abs(dz)<0.0001||ratioVal>=1000)?'\u221e':ratioVal.toFixed(1);
+  return sign+pct.toFixed(2)+'%  (1:'+ratioStr+')';
+}
 
 function setMeasureMode(m){
   if(interactMode===m){cancelMeasure();return;}
@@ -1851,9 +2125,16 @@ function setMeasureMode(m){
   if(m==='length'){
     interactMode='length';
     document.getElementById('btn-m-length').classList.add('active');
-    hintEl.textContent='Klikk punkter på modell. Enter fullfører. ESC avbryt.';
+    hintEl.textContent='Klikk punkter p\u00e5 modell. Enter fullfører. ESC avbryt.';
     hintEl.classList.add('visible');
     vp.className='m-length';
+    document.addEventListener('keydown',measureKeyHandler);
+  } else if(m==='fall'){
+    interactMode='fall';
+    document.getElementById('btn-m-fall').classList.add('active');
+    hintEl.textContent='Klikk punkter p\u00e5 modell. Enter fullfører segment. ESC avbryt.';
+    hintEl.classList.add('visible');
+    vp.className='m-fall';
     document.addEventListener('keydown',measureKeyHandler);
   }
 }
@@ -1862,14 +2143,25 @@ window.setMeasureMode=setMeasureMode;
 function cancelMeasure(){
   interactMode='navigate';measurePts=[];measureMousePos=null;
   hintEl.classList.remove('visible');vp.className='m-nav';
-  document.getElementById('btn-m-length').classList.remove('active');
+  const bl=document.getElementById('btn-m-length');if(bl)bl.classList.remove('active');
+  const bf=document.getElementById('btn-m-fall');if(bf)bf.classList.remove('active');
   document.removeEventListener('keydown',measureKeyHandler);
+  // Clear active-drawing meshes (stored fall meshes are preserved in each measurement)
+  fallHitMeshes.clear();
+  applyFallXray();
 }
 
 function measureKeyHandler(e){
   if(e.key==='Escape'){cancelMeasure();return;}
   if(e.key==='Enter'&&measurePts.length>=2){
-    finalizeMeasure([...measurePts]);cancelMeasure();
+    if(interactMode==='length') finalizeMeasure([...measurePts]);
+    if(interactMode==='fall') finalizeFall([...measurePts]);
+    measurePts=[];measureMousePos=null;
+    if(interactMode==='length'){
+      hintEl.textContent='Klikk punkter p\u00e5 modell. Enter fullfører. ESC avbryt.';
+    } else {
+      hintEl.textContent='Klikk punkter p\u00e5 modell. Enter fullfører segment. ESC avbryt.';
+    }
   }
   if(e.key==='Backspace'&&measurePts.length>0){e.preventDefault();measurePts.pop();}
 }
@@ -1878,8 +2170,13 @@ function handleMeasureClick(ex,ey){
   const hit=hitModel(ex,ey);
   if(!hit) return;
   measurePts.push(hit.point.clone());
-  if(measurePts.length>=2){
-    hintEl.textContent=measurePts.length+' noder — Enter fullfør. Backspace angre.';
+  if(interactMode==='fall'&&hit.object) fallHitMeshes.add(hit.object);
+  if(interactMode==='fall') applyFallXray();
+  const n=measurePts.length;
+  if(n===1){
+    hintEl.textContent='1 node \u2014 klikk neste. Backspace angre. Enter fullfør. ESC avbryt.';
+  } else {
+    hintEl.textContent=n+' noder \u2014 Enter fullfør. Backspace angre. ESC avbryt.';
   }
 }
 
@@ -1892,8 +2189,31 @@ function finalizeMeasure(pts){
   document.getElementById('measure-panel').classList.add('visible');
 }
 
+function finalizeFall(pts){
+  const hitSnapshot=new Set(fallHitMeshes);
+  fallHitMeshes.clear();
+  const segments=[];
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1],b=pts[i];
+    const dxy=Math.sqrt((b.x-a.x)**2+(b.z-a.z)**2);
+    const dz=b.y-a.y;
+    const slope3d=a.distanceTo(b);
+    const label=formatFallLabel(dz,dxy);
+    const color=segColor(dz,dxy);
+    segments.push({a,b,dz,dxy,slope3d,label,color});
+  }
+  if(!segments.length) return;
+  // Collapse all existing fall measurements before adding new
+  measurements.forEach(m=>{ if(m.type==='fall') m.collapsed=true; });
+  measurements.push({id:measureIdCounter++,type:'fall',pts:[...pts],segments,hitMeshes:hitSnapshot,collapsed:false});
+  applyFallXray();
+  renderMeasureList();
+  document.getElementById('measure-panel').classList.add('visible');
+}
+
 function deleteMeasurement(id){
   const idx=measurements.findIndex(m=>m.id===id);if(idx>=0)measurements.splice(idx,1);
+  applyFallXray();
   renderMeasureList();
   if(measurements.length===0) document.getElementById('measure-panel').classList.remove('visible');
 }
@@ -1906,18 +2226,65 @@ function clearMeasurements(){
 }
 window.clearMeasurements=clearMeasurements;
 
+function toggleFallCollapse(id){
+  const m=measurements.find(x=>x.id===id);
+  if(m) m.collapsed=!m.collapsed;
+  renderMeasureList();
+}
+window.toggleFallCollapse=toggleFallCollapse;
+
 function renderMeasureList(){
-  document.getElementById('measure-list').innerHTML=measurements.map(m=>`
+  document.getElementById('measure-list').innerHTML=measurements.map(m=>{
+    if(m.type==='fall'){
+      const collapsed=!!m.collapsed;
+      const anysteep=m.segments.some(s=>isSteep(s.dz,s.dxy));
+      const steepWarn=anysteep?`<span style="font-size:0.65rem;font-weight:700;color:#ef4444;margin-left:0.3rem">Bratt</span>`:'';
+      const arrow=collapsed?'▶':'▾';
+      const segRows=collapsed?'':m.segments.map((s,i)=>{
+        const steep=isSteep(s.dz,s.dxy);
+        const dzStr=(s.dz>=0?'+':'')+s.dz.toFixed(3)+' m';
+        const dxyStr=s.dxy.toFixed(3)+' m';
+        const slopeStr=s.slope3d.toFixed(3)+' m';
+        const steepTxt=steep?'<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt</span>':'';
+        return `<div style="display:flex;flex-direction:column;gap:0.1rem;padding:0.25rem 0.55rem;border-radius:0.35rem;border:1.5px solid ${s.color}33;margin-top:0.2rem;background:${s.color}11">
+          <div style="display:flex;align-items:center;gap:0.3rem">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+            <span style="font-size:0.68rem;font-weight:700;color:var(--muted)">Seg ${i+1}</span>
+            <span style="font-weight:600;font-size:0.82rem;color:var(--text)">${s.label}</span>
+            ${steepTxt}
+          </div>
+          <div style="display:flex;gap:0.55rem;font-size:0.7rem;color:var(--muted);padding-left:1.3rem">
+            <span>↕ ${dzStr}</span><span>↔ ${dxyStr}</span><span>↗ ${slopeStr}</span>
+          </div>
+        </div>`;
+      }).join('');
+      return `
+    <div class="measure-item">
+      <div class="measure-item-row" style="cursor:pointer" onclick="toggleFallCollapse(${m.id})">
+        <div class="measure-item-left" style="flex-wrap:wrap;gap:0.3rem">
+          <span class="measure-badge badge-fall">FALL</span>
+          <span style="font-size:0.75rem;color:var(--muted)">${m.segments.length} seg · ${m.pts.length} noder</span>
+          ${steepWarn}
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem">
+          <span style="font-size:0.65rem;color:var(--muted)">${arrow}</span>
+          <button class="measure-del" onclick="event.stopPropagation();deleteMeasurement(${m.id})">&#x2715;</button>
+        </div>
+      </div>
+      ${segRows}
+    </div>`;
+    }
+    return `
     <div class="measure-item">
       <div class="measure-item-row">
         <div class="measure-item-left">
           <span class="measure-badge badge-length">LENGDE</span>
           <span class="measure-val">${m.label}</span>
         </div>
-        <button class="measure-del" onclick="deleteMeasurement(${m.id})">✕</button>
+        <button class="measure-del" onclick="deleteMeasurement(${m.id})">&#x2715;</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════ SVG ANNOTATIONS ═════════════════════════════
@@ -1936,9 +2303,18 @@ function drawSVGLabel(x,y,txt,color){
 function redrawSVG(){
   while(svg.firstChild)svg.removeChild(svg.firstChild);
 
-  // Draw measurements
+  // Pulse timer for steep segments in SVG
+  const now=performance.now();
+  // Double-blink: 2 quick flashes at t~0.1 and t~0.3 within a 2s cycle
+  const _t=(now%2000)/2000; // 0..1 over 2s
+  const _b1=(_t>0.05&&_t<0.15)?1:0;
+  const _b2=(_t>0.25&&_t<0.35)?1:0;
+  const pulse=Math.max(_b1,_b2); // 1=fully red, 0=off
+
+  // ── Stored measurements ──
   for(const m of measurements){
     const p2=m.pts.map(p=>worldToScreen(p));
+
     if(m.type==='length'&&p2.length>=2){
       for(let i=1;i<p2.length;i++){
         const a=p2[i-1],b=p2[i];
@@ -1952,9 +2328,46 @@ function redrawSVG(){
         drawSVGLabel(mid.x,mid.y-14,m.label,'#60a5fa');
       }
     }
+
+    if(m.type==='fall'&&m.segments){
+      for(let i=0;i<m.segments.length;i++){
+        const s=m.segments[i];
+        const a=worldToScreen(s.a),b=worldToScreen(s.b);
+        if(a.behind||b.behind) continue;
+        const col=s.color||segColor(i);
+        const steep=isSteep(s.dz,s.dxy);
+
+        // Orange right-angle helpers (horizontal+vertical)
+        const aH=worldToScreen(new THREE.Vector3(s.b.x,s.a.y,s.b.z));
+        if(!aH.behind){
+          svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:aH.x,y2:aH.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':'0.55'}));
+          svg.appendChild(mkSVG('line',{x1:aH.x,y1:aH.y,x2:b.x,y2:b.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':'0.55'}));
+        }
+
+        // Slope line — blinks red if steep, otherwise gradient color
+        const lineStroke = (steep && pulse) ? '#ef4444' : col;
+        const lineW = steep ? '3' : '2.5';
+        svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineStroke,'stroke-width':lineW}));
+
+        // Dots
+        if(i===0) svg.appendChild(mkSVG('circle',{cx:a.x,cy:a.y,r:5,fill:col,stroke:'#fff','stroke-width':'2'}));
+        svg.appendChild(mkSVG('circle',{cx:b.x,cy:b.y,r:4,fill:col,stroke:'#fff','stroke-width':'1.5'}));
+
+        // Per-segment label
+        const distStr=s.slope3d.toFixed(2)+'m';
+        const lbl=s.label+'  '+distStr;
+        const labelColor=(steep && pulse)?'#ef4444':'#fdba74';
+        if(showFallLabels) drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,labelColor);
+      }
+      // Node index labels
+      if(showFallLabels) for(let i=0;i<p2.length;i++){
+        const p=p2[i];
+        if(!p.behind) drawSVGLabel(p.x+(i===0?-18:18),p.y-14,String(i+1),'#fb923c');
+      }
+    }
   }
 
-  // Draw active measurement points
+  // ── Active length drawing ──
   if(interactMode==='length'&&measurePts.length>0){
     const p2=measurePts.map(p=>worldToScreen(p));
     for(let i=1;i<p2.length;i++){
@@ -1962,22 +2375,63 @@ function redrawSVG(){
       if(a.behind||b.behind) continue;
       svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#60a5fa','stroke-width':'1.5','stroke-dasharray':'4,3'}));
     }
-    // Mouse line
     if(measureMousePos&&p2.length>0){
       const last=p2[p2.length-1];
       if(!last.behind){
         const hit=hitModel(measureMousePos.x,measureMousePos.y);
         if(hit){
           const ms=worldToScreen(hit.point);
-          if(!ms.behind){
-            svg.appendChild(mkSVG('line',{x1:last.x,y1:last.y,x2:ms.x,y2:ms.y,stroke:'#60a5fa','stroke-width':'1','stroke-dasharray':'2,2'}));
-          }
+          if(!ms.behind) svg.appendChild(mkSVG('line',{x1:last.x,y1:last.y,x2:ms.x,y2:ms.y,stroke:'#60a5fa','stroke-width':'1','stroke-dasharray':'2,2'}));
         }
       }
     }
     for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:4,fill:'#2563eb',stroke:'#fff','stroke-width':'1.5'}));
   }
+
+  // ── Active fall drawing ──
+  if(interactMode==='fall'&&measurePts.length>0){
+    const p2=measurePts.map(p=>worldToScreen(p));
+    for(let i=1;i<p2.length;i++){
+      const a=p2[i-1],b=p2[i];
+      if(a.behind||b.behind) continue;
+      const dxy=Math.sqrt((measurePts[i].x-measurePts[i-1].x)**2+(measurePts[i].z-measurePts[i-1].z)**2);
+      const dz=measurePts[i].y-measurePts[i-1].y;
+      const col=segColor(dz,dxy);
+      const steep=isSteep(dz,dxy);
+      const lineCol=(steep&&pulse)?'#ef4444':col;
+      svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineCol,'stroke-width':'2.5'}));
+      const lbl=formatFallLabel(dz,dxy)+'  '+measurePts[i-1].distanceTo(measurePts[i]).toFixed(2)+'m';
+      drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,(steep&&pulse)?'#ef4444':'#fdba74');
+    }
+    for(let i=0;i<p2.length;i++){
+      const p=p2[i];
+      if(!p.behind){
+        const _dc=(i>0&&measurePts.length>i)?segColor(measurePts[i].y-measurePts[i-1].y,Math.sqrt((measurePts[i].x-measurePts[i-1].x)**2+(measurePts[i].z-measurePts[i-1].z)**2)):segColor(0,1);
+        svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:i===0?5:4,fill:_dc,stroke:'#fff','stroke-width':'2'}));
+        drawSVGLabel(p.x+(i===0?-18:18),p.y-14,String(i+1),'#fb923c');
+      }
+    }
+    if(measureMousePos&&p2.length>0){
+      const last=p2[p2.length-1];
+      if(!last.behind){
+        const hit=hitModel(measureMousePos.x,measureMousePos.y);
+        if(hit){
+          const pB=worldToScreen(hit.point);
+          if(!pB.behind){
+            const dxy=Math.sqrt((hit.point.x-measurePts[measurePts.length-1].x)**2+(hit.point.z-measurePts[measurePts.length-1].z)**2);
+            const dz=hit.point.y-measurePts[measurePts.length-1].y;
+            const steep=isSteep(dz,dxy);
+            svg.appendChild(mkSVG('line',{x1:last.x,y1:last.y,x2:pB.x,y2:pB.y,stroke:(steep&&pulse)?'#ef4444':segColor(dz,dxy),'stroke-width':'1.5','stroke-dasharray':'4,3'}));
+            const lbl=formatFallLabel(dz,dxy)+'  '+measurePts[measurePts.length-1].distanceTo(hit.point).toFixed(2)+'m';
+            if(showFallLabels) drawSVGLabel((last.x+pB.x)/2,(last.y+pB.y)/2-14,lbl,(steep&&pulse)?'#ef4444':'#fdba74');
+          }
+        }
+      }
+    }
+  }
 }
+
+
 
 // ═══════════════════════════════ THEME ════════════════════════════════════════
 const themeBgs={'dark':0x0b1220,'light':0xFFDF20,'black':0x000000};
@@ -2197,14 +2651,22 @@ function updateCamPosBar(){
 
 // ── Vehicle presets ──
 const VEHICLE_PRESETS={
+  // ── Liten: fjernstyrt lekebil (rød) — halvert svinghastighet ──
+  liten:{name:'Liten (RC-bil)',length:0.38,width:0.22,bodyH:0.10,cabH:0.08,wheelR:0.055,wheelW:0.04,
+    bodyColor:0xdc2626,cabColor:0xb91c1c,cabOpacity:0.85,maxSpeed:8,accel:12,steerSpeed:1.25,extraAxle:false},
+  // ── Normal: standard personbil (grønn) ──
+  normal:{name:'Normal (personbil)',length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
+    bodyColor:0x16a34a,cabColor:0x15803d,cabOpacity:0.7,maxSpeed:30,accel:18,steerSpeed:2.5,extraAxle:false},
+  // ── Stor: minedumper — same speed/steering as normal, 4 wheels only ──
+  stor:{name:'Stor (minedumper)',length:14.5,width:8.4,bodyH:3.8,cabH:2.2,wheelR:1.9,wheelW:1.4,
+    bodyColor:0xeab308,cabColor:0x92400e,cabOpacity:0.75,maxSpeed:30,accel:18,steerSpeed:2.5,extraAxle:false},
+  // legacy kept for any saved state refs
   personbil:{name:'Personbil',length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
     bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7,maxSpeed:30,accel:18},
   varebil:{name:'Varebil',length:8,width:2.1,bodyH:1.8,cabH:0.9,wheelR:0.45,wheelW:0.28,
     bodyColor:0x16a34a,cabColor:0x15803d,cabOpacity:0.6,maxSpeed:22,accel:12},
   lastebil:{name:'Lastebil',length:12,width:2.5,bodyH:2.2,cabH:1.2,wheelR:0.55,wheelW:0.35,
     bodyColor:0xeab308,cabColor:0xca8a04,cabOpacity:0.6,maxSpeed:18,accel:8},
-  brannbil:{name:'Brannbil',length:12,width:3.0,bodyH:2.4,cabH:1.3,wheelR:0.55,wheelW:0.35,
-    bodyColor:0xdc2626,cabColor:0xeab308,cabOpacity:0.7,maxSpeed:20,accel:10},
 };
 let activeVehicleType='personbil';
 
@@ -2220,26 +2682,40 @@ const carXbox={accelMult:1,steerMult:1,camMult:1,deadzone:0.15,index:null,connec
 let carSeeThrough=false;
 window.carPhys=carPhys;window.carDims=carDims;window.carXbox=carXbox;
 
+const _vehicleDescs={
+  liten:'RC-bil — liten lekebil, rød',
+  normal:'Standard personbil, grønn',
+  stor:'Minedumper — gigantisk, gul',
+  personbil:'Personbil',varebil:'Varebil',lastebil:'Lastebil',
+};
+const _vehicleBtnMap={liten:'btn-car-liten',normal:'btn-car',stor:'btn-car-stor'};
+
 function selectVehicle(type){
   const p=VEHICLE_PRESETS[type];if(!p) return;
   activeVehicleType=type;
-  // Apply preset to carDims
   carDims.length=p.length;carDims.width=p.width;carDims.bodyH=p.bodyH;
   carDims.cabH=p.cabH;carDims.wheelR=p.wheelR;carDims.wheelW=p.wheelW;
   carDims.bodyColor=p.bodyColor;carDims.cabColor=p.cabColor;carDims.cabOpacity=p.cabOpacity;
+  carDims.extraAxle=p.extraAxle!==false; // explicitly false = no extra axle
   carPhys.maxSpeed=p.maxSpeed;carPhys.accel=p.accel;
-  // Update sliders
+  if(p.steerSpeed!==undefined) carPhys.steerSpeed=p.steerSpeed;
   const sliders={
     'dev-carlen-val':p.length,'dev-carw-val':p.width,'dev-carh-val':p.bodyH,
     'dev-cabh-val':p.cabH,'dev-wheelr-val':p.wheelR,'dev-wheelw-val':p.wheelW,
-    'dev-maxspd-val':p.maxSpeed,'dev-accel-val':p.accel
+    'dev-maxspd-val':p.maxSpeed,'dev-accel-val':p.accel,
+    'dev-steer-val':p.steerSpeed!==undefined?p.steerSpeed:carPhys.steerSpeed
   };
-  for(const[id,v] of Object.entries(sliders)){
-    const el=document.getElementById(id);if(el)el.textContent=v;
-  }
-  // If already driving, rebuild car
+  for(const[id,v] of Object.entries(sliders)){const el=document.getElementById(id);if(el)el.textContent=(+v).toFixed(p.steerSpeed!==undefined&&id==='dev-steer-val'?1:0);}
+  // Update active button highlight
+  ['btn-car','btn-car-liten','btn-car-stor'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.classList.remove('active');
+  });
+  const activeBtn=_vehicleBtnMap[type];
+  if(activeBtn){const el=document.getElementById(activeBtn);if(el)el.classList.add('active');}
+  // Update description
+  const desc=document.getElementById('vehicle-type-desc');
+  if(desc) desc.textContent=_vehicleDescs[type]||p.name;
   if(carDriving&&carMesh) rebuildActiveCar();
-  // Start placement
   else toggleCarMode();
 }
 window.selectVehicle=selectVehicle;
@@ -2391,7 +2867,7 @@ function buildCarModel(ghost){
   // BAKHJUL — pivot-grupper for fjæring
   g.userData.rearWheelPivots=[];
   const rearAxles=[rearZ];
-  if(d.length>=8) rearAxles.push(rearZ+d.wheelR*2.5);
+  if(d.extraAxle!==false&&d.extraAxle&&d.length>=8) rearAxles.push(rearZ+d.wheelR*2.5);
   for(const z of rearAxles){
     [[-wx,d.wheelR,z],[wx,d.wheelR,z]].forEach(([x,y,zz],idx)=>{
       const pivot=new THREE.Group();
@@ -2920,6 +3396,7 @@ function driveVehicle(id){
     carDims.length=p.length;carDims.width=p.width;carDims.bodyH=p.bodyH;
     carDims.cabH=p.cabH;carDims.wheelR=p.wheelR;carDims.wheelW=p.wheelW;
     carDims.bodyColor=p.bodyColor;carDims.cabColor=p.cabColor;carDims.cabOpacity=p.cabOpacity;
+    carDims.extraAxle=p.extraAxle!==false;
     carPhys.maxSpeed=p.maxSpeed;carPhys.accel=p.accel;
   }
   carMesh=v.mesh;
@@ -3605,13 +4082,17 @@ function updateCar(dt){
 // ═══════════════════════════════ BALL / WATER FALL SYSTEM ═══════════════════
 
 // ── Config (UI-bound) ──
+let wallScanRadius = 10.0; // meters — scan radius for wall slope direction
+window.wallScanRadius = wallScanRadius;
 const ballCfg = {
   radius:       0.3,
   gridN:        5,
   gridSize:     10,
   dropHeight:   10,
-  trailLen:     100,
-  trailFade:    8,
+  trailLen:     500,
+  trailFade:    9999,
+  trailOpacity: 0.92,
+  trailMinDist: 0.1,
   sleepDelay:   2.0,
   friction:     0.970,
   clusterRadius:0.8,
@@ -3644,7 +4125,7 @@ function setSimMode(mode,btn){
 }
 window.setSimMode=setSimMode;
 
-const BALL_GRAVITY=20;
+const BALL_GRAVITY=40; // increased for faster simulation
 const BALL_RESTITUTION=0.38;
 const BALL_SLEEP_VEL=0.04;
 const WATER_SLEEP_VEL=0.008;
@@ -3660,7 +4141,7 @@ const _slopeRay=new THREE.Raycaster();
 
 function getBallRayMeshes(){
   const arr=[];
-  models.forEach(m=>{if(m.visible)m.group.traverse(ch=>{if(ch.isMesh&&ch.visible)arr.push(ch);});});
+  models.forEach(m=>{if(m.visible)m.group.traverse(ch=>{if(ch.isMesh)arr.push(ch);});});
   return arr;
 }
 
@@ -3690,28 +4171,112 @@ function updateGhostSize(){
 }
 window.updateGhostSize=updateGhostSize;
 
+// Trail segment pool — each segment is a short Line with slope color
+const TRAIL_SEG_POOL=500;
 function buildTrailObj(mode){
-  const isW=(mode||ballCfg.mode)==='water';
-  const mat=new THREE.LineBasicMaterial({color:isW?0x3399ff:0xff6600,transparent:true,opacity:0.5});
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(600*3),3));
-  geo.setDrawRange(0,0);
-  const line=new THREE.Line(geo,mat);
-  scene.add(line);
-  return {line,segments:[]};
+  // segments: [{pos, time, line}] — lines built on demand, pooled in group
+  const group=new THREE.Group();
+  group.renderOrder=10;
+  scene.add(group);
+  return {group, segments:[], segLines:[], mode:mode||ballCfg.mode, ballRadius:ballCfg.radius};
 }
 
+const TRAIL_WIDTH=0.12; // 12cm wide stripe — visible in scene
+function _makeSegLine(){
+  // Use a flat box mesh — WebGL ignores linewidth>1 so we use geometry instead
+  const geo=new THREE.BoxGeometry(1,0.03,TRAIL_WIDTH); // length=1 (scaled), height=3cm, width=12cm
+  const mat=new THREE.MeshBasicMaterial({color:0x9933cc,transparent:true,opacity:0.92,depthWrite:false,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.renderOrder=10;
+  mesh.userData._isTrailSeg=true;
+  return mesh;
+}
+
+const TRAIL_MIN_DIST=1.0; // minimum 1m between trail points
+
 function updateTrail(trail,pos,now){
-  trail.segments.push({pos:pos.clone(),time:now});
+  // Only add point if 1m from last
+  const last=trail.segments.length>0?trail.segments[trail.segments.length-1]:null;
+  if(!last||pos.distanceTo(last.pos)>=ballCfg.trailMinDist){
+    // Store position 1cm above surface
+    const surfPos=pos.clone();
+    surfPos.y-=(trail.ballRadius||0.3)-0.01;
+    trail.segments.push({pos:surfPos,time:now});
+  }
+  // (no smoothing — just skip if not far enough yet)
+  // Keep within trailLen count
   while(trail.segments.length>ballCfg.trailLen) trail.segments.shift();
-  const oldest=now-ballCfg.trailFade;
-  while(trail.segments.length>0&&trail.segments[0].time<oldest) trail.segments.shift();
-  const segs=trail.segments,n=segs.length;
-  const arr=trail.line.geometry.attributes.position.array;
-  for(let i=0;i<n;i++){arr[i*3]=segs[i].pos.x;arr[i*3+1]=segs[i].pos.y;arr[i*3+2]=segs[i].pos.z;}
-  trail.line.geometry.attributes.position.needsUpdate=true;
-  trail.line.geometry.setDrawRange(0,n);
-  if(n>0){const age=now-segs[0].time;trail.line.material.opacity=Math.max(0,1-age/ballCfg.trailFade)*0.55;}
+
+  const segs=trail.segments, n=segs.length;
+  const numLines=Math.max(0,n-1);
+
+  while(trail.segLines.length<numLines){
+    const l=_makeSegLine();
+    trail.group.add(l);
+    trail.segLines.push(l);
+  }
+
+  const t=(performance.now()%2000)/2000;
+  const blink=(t>0.05&&t<0.15)||(t>0.25&&t<0.35);
+
+  for(let i=0;i<trail.segLines.length;i++){
+    const l=trail.segLines[i];
+    if(i>=numLines){l.visible=false;continue;}
+    const a=segs[i], b=segs[i+1];
+    // Position box between a and b
+    const mx=(a.pos.x+b.pos.x)/2, my=(a.pos.y+b.pos.y)/2, mz=(a.pos.z+b.pos.z)/2;
+    l.position.set(mx,my,mz);
+    const dx=b.pos.x-a.pos.x, dz_=b.pos.z-a.pos.z;
+    const segLen=Math.sqrt(dx*dx+(b.pos.y-a.pos.y)**2+dz_*dz_)||0.01;
+    l.scale.set(segLen,1,1);
+    l.rotation.y=-Math.atan2(dz_,dx);
+    // Tilt to match slope
+    const horizLen=Math.sqrt(dx*dx+dz_*dz_)||0.001;
+    l.rotation.z=Math.atan2(b.pos.y-a.pos.y,horizLen);
+
+    const dxy=Math.sqrt((b.pos.x-a.pos.x)**2+(b.pos.z-a.pos.z)**2);
+    const dz=b.pos.y-a.pos.y;
+    const steep=dxy>0.001&&Math.abs(dz/dxy)>1/15;
+    // Lilla base farge, rød blink ved bratt
+    const col=steep?(blink?0xef4444:0x9933cc):0x9933cc;
+    l.material.color.set(col);
+    l.material.opacity=ballCfg.trailOpacity;
+    l.material.needsUpdate=true;
+    l.visible=true;
+  }
+}
+
+function removeTrail(trail){
+  if(trail.group) scene.remove(trail.group);
+}
+
+function makeBallArrow(r){
+  // 3D arrow anchored at ball center, horizontal (Y=0 in ball-local space)
+  const group=new THREE.Group();
+  group.userData._isBallArrow=true;
+  const mat=new THREE.LineBasicMaterial({
+    color:0xffffff,linewidth:2,
+    depthTest:false,depthWrite:false,
+    transparent:true,opacity:0.92
+  });
+  const hl=r*1.5; // half shaft length (extends both ways from center)
+  const hw=r*0.5; // arrowhead wing size
+  // Shaft: from -hl to +hl along X
+  const shaftGeo=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-hl,0,0),
+    new THREE.Vector3( hl,0,0)
+  ]);
+  group.add(new THREE.Line(shaftGeo,mat));
+  // Arrowhead at +hl
+  const headGeo=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(hl-hw,0,-hw),
+    new THREE.Vector3(hl,   0,  0),
+    new THREE.Vector3(hl-hw,0, hw)
+  ]);
+  group.add(new THREE.Line(headGeo,mat));
+  // group.position = (0,0,0) = ball center, no Y offset
+  group.renderOrder=999;
+  return group;
 }
 
 function spawnBall(x,y,z){
@@ -3719,11 +4284,15 @@ function spawnBall(x,y,z){
   const mesh=buildBallModel(false,r,mode);
   mesh.position.set(x,y,z);
   scene.add(mesh);
+  const arrow=makeBallArrow(r);
+  mesh.add(arrow); // arrow is child of ball mesh, always faces camera (Sprite)
   const trail=buildTrailObj(mode);
   const bid='b_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
   const now=performance.now()/1000;
   const entry={id:bid,mesh,mode,vel:{x:0,y:0,z:0},sleeping:false,frozenAt:null,
-    lastMovedAt:now,lastMovedPos:new THREE.Vector3(x,y,z),trail,radius:r};
+    lastMovedAt:now,lastMovedPos:new THREE.Vector3(x,y,z),trail,radius:r,
+    posHistory:[{x,y,z,t:now}], // rolling 2s position buffer for arrow direction
+    arrowDir:{x:0,z:0}};
   mesh.userData.ballId=bid;
   placedBalls.push(entry);
   return entry;
@@ -3767,6 +4336,79 @@ function ballPlacementClick(e){
   if(!hit) return;
   spawnBall(hit.point.x,hit.point.y+ballCfg.radius+0.05,hit.point.z);
   refreshBallListUI();
+}
+
+// ── Grid simulation scheduler ──
+// Balls spawn directly ON surface (via raycast), paused.
+// 2 at a time simulate, rotating every GRID_ROTATE_MS_VAR ms.
+const GRID_BATCH=1;           // 1 ball at a time
+let GRID_ROTATE_MS_VAR=500;   // advance interval (ms) — controlled by slider
+let GRID_MIN_TIME_MS=200;     // minimum time before advancing (speed control)
+let _gridBalls=[];
+let _gridBatchIndex=0;
+let _gridRotateTimer=null;
+
+const GRID_COL_ACTIVE=0x00cc44;  // green
+const GRID_COL_INACTIVE=0xff6600; // orange
+const GRID_COL_FROZEN=0x2266ff;   // blue
+
+function _gridUpdateColors(){
+  for(let i=0;i<_gridBalls.length;i++){
+    const b=_gridBalls[i];
+    let col;
+    if(b.frozenAt!==null) col=GRID_COL_FROZEN;
+    else if(!b._simPaused) col=GRID_COL_ACTIVE;
+    else col=GRID_COL_INACTIVE;
+    if(b.mesh&&b.mesh.material) b.mesh.material.color.setHex(col);
+  }
+}
+
+function _gridSetActiveBatch(){
+  if(!_gridBalls.length) return;
+  for(let i=0;i<_gridBalls.length;i++){
+    const b=_gridBalls[i];
+    if(b.frozenAt!==null){b._simPaused=false;continue;}
+    b._simPaused=!(i>=_gridBatchIndex&&i<_gridBatchIndex+GRID_BATCH);
+  }
+  _gridUpdateColors();
+  const done=_gridBalls.filter(b=>b.frozenAt!==null).length;
+  const total=_gridBalls.length;
+  hintEl.textContent=`Grid: ${_gridBatchIndex+1}/${total} · Frosset: ${done}/${total}`;
+  hintEl.classList.add('visible');
+}
+
+function _gridAdvanceBatch(){
+  let safety=0;
+  do {
+    _gridBatchIndex+=GRID_BATCH;
+    if(_gridBatchIndex>=_gridBalls.length) _gridBatchIndex=0;
+    safety++;
+  } while(
+    safety<_gridBalls.length&&
+    _gridBalls.slice(_gridBatchIndex,_gridBatchIndex+GRID_BATCH).every(b=>b.frozenAt!==null)
+  );
+  _gridSetActiveBatch();
+}
+
+function tickGridQueue(){
+  if(!_gridBalls.length) return;
+  // Check if current active ball is frozen — advance immediately
+  const activeBall=_gridBalls[_gridBatchIndex];
+  if(activeBall&&activeBall.frozenAt!==null){
+    // Check if all done
+    const allFrozen=_gridBalls.every(b=>b.frozenAt!==null);
+    if(allFrozen){
+      if(_gridRotateTimer){clearInterval(_gridRotateTimer);_gridRotateTimer=null;}
+      for(const b of _gridBalls) b._simPaused=false;
+      _gridBalls=[];
+      hintEl.textContent='Grid ferdig — alle baller simulert.';
+      setTimeout(()=>{hintEl.classList.remove('visible');},2500);
+      refreshBallListUI();
+      return;
+    }
+    _gridAdvanceBatch();
+  }
+  _gridUpdateColors();
 }
 
 function toggleBallGrid(){
@@ -3821,9 +4463,31 @@ function ballGridClick(e){
   e.stopPropagation();e.preventDefault();
   const hit=hitModel(e.clientX,e.clientY);
   if(!hit) return;
-  const cx=hit.point.x,cy=hit.point.y+ballCfg.dropHeight,cz=hit.point.z;
+  const cx=hit.point.x,cz_=hit.point.z;
   const n=ballCfg.gridN,half=ballCfg.gridSize/2,step=ballCfg.gridSize/(n-1||1);
-  for(let i=0;i<n;i++) for(let j=0;j<n;j++) spawnBall(cx-half+i*step,cy,cz-half+j*step);
+  _gridBalls=[];
+  _gridBatchIndex=0;
+  if(_gridRotateTimer){clearInterval(_gridRotateTimer);_gridRotateTimer=null;}
+  const meshes=getCachedRayMeshes();
+  const r=ballCfg.radius;
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+    const gx=cx-half+i*step, gz=cz_-half+j*step;
+    // Place each ball ON the surface using downward raycast
+    const surfHit=bvhRayDown(gx, hit.point.y+50, gz, meshes);
+    const spawnY=surfHit ? surfHit.y+r+0.05 : hit.point.y+r;
+    const b=spawnBall(gx, spawnY, gz);
+    b._simPaused=true;   // all paused initially
+    b._hasGrounded=true; // already on surface
+    _gridBalls.push(b);
+  }
+  _gridSetActiveBatch(); // activate first batch of 2
+  // Timer is just a max-time safety fallback; tickGridQueue advances on freeze
+  _gridRotateTimer=setInterval(()=>{
+    if(!_gridBalls.length){clearInterval(_gridRotateTimer);_gridRotateTimer=null;return;}
+    _gridAdvanceBatch();
+  }, GRID_MIN_TIME_MS);
+  hintEl.textContent=`Grid: gruppe 1/${Math.ceil(_gridBalls.length/GRID_BATCH)} · ${_gridBalls.length} baller`;
+  hintEl.classList.add('visible');
   refreshBallListUI();
 }
 
@@ -3848,14 +4512,27 @@ window.refreshBallListUI=refreshBallListUI;
 
 function removeBall(id){
   const idx=placedBalls.findIndex(b=>b.id===id);if(idx<0)return;
-  const b=placedBalls[idx];scene.remove(b.mesh);if(b.trail)scene.remove(b.trail.line);
+  const b=placedBalls[idx];scene.remove(b.mesh);if(b.trail)removeTrail(b.trail);
   placedBalls.splice(idx,1);refreshBallListUI();
 }
 window.removeBall=removeBall;
 
+let _simPausedGlobal=false;
+function toggleSimPause(){
+  _simPausedGlobal=!_simPausedGlobal;
+  const btn=document.getElementById('btn-sim-pause');
+  if(btn){
+    btn.textContent=_simPausedGlobal?'▶ Gjenoppta simulering':'⏸ Pause simulering';
+    btn.style.color=_simPausedGlobal?'var(--dot-green)':'var(--text)';
+    btn.style.borderColor=_simPausedGlobal?'var(--dot-green)':'var(--border)';
+  }
+}
+window.toggleSimPause=toggleSimPause;
+
 function removeAllBalls(){
   if(ballFallMode)cancelBallPlacement();if(ballGridMode)cancelBallGrid();
-  for(const b of placedBalls){scene.remove(b.mesh);if(b.trail)scene.remove(b.trail.line);}
+  _gridBalls=[];_gridBatchIndex=0;if(_gridRotateTimer){clearInterval(_gridRotateTimer);_gridRotateTimer=null;}
+  for(const b of placedBalls){scene.remove(b.mesh);if(b.trail)removeTrail(b.trail);}
   placedBalls.length=0;refreshBallListUI();
 }
 window.removeAllBalls=removeAllBalls;
@@ -3895,7 +4572,7 @@ function getCachedRayMeshes(){
   const key=renderer.info.render.calls;
   if(key!==_ballMeshCacheKey){
     _ballMeshCache=[];
-    models.forEach(m=>{if(m.visible)m.group.traverse(ch=>{if(ch.isMesh&&ch.visible)_ballMeshCache.push(ch);});});
+    models.forEach(m=>{if(m.visible)m.group.traverse(ch=>{if(ch.isMesh)_ballMeshCache.push(ch);});});
     _ballMeshCacheKey=key;
   }
   return _ballMeshCache;
@@ -3942,7 +4619,7 @@ function rebuildBVH(){
   models.forEach(mdl=>{
     if(!mdl.visible) return;
     mdl.group.traverse(ch=>{
-      if(!ch.isMesh||!ch.visible) return;
+      if(!ch.isMesh) return; // include hidden meshes — visibility doesn't affect collision
       const geo=ch.geometry;
       if(!geo.attributes.position) return;
       ch.updateMatrixWorld(true);
@@ -4025,12 +4702,32 @@ function bvhSampleHeight(x,z,fromY,meshes){
   return sampleHeight(x,z,fromY,meshes);
 }
 
-// ═══════════════════════════════ WORKER POOL ══════════════════════════════════
-// Workers handle: gravity integration, velocity update, friction, sleep timers.
-// Raycasting stays on main thread (needs geometry access).
-// Communication via transferable Float32Arrays to avoid copy overhead.
+// Horizontal ray for wall detection — shoots from ball centre outward
+const _wallRay=new THREE.Raycaster();
+function bvhRaySide(ox,oy,oz,dx,dy,dz,maxDist,meshes){
+  const dir=new THREE.Vector3(dx,dy,dz).normalize();
+  if(_bvhMesh&&!_bvhDirty){
+    _wallRay.set(new THREE.Vector3(ox,oy,oz),dir);
+    _wallRay.firstHitOnly=true;
+    _wallRay.far=maxDist;
+    const hits=_wallRay.intersectObject(_bvhMesh,false);
+    _wallRay.far=Infinity;
+    if(hits.length>0) return {dist:hits[0].distance, normal:hits[0].face?hits[0].face.normal.clone():null, point:hits[0].point};
+    return null;
+  }
+  _wallRay.set(new THREE.Vector3(ox,oy,oz),dir);
+  _wallRay.far=maxDist;
+  const hits=_wallRay.intersectObjects(meshes,false);
+  _wallRay.far=Infinity;
+  if(hits.length>0) return {dist:hits[0].distance, normal:hits[0].face?hits[0].face.normal.clone():null, point:hits[0].point};
+  return null;
+}
+
+// ═══════════════════════════════ PHYSICS BACKEND ═════════════════════════════
+// Integration runs on WebGPU compute shader when available, falls back to Workers.
+// Raycasting always stays on main thread (needs Three.js geometry access).
 //
-// Layout of particle SharedArrayBuffer (per particle, 16 floats):
+// Layout per particle (16 floats / PARTICLE_STRIDE):
 // [0]vx [1]vy [2]vz [3]px [4]py [5]pz
 // [6]lastMovedX [7]lastMovedY [8]lastMovedZ
 // [9]lastMovedAt [10]sleeping(0/1) [11]frozenAt(-1=no)
@@ -4039,6 +4736,190 @@ function bvhSampleHeight(x,z,fromY,meshes){
 const PARTICLE_STRIDE = 16;
 const NUM_WORKERS = Math.max(1, Math.min(8, (navigator.hardwareConcurrency||2) - 1));
 
+// ── WebGPU integration backend ──────────────────────────────────────────────
+let _gpuDevice=null, _gpuPipeline=null;
+let _gpuParticleBuf=null, _gpuGroundBuf=null, _gpuReadBuf=null;
+let _gpuCapacity=0;
+let _gpuReady=false;
+
+const WGSL_INTEGRATE=`
+struct Particle { data: array<f32, 16> }
+
+@group(0) @binding(0) var<storage, read_write> particles: array<array<f32,16>>;
+
+struct Ground {
+  grounded: u32, gy: f32, nx: f32, nz: f32,
+  slopeX: f32, slopeZ: f32, downNx: f32, downNz: f32,
+  wallContact: u32, _pad0: u32, _pad1: u32, _pad2: u32
+}
+@group(0) @binding(1) var<storage, read> groundData: array<Ground>;
+
+struct Params {
+  count: u32, dt: f32, gravity: f32, friction: f32,
+  sleepDelay: f32, now: f32, _p0: u32, _p1: u32
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+const FREEZE_RADIUS: f32 = 0.10;
+const FREEZE_TIME: f32 = 5.0;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (i >= params.count) { return; }
+
+  let frozenAt = particles[i][11];
+  if (frozenAt >= 0.0) { return; }
+
+  let isW = particles[i][13] > 0.5;
+  let dt   = params.dt;
+  let grav = params.gravity;
+
+  // Apply gravity
+  particles[i][1] -= grav * dt;
+
+  let gr = groundData[i];
+
+  if (gr.grounded != 0u) {
+    particles[i][3] = gr.nx;
+    particles[i][4] = gr.gy + particles[i][12];
+    particles[i][5] = gr.nz;
+    // No bounce
+    if (particles[i][1] < 0.0) { particles[i][1] = 0.0; }
+    // Friction (skip if wall contact)
+    if (gr.wallContact == 0u) {
+      let fric = pow(params.friction, dt * 60.0);
+      particles[i][0] *= fric;
+      particles[i][2] *= fric;
+    }
+    // Slope
+    let sx = gr.downNx;
+    let sz = gr.downNz;
+    particles[i][0] += sx;
+    particles[i][2] += sz;
+  } else {
+    particles[i][3] += particles[i][0] * dt;
+    particles[i][4] += particles[i][1] * dt;
+    particles[i][5] += particles[i][2] * dt;
+  }
+
+  // Position-based freeze
+  let dx = particles[i][3] - particles[i][6];
+  let dy = particles[i][4] - particles[i][7];
+  let dz = particles[i][5] - particles[i][8];
+  let moved = sqrt(dx*dx + dy*dy + dz*dz);
+
+  if (moved > FREEZE_RADIUS) {
+    particles[i][6] = particles[i][3];
+    particles[i][7] = particles[i][4];
+    particles[i][8] = particles[i][5];
+    particles[i][9] = params.now;
+    particles[i][10] = 0.0;
+  } else {
+    let timeStill = params.now - particles[i][9];
+    if (timeStill >= FREEZE_TIME) {
+      particles[i][11] = params.now;
+      particles[i][0] = 0.0; particles[i][1] = 0.0; particles[i][2] = 0.0;
+    } else {
+      particles[i][10] = 1.0;
+    }
+  }
+}
+`;
+
+async function initWebGPU(){
+  try {
+    if(!navigator.gpu){ _gpuReady=false; return false; }
+    const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+    if(!adapter){ _gpuReady=false; return false; }
+    _gpuDevice=await adapter.requestDevice();
+    const module=_gpuDevice.createShaderModule({code:WGSL_INTEGRATE});
+    _gpuPipeline=_gpuDevice.createComputePipeline({
+      layout:'auto',
+      compute:{module,entryPoint:'main'}
+    });
+    _gpuReady=true;
+    const el=document.getElementById('bvh-status');
+    if(el) el.textContent=(el.textContent||'')+' · GPU Compute ✓';
+    console.log('WebGPU compute shader ready');
+    return true;
+  } catch(err){
+    console.warn('WebGPU unavailable, using Workers:',err.message);
+    _gpuReady=false;
+    return false;
+  }
+}
+
+function _gpuEnsureBuffers(n){
+  if(n<=_gpuCapacity) return;
+  const cap=Math.max(n,64);
+  if(_gpuParticleBuf) _gpuParticleBuf.destroy();
+  if(_gpuGroundBuf)   _gpuGroundBuf.destroy();
+  if(_gpuReadBuf)     _gpuReadBuf.destroy();
+  const pBytes=cap*PARTICLE_STRIDE*4;
+  const gBytes=cap*12*4; // 12 floats per Ground struct
+  _gpuParticleBuf=_gpuDevice.createBuffer({size:pBytes,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST});
+  _gpuGroundBuf  =_gpuDevice.createBuffer({size:gBytes,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  _gpuReadBuf    =_gpuDevice.createBuffer({size:pBytes,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST});
+  _gpuCapacity=cap;
+}
+
+async function gpuIntegrate(ballData, groundResults, dt, friction, now, count){
+  _gpuEnsureBuffers(count);
+
+  // Upload particle data
+  _gpuDevice.queue.writeBuffer(_gpuParticleBuf,0,ballData.buffer,0,count*PARTICLE_STRIDE*4);
+
+  // Pack ground results into flat Float32Array (12 floats each)
+  const gArr=new Float32Array(count*12);
+  for(let i=0;i<count;i++){
+    const g=groundResults[i];
+    const b=i*12;
+    if(g&&g.grounded){
+      gArr[b+0]=1; gArr[b+1]=g.gy; gArr[b+2]=g.nx; gArr[b+3]=g.nz;
+      gArr[b+4]=g.slopeX||0; gArr[b+5]=g.slopeZ||0;
+      gArr[b+6]=g.downNx!==undefined?g.downNx:(g.slopeX||0);
+      gArr[b+7]=g.downNz!==undefined?g.downNz:(g.slopeZ||0);
+      gArr[b+8]=g.wallContact?1:0;
+    } // else zeros = airborne
+  }
+  _gpuDevice.queue.writeBuffer(_gpuGroundBuf,0,gArr.buffer);
+
+  // Params uniform (8 u32/f32)
+  const paramsArr=new Float32Array(8);
+  paramsArr[0]=count; paramsArr[1]=dt; paramsArr[2]=BALL_GRAVITY;
+  paramsArr[3]=friction; paramsArr[4]=5.0; paramsArr[5]=now;
+  const paramsBuf=_gpuDevice.createBuffer({size:32,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+  _gpuDevice.queue.writeBuffer(paramsBuf,0,paramsArr.buffer);
+
+  // Bind group
+  const bg=_gpuDevice.createBindGroup({
+    layout:_gpuPipeline.getBindGroupLayout(0),
+    entries:[
+      {binding:0,resource:{buffer:_gpuParticleBuf}},
+      {binding:1,resource:{buffer:_gpuGroundBuf}},
+      {binding:2,resource:{buffer:paramsBuf}},
+    ]
+  });
+
+  // Dispatch
+  const enc=_gpuDevice.createCommandEncoder();
+  const pass=enc.beginComputePass();
+  pass.setPipeline(_gpuPipeline);
+  pass.setBindGroup(0,bg);
+  pass.dispatchWorkgroups(Math.ceil(count/64));
+  pass.end();
+  enc.copyBufferToBuffer(_gpuParticleBuf,0,_gpuReadBuf,0,count*PARTICLE_STRIDE*4);
+  _gpuDevice.queue.submit([enc.finish()]);
+  paramsBuf.destroy();
+
+  // Read back
+  await _gpuReadBuf.mapAsync(GPUMapMode.READ,0,count*PARTICLE_STRIDE*4);
+  const result=new Float32Array(_gpuReadBuf.getMappedRange(0,count*PARTICLE_STRIDE*4).slice(0));
+  _gpuReadBuf.unmap();
+  return result;
+}
+
 let _workerPool = [];
 let _workerBusy = new Array(NUM_WORKERS).fill(false);
 let _pendingWorkerResults = new Map(); // workerId -> {resolve}
@@ -4046,8 +4927,10 @@ let _pendingWorkerResults = new Map(); // workerId -> {resolve}
 const WORKER_SRC = `
 'use strict';
 const STRIDE=16;
-const BALL_RESTITUTION=0.38, WATER_RESTITUTION=0.04;
+const BALL_RESTITUTION=0.0, WATER_RESTITUTION=0.0; // no bounce
 const BALL_SLEEP=0.04, WATER_SLEEP=0.008;
+const FREEZE_RADIUS=0.10; // 10cm position radius
+const FREEZE_TIME=5.0;    // 5 seconds
 
 self.onmessage=function(e){
   const {buf,count,dt,gravity,friction,sleepDelay,now,groundResults}=e.data;
@@ -4056,7 +4939,7 @@ self.onmessage=function(e){
   for(let i=0;i<count;i++){
     const base=i*STRIDE;
     const frozen=f[base+11];
-    if(frozen>=0) continue; // frozen
+    if(frozen>=0) continue; // already frozen
 
     const isW=f[base+13]>0.5;
     const SLEEP_VEL=isW?WATER_SLEEP:BALL_SLEEP;
@@ -4071,38 +4954,45 @@ self.onmessage=function(e){
       // Bounce / absorb
       if(isW){ f[base+1]=Math.max(0,f[base+1]*-WATER_RESTITUTION); }
       else { if(f[base+1]<0) f[base+1]=-f[base+1]*BALL_RESTITUTION; }
-      // Friction
-      const fric=Math.pow(friction,dt*60);
-      f[base+0]*=fric; f[base+2]*=fric;
-      // Slope from main thread
-      if(gr.slopeX) f[base+0]+=gr.slopeX;
-      if(gr.slopeZ) f[base+2]+=gr.slopeZ;
-      // Sleep / freeze
-      const spd=Math.sqrt(f[base+0]*f[base+0]+f[base+1]*f[base+1]+f[base+2]*f[base+2]);
-      if(spd<SLEEP_VEL){
-        f[base+10]=1; // sleeping
-        const dx=f[base+3]-f[base+6], dy=f[base+4]-f[base+7], dz=f[base+5]-f[base+8];
-        const moved=Math.sqrt(dx*dx+dy*dy+dz*dz);
-        if(moved<f[base+12]*0.5){
-          if((now-f[base+9])>=sleepDelay){
-            f[base+11]=now; // freeze timestamp
-            f[base+0]=0;f[base+1]=0;f[base+2]=0;
-          }
-        } else {
-          f[base+6]=f[base+3];f[base+7]=f[base+4];f[base+8]=f[base+5];
-          f[base+9]=now;
-        }
-      } else {
-        f[base+10]=0;
-        f[base+6]=f[base+3];f[base+7]=f[base+4];f[base+8]=f[base+5];
-        f[base+9]=now;
+      // No friction when touching a wall — let gravity drive freely
+      if(!gr.wallContact){
+        const fric=Math.pow(friction,dt*60);
+        f[base+0]*=fric; f[base+2]*=fric;
       }
+      // Use downward face normal as slope override
+      const sx=gr.downNx!==undefined?gr.downNx:gr.slopeX;
+      const sz=gr.downNz!==undefined?gr.downNz:gr.slopeZ;
+      if(sx) f[base+0]+=sx;
+      if(sz) f[base+2]+=sz;
     } else {
       // Airborne
       f[base+3]+=f[base+0]*dt;
       f[base+4]+=f[base+1]*dt;
       f[base+5]+=f[base+2]*dt;
-      f[base+10]=0;
+    }
+
+    // ── Position-based freeze: if ball stays within 1cm for 5s, freeze ──
+    const dx=f[base+3]-f[base+6];
+    const dy=f[base+4]-f[base+7];
+    const dz=f[base+5]-f[base+8];
+    const movedDist=Math.sqrt(dx*dx+dy*dy+dz*dz);
+
+    if(movedDist>FREEZE_RADIUS){
+      // Ball has moved more than 1cm — reset reference position and timer
+      f[base+6]=f[base+3]; f[base+7]=f[base+4]; f[base+8]=f[base+5];
+      f[base+9]=now;
+      f[base+10]=0; // not sleeping
+    } else {
+      // Within 1cm of reference position
+      const timeStill=now-f[base+9];
+      if(timeStill>=FREEZE_TIME){
+        // Freeze
+        f[base+11]=now;
+        f[base+0]=0; f[base+1]=0; f[base+2]=0;
+      } else {
+        // Sleeping (will freeze soon)
+        f[base+10]=1;
+      }
     }
   }
   self.postMessage({buf,count},{transfer:[buf]});
@@ -4119,11 +5009,11 @@ function createWorkerPool(){
     w._pendingStart=0;
     w.onmessage=e=>{
       const {buf,count}=e.data;
-      const start=_workerPool[id]._pendingStart;
+      const pendingBalls=_workerPool[id]._pendingBalls||[];
       const f=new Float32Array(buf);
       let frozeAny=false;
       for(let j=0;j<count;j++){
-        const b=placedBalls[start+j];
+        const b=pendingBalls[j];
         if(!b) continue;
         const base=j*PARTICLE_STRIDE;
         b.vel.x=f[base+0]; b.vel.y=f[base+1]; b.vel.z=f[base+2];
@@ -4135,6 +5025,7 @@ function createWorkerPool(){
         if(froze>=0&&b.frozenAt===null){
           b.frozenAt=froze;
           b.mesh.material.opacity*=0.55;
+          if(_gridBalls.length) b.mesh.material.color.setHex(GRID_COL_FROZEN);
           frozeAny=true;
         }
       }
@@ -4153,6 +5044,23 @@ function createWorkerPool(){
           );
         }
         updateTrail(b.trail,b.mesh.position,now);
+
+        // ── Arrow direction: rolling 2s average of movement ──
+        if(b.posHistory){
+          const p=b.mesh.position;
+          b.posHistory.push({x:p.x,y:p.y,z:p.z,t:now});
+          // Keep only last 2 seconds
+          while(b.posHistory.length>1&&now-b.posHistory[0].t>2.0) b.posHistory.shift();
+          if(b.posHistory.length>=2){
+            const first=b.posHistory[0], last=b.posHistory[b.posHistory.length-1];
+            const dx=last.x-first.x, dz=last.z-first.z;
+            const dist=Math.sqrt(dx*dx+dz*dz);
+            if(dist>0.02){ // only update if ball has moved meaningfully
+              b.arrowDir.x=dx/dist;
+              b.arrowDir.z=dz/dist;
+            }
+          }
+        }
       }
       updateClusterColors();
     };
@@ -4167,6 +5075,7 @@ let _lastDt=0.016;
 // ── Physics update — BVH raycasting on main thread, integration on workers ──
 function updateBalls(dt){
   if(!placedBalls.length) return;
+  if(_simPausedGlobal) return;
   _lastDt=dt;
 
   // Rebuild BVH if dirty (after model load)
@@ -4174,20 +5083,51 @@ function updateBalls(dt){
 
   const meshes=getCachedRayMeshes();
   const now=performance.now()/1000;
-  const n=placedBalls.length;
+  // Only simulate non-frozen, non-paused balls
+  const activeBalls=placedBalls.filter(b=>b.frozenAt===null&&!b._simPaused);
+  const activeN=activeBalls.length;
+  const n=activeN; // alias for rest of function
 
   // ── 1. RAYCASTING on main thread (needs geometry) ──
-  // Build groundResults array for all active particles
-  const groundResults=new Array(n);
-  for(let i=0;i<n;i++){
-    const b=placedBalls[i];
+  const groundResults=new Array(activeN);
+
+  for(let i=0;i<activeN;i++){
+    const b=activeBalls[i];
     if(b.frozenAt!==null){ groundResults[i]=null; continue; }
     const r=b.radius, pos=b.mesh.position;
-    const nx=pos.x+b.vel.x*dt, ny=pos.y+b.vel.y*dt-0.5*BALL_GRAVITY*dt*dt, nz=pos.z+b.vel.z*dt;
+
+    // ── Wall collision: horizontal rays, slide along wall ──
+    const wallDirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const wallHeights=[pos.y, pos.y+r*0.6, pos.y-r*0.6];
+    // Collect active wall normals so slope can be projected away from them
+    const wallNormals=[]; // [{dx,dz}] of walls we're touching
+    for(const[dx,dz] of wallDirs){
+      let closest=null;
+      for(const wy of wallHeights){
+        const w=bvhRaySide(pos.x,wy,pos.z, dx,0,dz, r+0.05, meshes);
+        if(w&&(closest===null||w.dist<closest.dist)) closest=w;
+      }
+      if(!closest) continue;
+      const pen=r-closest.dist;
+      if(pen<=0) continue;
+      pos.x-=dx*(pen+0.003);
+      pos.z-=dz*(pen+0.003);
+      const vToward=b.vel.x*dx+b.vel.z*dz;
+      if(vToward>0){
+        b.vel.x-=vToward*dx;
+        b.vel.z-=vToward*dz;
+      }
+      wallNormals.push({dx,dz});
+    }
+    // Recompute next position after wall corrections
+    const wallCorrX=pos.x, wallCorrZ=pos.z;
+
+    const nx=wallCorrX+b.vel.x*dt, ny=pos.y+b.vel.y*dt-0.5*BALL_GRAVITY*dt*dt, nz=wallCorrZ+b.vel.z*dt;
     const startY=pos.y+r+0.05;
     const hit=bvhRayDown(nx,startY,nz,meshes);
     if(hit&&hit.y<startY&&ny-r<=hit.y){
       let slopeX=0, slopeZ=0;
+
       if(b.mode==='water'){
         const probe=Math.max(r*1.5,0.15);
         const hN=bvhSampleHeight(nx,nz-probe,startY+1,meshes);
@@ -4197,52 +5137,137 @@ function updateBalls(dt){
         const gAcc=BALL_GRAVITY*0.9*dt;
         if(hW!==null&&hE!==null) slopeX=(hW-hE)/(2*probe)*gAcc;
         if(hN!==null&&hS!==null) slopeZ=(hN-hS)/(2*probe)*gAcc;
-      } else if(hit.nx){
-        // Normal-based slope for balls — transform face normal
-        const wn=hit.nx.clone().transformDirection(hit.obj?hit.obj.matrixWorld:new THREE.Matrix4()).normalize();
-        const grav=new THREE.Vector3(0,-BALL_GRAVITY,0);
-        const slide=grav.clone().addScaledVector(wn,-grav.dot(wn));
-        slopeX=slide.x*dt; slopeZ=slide.z*dt;
+      } else if(wallNormals.length>0){
+        // ── Wall contact: sample height in 8 directions (2m radius) ──
+        // Find the lowest point and push ball that direction, along wall
+        const scanR=wallScanRadius;
+        const angles=8;
+        let lowestH=null, lowestDX=0, lowestDZ=0;
+        for(let a=0;a<angles;a++){
+          const ang=a/angles*Math.PI*2;
+          const sdx=Math.cos(ang), sdz=Math.sin(ang);
+          // Only sample directions that are NOT into a wall
+          let blocked=false;
+          for(const wn of wallNormals){
+            if(sdx*wn.dx+sdz*wn.dz>0.3){blocked=true;break;}
+          }
+          if(blocked) continue;
+          const sh=bvhSampleHeight(pos.x+sdx*scanR,pos.z+sdz*scanR,pos.y+2,meshes);
+          if(sh!==null&&(lowestH===null||sh<lowestH)){
+            lowestH=sh; lowestDX=sdx; lowestDZ=sdz;
+          }
+        }
+        // Also sample at ball's current position as reference
+        const baseH=bvhSampleHeight(pos.x,pos.z,pos.y+2,meshes);
+        if(lowestH!==null&&baseH!==null&&lowestH<baseH-0.001){
+          // Direction toward lowest point, scaled by height difference
+          const drop=(baseH-lowestH)/scanR; // slope magnitude
+          const acc=BALL_GRAVITY*drop*dt;
+          slopeX=lowestDX*acc;
+          slopeZ=lowestDZ*acc;
+        }
+      } else {
+        // Normal slope from face normal
+        const downHit=bvhRayDown(pos.x,pos.y+r*0.1,pos.z,meshes);
+        const useHit=(downHit&&downHit.nx)?downHit:hit;
+        if(useHit.nx){
+          const wn=useHit.nx.clone().transformDirection(useHit.obj?useHit.obj.matrixWorld:new THREE.Matrix4()).normalize();
+          const grav=new THREE.Vector3(0,-BALL_GRAVITY,0);
+          const slide=grav.clone().addScaledVector(wn,-grav.dot(wn));
+          slopeX=slide.x*dt; slopeZ=slide.z*dt;
+        }
       }
-      groundResults[i]={grounded:true, gy:hit.y, nx, nz, slopeX, slopeZ};
+
+      // Clip slope away from walls
+      let fSlopeX=slopeX, fSlopeZ=slopeZ;
+      for(const wn of wallNormals){
+        const sToward=fSlopeX*wn.dx+fSlopeZ*wn.dz;
+        if(sToward>0){ fSlopeX-=sToward*wn.dx; fSlopeZ-=sToward*wn.dz; }
+      }
+
+      groundResults[i]={grounded:true, gy:hit.y, nx, nz, slopeX:fSlopeX, slopeZ:fSlopeZ, downNx:fSlopeX, downNz:fSlopeZ, wallContact:wallNormals.length>0};
     } else {
       groundResults[i]={grounded:false};
     }
   }
 
-  // ── 2. INTEGRATION on worker pool ──
-  // Split particles across workers
-  const chunkSize=Math.max(1,Math.ceil(n/NUM_WORKERS));
-  for(let w=0;w<NUM_WORKERS;w++){
-    const start=w*chunkSize;
-    const count=Math.min(chunkSize,n-start);
-    if(count<=0) break;
-    if(_workerBusy[w]) continue; // skip if still busy from last frame
-
-    // Pack particle data into Float32Array for this chunk
-    const buf=new Float32Array(count*PARTICLE_STRIDE);
-    for(let j=0;j<count;j++){
-      const b=placedBalls[start+j];
+  // ── 2. INTEGRATION — GPU compute shader or Worker fallback ──
+  if(_gpuReady){
+    // Pack all balls into one Float32Array
+    const allBuf=new Float32Array(activeN*PARTICLE_STRIDE);
+    for(let j=0;j<activeN;j++){
+      const b=activeBalls[j];
       const base=j*PARTICLE_STRIDE;
-      buf[base+0]=b.vel.x;    buf[base+1]=b.vel.y;    buf[base+2]=b.vel.z;
-      buf[base+3]=b.mesh.position.x; buf[base+4]=b.mesh.position.y; buf[base+5]=b.mesh.position.z;
-      buf[base+6]=b.lastMovedPos.x;  buf[base+7]=b.lastMovedPos.y;  buf[base+8]=b.lastMovedPos.z;
-      buf[base+9]=b.lastMovedAt;
-      buf[base+10]=b.sleeping?1:0;
-      buf[base+11]=b.frozenAt!==null?b.frozenAt:-1;
-      buf[base+12]=b.radius;
-      buf[base+13]=b.mode==='water'?1:0;
-      buf[base+14]=dt;
-      buf[base+15]=BALL_GRAVITY;
+      allBuf[base+0]=b.vel.x;    allBuf[base+1]=b.vel.y;    allBuf[base+2]=b.vel.z;
+      allBuf[base+3]=b.mesh.position.x; allBuf[base+4]=b.mesh.position.y; allBuf[base+5]=b.mesh.position.z;
+      allBuf[base+6]=b.lastMovedPos.x;  allBuf[base+7]=b.lastMovedPos.y;  allBuf[base+8]=b.lastMovedPos.z;
+      allBuf[base+9]=b.lastMovedAt;
+      allBuf[base+10]=b.sleeping?1:0;
+      allBuf[base+11]=b.frozenAt!==null?b.frozenAt:-1;
+      allBuf[base+12]=b.radius;
+      allBuf[base+13]=b.mode==='water'?1:0;
+      allBuf[base+14]=dt; allBuf[base+15]=BALL_GRAVITY;
     }
-    _workerBusy[w]=true;
-    _workerPool[w]._pendingStart=start;
-    _workerPool[w].postMessage({
-      buf:buf.buffer, count, dt,
-      gravity:BALL_GRAVITY, friction:ballCfg.friction,
-      sleepDelay:ballCfg.sleepDelay, now,
-      groundResults:groundResults.slice(start,start+count)
-    },[buf.buffer]);
+    gpuIntegrate(allBuf, groundResults, dt, ballCfg.friction, now, activeN).then(result=>{
+      const now2=performance.now()/1000;
+      let frozeAny=false;
+      for(let j=0;j<activeN;j++){
+        const b=activeBalls[j]; if(!b) continue;
+        const base=j*PARTICLE_STRIDE;
+        b.vel.x=result[base+0]; b.vel.y=result[base+1]; b.vel.z=result[base+2];
+        b.mesh.position.x=result[base+3]; b.mesh.position.y=result[base+4]; b.mesh.position.z=result[base+5];
+        b.lastMovedPos.set(result[base+6],result[base+7],result[base+8]);
+        b.lastMovedAt=result[base+9]; b.sleeping=result[base+10]>0.5;
+        const froze=result[base+11];
+        if(froze>=0&&b.frozenAt===null){b.frozenAt=froze;b.mesh.material.opacity*=0.55;frozeAny=true;}
+      }
+      if(frozeAny) refreshBallListUI();
+      for(let j=0;j<n;j++){
+        const b=placedBalls[j]; if(!b||b.frozenAt!==null) continue;
+        if(b.mode!=='water'){
+          const s2=Math.sqrt(b.vel.x*b.vel.x+b.vel.z*b.vel.z);
+          if(s2>0.01) b.mesh.rotateOnWorldAxis(new THREE.Vector3(b.vel.z,0,-b.vel.x).normalize(),s2*_lastDt/(b.radius||0.3));
+        }
+        updateTrail(b.trail,b.mesh.position,now2);
+        if(b.posHistory){
+          const p=b.mesh.position;
+          b.posHistory.push({x:p.x,y:p.y,z:p.z,t:now2});
+          while(b.posHistory.length>1&&now2-b.posHistory[0].t>2.0) b.posHistory.shift();
+          if(b.posHistory.length>=2){
+            const first=b.posHistory[0],last=b.posHistory[b.posHistory.length-1];
+            const ddx=last.x-first.x,ddz=last.z-first.z;
+            const dist=Math.sqrt(ddx*ddx+ddz*ddz);
+            if(dist>0.02){b.arrowDir.x=ddx/dist;b.arrowDir.z=ddz/dist;}
+          }
+        }
+      }
+      updateClusterColors();
+    });
+  } else {
+    // Worker fallback
+    const chunkSize=Math.max(1,Math.ceil(activeN/NUM_WORKERS));
+    for(let w=0;w<NUM_WORKERS;w++){
+      const start=w*chunkSize;
+      const count=Math.min(chunkSize,activeN-start);
+      if(count<=0) break;
+      if(_workerBusy[w]) continue;
+      const buf=new Float32Array(count*PARTICLE_STRIDE);
+      for(let j=0;j<count;j++){
+        const b=activeBalls[start+j];
+        const base=j*PARTICLE_STRIDE;
+        buf[base+0]=b.vel.x;    buf[base+1]=b.vel.y;    buf[base+2]=b.vel.z;
+        buf[base+3]=b.mesh.position.x; buf[base+4]=b.mesh.position.y; buf[base+5]=b.mesh.position.z;
+        buf[base+6]=b.lastMovedPos.x;  buf[base+7]=b.lastMovedPos.y;  buf[base+8]=b.lastMovedPos.z;
+        buf[base+9]=b.lastMovedAt; buf[base+10]=b.sleeping?1:0;
+        buf[base+11]=b.frozenAt!==null?b.frozenAt:-1;
+        buf[base+12]=b.radius; buf[base+13]=b.mode==='water'?1:0;
+        buf[base+14]=dt; buf[base+15]=BALL_GRAVITY;
+      }
+      _workerBusy[w]=true;
+      _workerPool[w]._pendingStart=start;
+      _workerPool[w]._pendingBalls=activeBalls.slice(start,start+count);
+      _workerPool[w].postMessage({buf:buf.buffer,count,dt,gravity:BALL_GRAVITY,friction:ballCfg.friction,sleepDelay:ballCfg.sleepDelay,now,groundResults:groundResults.slice(start,start+count)},[buf.buffer]);
+    }
   }
 }
 
@@ -4737,6 +5762,8 @@ const _fpsEl=document.getElementById('fps-counter');
 setupBvhExtensions();
 createWorkerPool();
 {const el=document.getElementById('bvh-status');if(el)el.textContent='BVH klar · Workers: '+NUM_WORKERS;}
+// Try to init WebGPU compute (async — falls back to workers if unavailable)
+initWebGPU();
 
 (function loop(){
   requestAnimationFrame(loop);
@@ -4759,7 +5786,43 @@ createWorkerPool();
   }
 
   updateBalls(dt);
+  if(!_simPausedGlobal) tickGridQueue();
+  // Update trail + arrow for ALL non-frozen balls every frame (including paused)
+  if(placedBalls.length){
+    const now2=performance.now()/1000;
+    for(const b of placedBalls){
+      if(b.frozenAt!==null||!b._simPaused) continue;
+      updateTrail(b.trail,b.mesh.position,now2);
+    }
+  }
+  // Update ball arrow sprites — rotate to point toward camera
+  if(placedBalls.length){
+    const cam=activeCamera||camera;
+    for(const b of placedBalls){
+      if(b.frozenAt!==null&&!b.mesh.visible) continue;
+      const arrow=b.mesh.children.find(c=>c.userData._isBallArrow);
+      if(!arrow) continue;
+      if(!b.arrowDir) continue;
+      const {x:ax,z:az}=b.arrowDir;
+      // Override inherited rotation from spinning ball mesh:
+      // Set world rotation to just the direction angle around Y, flat
+      b.mesh.updateMatrixWorld();
+      const worldYaw=Math.atan2(-az,ax); // arrow along +X: atan2(-z,x) maps XZ to rotation.y
+      // Extract parent (ball mesh) world rotation to cancel it out
+      const parentQ=b.mesh.quaternion;
+      const invParent=parentQ.clone().invert();
+      // Target world quaternion: rotate worldYaw around world Y
+      const targetQ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),worldYaw);
+      // Local quaternion = invParent * target
+      const localQ=invParent.multiply(targetQ);
+      arrow.quaternion.copy(localQ);
+    }
+  }
   updateStreaming();
+  if(ptLight.visible){
+    const cam=activeCamera||camera;
+    ptLight.position.copy(cam.position).addScaledVector(new THREE.Vector3(0,1,0),_ptHeight);
+  }
   renderer.render(scene,activeCamera);
   updateCamPosBar();
   redrawSVG();
