@@ -428,7 +428,7 @@ body{
   <svg id="measure-svg"></svg>
   <div id="pivot-dot"></div>
   <div id="watermark">Utviklet og vedlikeholdt av<br>Mathias Weiseth Gran</div>
-  <div id="last-updated">Sist oppdatert 07.04.2026<br>Under utvikling...</div>
+  <div id="last-updated">Sist oppdatert 12.04.2026<br>Under utvikling...</div>
 
   <div id="drop-zone">
     <div class="drop-icon-wrap">
@@ -792,6 +792,11 @@ body{
       <button class="ec-preset" onclick="setTheme('light',this)">Lys</button>
       <button class="ec-preset active" id="ec-pre-dark" onclick="setTheme('dark',this)">Mork</button>
       <button class="ec-preset" onclick="setTheme('black',this)">Svart</button>
+    </div>
+    <div class="tb-hdrop-sep" style="margin:0.4rem 0 0.3rem"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0">
+      <span style="font-size:0.72rem;color:var(--text)">☀️ Sommerhimmel</span>
+      <button id="btn-skybox-toggle" onclick="toggleSkybox()" style="font-size:0.68rem;padding:0.15rem 0.5rem;border-radius:0.3rem;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:inherit">AV</button>
     </div>
   </div>
 
@@ -2703,10 +2708,16 @@ function _buildBusMesh(){
   // Wheels (solid dark) — rear wheels static, front wheels steerable via pivots
   const wheelGeo=new THREE.CylinderGeometry(0.55,0.55,0.3,20);
   const wheelMat=new THREE.MeshStandardMaterial({color:0x111827,roughness:0.9});
-  // Rear wheels (static)
+  // Rear wheels (with pivots for suspension)
+  g.userData.rearWheelPivots=[];
   [[-1.4,0.55,-4],[1.4,0.55,-4]].forEach(([x,y,z])=>{
+    const pivot=new THREE.Object3D();
+    pivot.position.set(x,y,z);
     const w=new THREE.Mesh(wheelGeo,wheelMat.clone());
-    w.rotation.z=Math.PI/2; w.position.set(x,y,z); g.add(w);
+    w.rotation.z=Math.PI/2;
+    pivot.add(w);
+    g.add(pivot);
+    g.userData.rearWheelPivots.push(pivot);
   });
   // Front wheels (steerable — wrapped in pivot)
   g.userData.frontWheels=[];
@@ -2825,28 +2836,12 @@ window.setBusCamHeight=setBusCamHeight;
 
 // Mouse look during tour — ignore clicks on the HUD
 document.addEventListener('mousedown',e=>{
-  // Scrub: only when bus exists, stopped, and no active tour or camera
-  if(!_busTourCamera&&!_busTourActive&&_busPathCurve&&_busMesh&&e.button===0){
-    if(!e.target.closest('#bus-hud')&&!e.target.closest('.tb-hdrop')&&!e.target.closest('.toolbar')){
-      _busScrubbing=true; _busScrubLastX=e.clientX;
-      return;
-    }
-  }
-  // Mouse-look: only when inside bus camera
   if(!_busTourCamera) return;
   if(e.target.closest('#bus-hud')) return;
   if(e.button===0){ _busMouseLook=true; _busMouseLX=e.clientX; _busMouseLY=e.clientY; e.preventDefault(); }
 });
-document.addEventListener('mouseup',()=>{ _busMouseLook=false; _busScrubbing=false; });
+document.addEventListener('mouseup',()=>{ _busMouseLook=false; });
 document.addEventListener('mousemove',e=>{
-  if(_busScrubbing&&_busPathCurve){
-    const dx=e.clientX-_busScrubLastX; _busScrubLastX=e.clientX;
-    // ~3px per metre at typical zoom; map drag to T
-    const pathLen=Math.max(1,_busPathCurve.getLength());
-    _busTourT=Math.max(0,Math.min(1,_busTourT+dx*3/pathLen*0.01));
-    _busPlaceOnPath(_busTourT,0);
-    return;
-  }
   if(!_busMouseLook||!_busTourCamera) return;
   const dx=e.clientX-_busMouseLX; const dy=e.clientY-_busMouseLY;
   _busMouseLX=e.clientX; _busMouseLY=e.clientY;
@@ -2869,7 +2864,7 @@ let _busScrubbing=false;
 let _busScrubLastX=0;
 
 function _updateBusTour(dt){
-  if((!_busTourActive&&!_busScrubbing)||!_busPathCurve||!_busMesh) return;
+  if(!_busTourActive||!_busPathCurve||!_busMesh) return;
 
   if(_busTourActive){
     const pathLen=_busPathCurve.getLength();
@@ -2949,10 +2944,10 @@ function _busPlaceOnPath(frontT, dt){
 
   // ── Per-wheel suspension ──
   const bHalfW=1.25, bHalfL=4.2;
-  const travel=0.4, rest=0.0, ks=50, kd=15;
+  const travel=0.6, rest=0.0, ks=50, kd=15;
   const cosY=Math.cos(busYaw), sinY=Math.sin(busYaw);
   const corners=[[-bHalfW,bHalfL],[bHalfW,bHalfL],[-bHalfW,-bHalfL],[bHalfW,-bHalfL]];
-  const startY=_busMesh.position.y+6;
+  const startY=_busMesh.position.y+8;
   const rawH=corners.map(([lx,lz])=>{
     const wx=bx+cosY*lx+sinY*lz;
     const wz=bz-sinY*lx+cosY*lz;
@@ -2971,19 +2966,39 @@ function _busPlaceOnPath(frontT, dt){
     }
     const avgSusp=(_busSusp[0]+_busSusp[1]+_busSusp[2]+_busSusp[3])/4;
     _busMesh.position.y=avgSusp-_busWheelR+rest;
-    const toW=(lx,lz,sy)=>new THREE.Vector3(bx+cosY*lx+sinY*lz,sy,bz-sinY*lx+cosY*lz);
-    const pFL=toW(-bHalfW,bHalfL,_busSusp[0]),pFR=toW(bHalfW,bHalfL,_busSusp[1]);
-    const pRL=toW(-bHalfW,-bHalfL,_busSusp[2]),pRR=toW(bHalfW,-bHalfL,_busSusp[3]);
-    const surfN=new THREE.Vector3()
-      .crossVectors(new THREE.Vector3().subVectors(pRR,pFL),
-                    new THREE.Vector3().subVectors(pRL,pFR)).normalize();
-    const carFwd=new THREE.Vector3(sinY,0,cosY);
-    const carRight=new THREE.Vector3(cosY,0,-sinY);
-    const pitch=Math.asin(Math.max(-1,Math.min(1,surfN.dot(carFwd))));
-    const roll =Math.asin(Math.max(-1,Math.min(1,surfN.dot(carRight))));
-    _busMesh.rotation.set(pitch,busYaw,roll,'YXZ');
+
+    // Pitch from avg front (0,1) vs avg rear (2,3) axle height — no roll
+    const frontAvg=(_busSusp[0]+_busSusp[1])/2;
+    const rearAvg =(_busSusp[2]+_busSusp[3])/2;
+    const rawPitch=Math.atan2(rearAvg-frontAvg, bHalfL*2); // negate: +pitch = nose up
+    const clampedPitch=Math.max(-0.35,Math.min(0.35,rawPitch));
+    if(!_busMesh.userData.bodyPitch) _busMesh.userData.bodyPitch=0;
+    _busMesh.userData.bodyPitch+=( clampedPitch - _busMesh.userData.bodyPitch)*Math.min(1,dt*4);
+    _busMesh.rotation.set(_busMesh.userData.bodyPitch, busYaw, 0, 'YXZ');
+
+    // Per-wheel pivot Y — wheels follow terrain via suspension
+    _busMesh.updateMatrixWorld(true);
+    const allWheelPivots=[
+      ...((_busMesh.userData.frontWheels)||[]),
+      ...(_busMesh.userData.rearWheelPivots||[]),
+    ];
+    // front wheels at index 0,1 → corners 0,1; rear at 2,3 → corners 2,3
+    const pivots=[
+      _busMesh.userData.frontWheels?.[0],
+      _busMesh.userData.frontWheels?.[1],
+      _busMesh.userData.rearWheelPivots?.[0],
+      _busMesh.userData.rearWheelPivots?.[1],
+    ];
+    const _tw2=new THREE.Vector3(), _tl2=new THREE.Vector3();
+    for(let i=0;i<4;i++){
+      const piv=pivots[i]; if(!piv) continue;
+      const [lx,lz]=corners[i];
+      _tw2.set(bx+cosY*lx+sinY*lz, _busSusp[i], bz-sinY*lx+cosY*lz);
+      _busMesh.worldToLocal(_tl2.copy(_tw2));
+      piv.position.y=Math.max(_busWheelR-travel, Math.min(_busWheelR+travel, _tl2.y));
+    }
   } else {
-    _busMesh.rotation.y=busYaw;
+    _busMesh.rotation.set(_busMesh.userData.bodyPitch||0, busYaw, 0, 'YXZ');
   }
 
   // ── Ackermann front wheels ──
@@ -3381,7 +3396,7 @@ function setMeasureMode(m){
   } else if(m==='height'){
     interactMode='height';
     document.getElementById('btn-m-height').classList.add('active');
-    hintEl.textContent='Klikk p\u00e5 modell for \u00e5 m\u00e5le h\u00f8yde (Y). Hold CTRL for \u00e5 vise XYZ-posisjon. ESC avbryt.';
+    hintEl.textContent='Klikk p\u00e5 modell for \u00e5 m\u00e5le h\u00f8yde (Z). Hold CTRL for \u00e5 vise XYZ-posisjon. ESC avbryt.';
     hintEl.classList.add('visible');
     vp.className='m-height';
     document.addEventListener('keydown',measureKeyHandler);
@@ -3767,8 +3782,25 @@ function redrawSVG(){
       for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:isHovered?6:4,fill:'#fff',stroke:col,'stroke-width':'2',opacity}));
       const vis=p2.filter(p=>!p.behind);
       if(showFallLabels&&!dimmed&&vis.length>=2){
-        const mid=vis[Math.floor((vis.length-1)/2)];
-        drawSVGLabel(mid.x,mid.y-14,m.label,'#60a5fa');
+        // Find midpoint by total screen arc length
+        let totalScreenLen=0;
+        const segLens=[];
+        for(let i=1;i<vis.length;i++){
+          const d=Math.hypot(vis[i].x-vis[i-1].x,vis[i].y-vis[i-1].y);
+          segLens.push(d); totalScreenLen+=d;
+        }
+        const half=totalScreenLen/2;
+        let acc=0, mx=vis[0].x, my=vis[0].y;
+        for(let i=0;i<segLens.length;i++){
+          if(acc+segLens[i]>=half){
+            const t=(half-acc)/Math.max(0.001,segLens[i]);
+            mx=vis[i].x+(vis[i+1].x-vis[i].x)*t;
+            my=vis[i].y+(vis[i+1].y-vis[i].y)*t;
+            break;
+          }
+          acc+=segLens[i];
+        }
+        drawSVGLabel(mx,my-14,m.label,'#60a5fa');
       }
     }
 
@@ -3916,7 +3948,8 @@ function applyBrightness(){
   brightnessVal=slider?+slider.value:100;
   const label=document.getElementById('ec-bri-val');
   if(label) label.textContent=brightnessVal+'%';
-  // Apply brightness to 3D background
+  // Apply brightness to 3D background (skip if skybox is active)
+  if(_skyboxEnabled) return;
   const baseHex=themeBgs[currentTheme]||0x0b1220;
   const r=((baseHex>>16)&0xff)/255;
   const g=((baseHex>>8)&0xff)/255;
@@ -3925,6 +3958,169 @@ function applyBrightness(){
   renderer.setClearColor(new THREE.Color(r*f,g*f,b*f));
 }
 window.applyBrightness=applyBrightness;
+
+// ═══════════════════════════════ SKYBOX ══════════════════════════════════════
+let _skyboxEnabled=false;
+let _skyMesh=null;
+let _cloudMesh=null;
+let _cloudCanvas=null;
+let _cloudCtx=null;
+let _cloudTex=null;
+let _skyTime=0;
+
+// Procedural cloud layer — drawn on a canvas each frame
+function _initCloudCanvas(){
+  _cloudCanvas=document.createElement('canvas');
+  _cloudCanvas.width=1024; _cloudCanvas.height=512;
+  _cloudCtx=_cloudCanvas.getContext('2d');
+  _cloudTex=new THREE.CanvasTexture(_cloudCanvas);
+  _cloudTex.wrapS=_cloudTex.wrapT=THREE.RepeatWrapping;
+}
+
+// Draw clouds onto the canvas using layered ellipses + Perlin-like noise offset
+function _drawClouds(t){
+  const w=_cloudCanvas.width, h=_cloudCanvas.height;
+  const ctx=_cloudCtx;
+  ctx.clearRect(0,0,w,h);
+
+  // Cloud puffs — pre-seeded positions
+  const clouds=[
+    {x:0.12,y:0.25,r:0.09,s:0.00008},
+    {x:0.32,y:0.20,r:0.07,s:0.00006},
+    {x:0.55,y:0.30,r:0.11,s:0.00005},
+    {x:0.75,y:0.22,r:0.08,s:0.00007},
+    {x:0.90,y:0.28,r:0.06,s:0.00009},
+    {x:0.45,y:0.15,r:0.05,s:0.00006},
+    {x:0.20,y:0.40,r:0.10,s:0.00004},
+    {x:0.65,y:0.12,r:0.07,s:0.00007},
+    {x:0.85,y:0.42,r:0.09,s:0.00005},
+    {x:0.05,y:0.50,r:0.06,s:0.00008},
+    {x:0.38,y:0.48,r:0.08,s:0.00006},
+    {x:0.58,y:0.45,r:0.10,s:0.00005},
+  ];
+
+  for(const c of clouds){
+    const ox=((c.x + t*c.s*60000) % 1.15) - 0.05; // wrap around with slight bleed
+    const cx=ox*w, cy=c.y*h;
+    const rx=c.r*w*1.8, ry=c.r*h*0.9;
+
+    // Outer soft glow
+    const grd=ctx.createRadialGradient(cx,cy,rx*0.1,cx,cy,rx);
+    grd.addColorStop(0,'rgba(255,255,255,0.82)');
+    grd.addColorStop(0.5,'rgba(240,246,255,0.55)');
+    grd.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+    ctx.fillStyle=grd;
+    ctx.fill();
+
+    // Sub-puffs for fluffy shape
+    const puffs=[
+      {dx:-rx*0.35,dy:-ry*0.25,rs:0.65},
+      {dx: rx*0.35,dy:-ry*0.30,rs:0.60},
+      {dx: rx*0.15,dy:-ry*0.50,rs:0.45},
+      {dx:-rx*0.15,dy:-ry*0.45,rs:0.40},
+    ];
+    for(const p of puffs){
+      const pg=ctx.createRadialGradient(cx+p.dx,cy+p.dy,0,cx+p.dx,cy+p.dy,rx*p.rs);
+      pg.addColorStop(0,'rgba(255,255,255,0.70)');
+      pg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.ellipse(cx+p.dx,cy+p.dy,rx*p.rs,ry*p.rs,0,0,Math.PI*2);
+      ctx.fillStyle=pg;
+      ctx.fill();
+    }
+  }
+}
+
+function _buildSkybox(){
+  // Sky sphere — inside face, gradient shader
+  const skyGeo=new THREE.SphereGeometry(4000,32,16);
+  const skyMat=new THREE.ShaderMaterial({
+    side:THREE.BackSide,
+    depthWrite:false,
+    uniforms:{
+      topColor:{value:new THREE.Color(0x1a6bc7)},    // deep blue zenith
+      horizonColor:{value:new THREE.Color(0x7bbfff)}, // light horizon
+      sunColor:{value:new THREE.Color(0xfff5d0)},     // warm sun haze low
+      offset:{value:0.4},
+      exponent:{value:0.6}
+    },
+    vertexShader:`
+      varying vec3 vWorldPos;
+      void main(){
+        vec4 wp=modelMatrix*vec4(position,1.0);
+        vWorldPos=wp.xyz;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+      }
+    `,
+    fragmentShader:`
+      uniform vec3 topColor;
+      uniform vec3 horizonColor;
+      uniform vec3 sunColor;
+      uniform float offset;
+      uniform float exponent;
+      varying vec3 vWorldPos;
+      void main(){
+        float h=normalize(vWorldPos).y+offset;
+        float t=pow(max(h,0.0),exponent);
+        // Sun haze near horizon
+        float haze=pow(1.0-max(h-offset,0.0)*2.0,4.0)*0.45;
+        vec3 col=mix(horizonColor,topColor,t)+sunColor*haze;
+        gl_FragColor=vec4(col,1.0);
+      }
+    `
+  });
+  _skyMesh=new THREE.Mesh(skyGeo,skyMat);
+  _skyMesh.renderOrder=-2;
+  scene.add(_skyMesh);
+
+  // Cloud sphere — slightly smaller, transparent canvas texture
+  if(!_cloudCanvas) _initCloudCanvas();
+  const cloudGeo=new THREE.SphereGeometry(3800,48,24);
+  const cloudMat=new THREE.MeshBasicMaterial({
+    map:_cloudTex,
+    side:THREE.BackSide,
+    transparent:true,
+    opacity:0.88,
+    depthWrite:false,
+    blending:THREE.NormalBlending
+  });
+  _cloudMesh=new THREE.Mesh(cloudGeo,cloudMat);
+  _cloudMesh.renderOrder=-1;
+  scene.add(_cloudMesh);
+}
+
+function _destroySkybox(){
+  if(_skyMesh){ scene.remove(_skyMesh); _skyMesh.geometry.dispose(); _skyMesh.material.dispose(); _skyMesh=null; }
+  if(_cloudMesh){ scene.remove(_cloudMesh); _cloudMesh.geometry.dispose(); _cloudMesh.material.dispose(); _cloudMesh=null; }
+}
+
+function toggleSkybox(){
+  _skyboxEnabled=!_skyboxEnabled;
+  const btn=document.getElementById('btn-skybox-toggle');
+  if(_skyboxEnabled){
+    _buildSkybox();
+    renderer.setClearColor(0x7bbfff); // match horizon
+    if(btn){btn.textContent='PÅ';btn.style.color='var(--dot-green)';btn.style.borderColor='var(--dot-green)';}
+  } else {
+    _destroySkybox();
+    applyBrightness();
+    if(btn){btn.textContent='AV';btn.style.color='var(--muted)';btn.style.borderColor='var(--border)';}
+  }
+}
+window.toggleSkybox=toggleSkybox;
+
+function _updateSkybox(dt){
+  if(!_skyboxEnabled||!_cloudMesh) return;
+  _skyTime+=dt;
+  _drawClouds(_skyTime);
+  _cloudTex.needsUpdate=true;
+  // Keep sky centered on camera
+  const cam=activeCamera||camera;
+  if(_skyMesh) _skyMesh.position.copy(cam.position);
+  if(_cloudMesh) _cloudMesh.position.copy(cam.position);
+}
 
 // ═══════════════════════════════ RENDER RESOLUTION ═══════════════════════════
 let renderResScale=1;
@@ -5036,9 +5232,27 @@ function updateCarTelemetry(){
   }
 }
 
+// ── Jump state ──
+let _carJumping=false;
+let _carJumpRainbowT=0;
+const _carJumpMeshes=[]; // meshes whose colors are pulsed during jump
+
 function carKeyDown(e){
   if(e.key==='Escape'){exitCarDriving();return;}
   if(e.key==='Shift') carKeys.shift=true;
+  if(e.key===' '||e.key==='Spacebar'){
+    if(carOnGround&&carMesh){
+      const gravity=carPhys.gravity||20;
+      // Always jump 10 metres high: v = sqrt(2 * g * h)
+      const jumpV=Math.sqrt(2*gravity*10);
+      carVelY=jumpV;
+      carOnGround=false;
+      _carJumping=true;
+      _carJumpRainbowT=0;
+      _startCarRainbow();
+    }
+    return;
+  }
   const k=e.key.toLowerCase();
   if(k==='w')carKeys.w=true;if(k==='a')carKeys.a=true;
   if(k==='s')carKeys.s=true;if(k==='d')carKeys.d=true;
@@ -5048,6 +5262,30 @@ function carKeyUp(e){
   const k=e.key.toLowerCase();
   if(k==='w')carKeys.w=false;if(k==='a')carKeys.a=false;
   if(k==='s')carKeys.s=false;if(k==='d')carKeys.d=false;
+}
+
+function _startCarRainbow(){
+  _carJumpMeshes.length=0;
+  if(carMesh) carMesh.traverse(ch=>{ if(ch.isMesh&&ch.material) _carJumpMeshes.push(ch); });
+}
+function _stopCarRainbow(){
+  // Restore original colors by rebuilding the car
+  _carJumping=false;
+  _carJumpMeshes.length=0;
+  if(carMesh) rebuildActiveCar();
+}
+function _updateCarRainbow(dt){
+  if(!_carJumping) return;
+  _carJumpRainbowT+=dt*6; // fast rainbow cycle
+  const hue=(_carJumpRainbowT%1);
+  const col=new THREE.Color().setHSL(hue,1,0.55);
+  for(const m of _carJumpMeshes){
+    if(m.material&&m.material.color) m.material.color.copy(col);
+  }
+  // Stop when back on ground
+  if(carOnGround&&_carJumping){
+    _stopCarRainbow();
+  }
 }
 
 // ── Lekepistol easter egg: SHIFT × 4 innen 5 sek ──
@@ -7446,6 +7684,7 @@ initWebGPU();
   if(carDriving){
     updateCar(dt);
     updateCarTelemetry();
+    _updateCarRainbow(dt);
   } else {
     if(orb.ar&&!_busTourActive&&!_busTourCamera){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
   }
@@ -7502,6 +7741,7 @@ initWebGPU();
   updateCamPosBar();
   checkAutoObjFilter();
   _updateBusTour(dt);
+  _updateSkybox(dt);
   redrawSVG();
 })();
 
