@@ -107,6 +107,7 @@ body{
 #viewport.m-nav.dragging{cursor:grabbing;}
 #viewport.m-length{cursor:crosshair;}
 #viewport.m-fall{cursor:crosshair;}
+#viewport.m-height{cursor:crosshair;}
 
 /* Pivot snap dot */
 #pivot-dot{
@@ -167,20 +168,29 @@ body{
 .info-chip strong{color:var(--text);font-weight:600;}
 .ib-sep{width:1px;height:16px;background:var(--border-soft);}
 
-/* Measure panel — right side */
+/* Measure panel — docked right, draggable */
 #measure-panel{
-  position:absolute;top:8px;bottom:46px;right:12px;
-  width:320px;overflow-y:auto;
-  background:var(--card);border:1px solid var(--border);border-radius:0.65rem;
-  box-shadow:var(--shadow-md);z-index:20;display:none;flex-direction:column;
+  position:fixed;top:60px;right:0;bottom:40px;
+  width:320px;overflow-y:hidden;
+  background:var(--card);border:1px solid var(--border);
+  border-right:none;border-radius:0.65rem 0 0 0.65rem;
+  box-shadow:var(--shadow-md);z-index:500;display:none;flex-direction:column;
+  transition:border-radius 0.15s;
 }
 #measure-panel.visible{display:flex;}
-#measure-panel.minimized{height:36px;min-height:36px;overflow:hidden;}
+#measure-panel.floating{
+  border-right:1px solid var(--border);border-radius:0.65rem;
+  bottom:auto;right:auto;
+}
+#measure-panel.minimized{height:36px;min-height:36px;overflow:hidden;bottom:auto;}
 .mp-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:0.5rem 0.75rem 0.35rem;border-bottom:1px solid var(--border-soft);
   font-size:0.78rem;font-weight:600;color:var(--muted);flex-shrink:0;
+  cursor:grab;user-select:none;
 }
+.mp-header:active{cursor:grabbing;}
+.mp-header .mp-drag-hint{font-size:0.6rem;color:var(--border);margin-right:0.2rem;letter-spacing:0.02em;}
 .mp-list{padding:0.35rem 0.5rem;display:flex;flex-direction:column;gap:0.3rem;overflow-y:auto;flex:1;}
 .measure-item{
   display:flex;flex-direction:column;
@@ -196,6 +206,7 @@ body{
 }
 .badge-length{background:rgba(37,99,235,0.12);color:var(--dot-blue);border:1px solid rgba(37,99,235,0.25);}
 .badge-fall{background:rgba(249,115,22,0.12);color:var(--dot-orange);border:1px solid rgba(249,115,22,0.25);}
+.badge-height{background:rgba(22,163,74,0.12);color:var(--dot-green);border:1px solid rgba(22,163,74,0.25);}
 .measure-val{font-weight:600;color:var(--text);white-space:nowrap;font-size:0.85rem;}
 .measure-del{
   padding:0.08rem 0.35rem;border-radius:0.28rem;border:1px solid transparent;
@@ -370,7 +381,7 @@ body{
   <div class="tb-sep"></div>
 
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-tools">Verktøy <span class="tb-caret">▾</span></div>
+    <div class="tb-hgroup-trigger" id="btn-tools-trigger" data-drop="drop-tools">Verktøy <span class="tb-caret">▾</span></div>
   </div>
   <div class="tb-sep"></div>
 
@@ -379,7 +390,11 @@ body{
   </div>
   <div class="tb-sep"></div>
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-sim">Simulering <span class="tb-caret">▾</span></div>
+    <div class="tb-hgroup-trigger" data-drop="drop-vehicle">Kjøretøy <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+  <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" id="btn-sim-trigger" data-drop="drop-sim">Simulering <span class="tb-caret">▾</span></div>
   </div>
 
   <div id="toolbar-title-wrap">
@@ -402,7 +417,7 @@ body{
   <div class="tb-sep" id="gta-toolbar-sep" style="display:none"></div>
 
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-devtools">Utviklerverktøy <span class="tb-caret">▾</span></div>
+    <div class="tb-hgroup-trigger" id="btn-devtools-trigger" data-drop="drop-devtools">Utviklerverktøy <span class="tb-caret">▾</span></div>
   </div>
   <div class="tb-sep"></div>
   <div class="tb-hgroup">
@@ -458,17 +473,22 @@ body{
     <div id="tree-body"></div>
   </div>
 
-  <!-- Measure panel -->
-  <div id="measure-panel">
-    <div class="mp-header">
-      <span>Målinger</span>
-      <div style="display:flex;gap:0.5rem;align-items:center">
-        <button id="btn-toggle-labels" style="border:none;background:rgba(37,99,235,0.15);color:var(--dot-blue);cursor:pointer;font-size:0.7rem;padding:0.1rem 0.4rem;border-radius:0.25rem;font-family:inherit" onclick="toggleFallLabels()" title="Vis/skjul etiketter">Labels ✓</button>
-        <button style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.75rem" onclick="clearMeasurements()">Fjern alle</button>
-        <button id="btn-minimize-panel" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 0.2rem;line-height:1" onclick="toggleMeasureMinimize()" title="Minimer/utvid">▾</button>
-      </div>
+  <!-- Measure panel — lives outside viewport so fixed positioning is not clipped -->
+</div>
+
+<!-- Measure panel -->
+<div id="measure-panel">
+  <div class="mp-header" id="mp-drag-handle">
+    <span><span class="mp-drag-hint">⠿</span>Målinger</span>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <button id="btn-toggle-labels" style="border:none;background:rgba(37,99,235,0.15);color:var(--dot-blue);cursor:pointer;font-size:0.7rem;padding:0.1rem 0.4rem;border-radius:0.25rem;font-family:inherit" onclick="toggleLabels()" title="Vis/skjul etiketter">Labels ✓</button>
+      <button id="btn-dock-panel" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:0.8rem;padding:0 0.2rem;line-height:1" onclick="toggleMeasureDock()" title="Flyt fritt">⊞</button>
+      <button id="btn-minimize-panel" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 0.2rem;line-height:1" onclick="toggleMeasureMinimize()" title="Minimer/utvid">▾</button>
     </div>
-    <div class="mp-list" id="measure-list"></div>
+  </div>
+  <div class="mp-list" id="measure-list"></div>
+  <div id="measure-list-footer" style="display:none;padding:0.35rem 0.5rem;border-top:1px solid var(--border-soft);flex-shrink:0">
+    <button onclick="clearMeasurements()" style="width:100%;border:none;background:none;color:#dc2626;cursor:pointer;font-size:0.78rem;font-family:inherit;padding:0.25rem;border-radius:0.35rem;transition:background 0.1s" onmouseover="this.style.background='rgba(220,38,38,0.08)'" onmouseout="this.style.background='none'">✕ Slett alle</button>
   </div>
 </div>
 
@@ -611,7 +631,7 @@ body{
     <button class="tb-hdrop-btn" id="btn-xray" onclick="setShading('xray')">Røntgen</button>
     <div class="tb-hdrop-slider" id="xray-slider-wrap" style="display:none">
       <label><span>Røntgen-styrke</span><span id="xray-op-val">15%</span></label>
-      <input type="range" id="xray-op-slider" min="1" max="60" step="1" value="15" oninput="xrayOpacity=+this.value/100;document.getElementById('xray-op-val').textContent=this.value+'%';if(shading==='xray')updateXrayOpacityLive()">
+      <input type="range" id="xray-op-slider" min="1" max="60" step="1" value="15" oninput="setXrayOpacity(+this.value)">
     </div>
   </div>
 
@@ -620,42 +640,52 @@ body{
     <div class="tb-hdrop-sep"></div>
     <button class="tb-hdrop-btn" id="btn-autorot" onclick="toggleAutoRotate()">↻ Autoroter</button>
     <div class="tb-hdrop-slider">
-      <label><span>Rotasjonshastighet</span><span id="rs-val">0.3×</span></label>
-      <input type="range" id="rs-slider" min="0.1" max="5" step="0.1" value="0.3" oninput="rotSpeed=+this.value;document.getElementById('rs-val').textContent=rotSpeed.toFixed(1)+'×'">
+      <label><span>Rotasjonshastighet</span><span id="rs-val">0×</span></label>
+      <input type="range" id="rs-slider" min="-5" max="5" step="0.1" value="0" oninput="setRotSpeed(+this.value)">
     </div>
   </div>
 
-  <div class="tb-hdrop" id="drop-measure" style="min-width:320px;max-width:380px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
+  <div class="tb-hdrop" id="drop-measure" style="min-width:280px;max-width:340px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
     <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Måleverktøy</div>
-    <button class="tb-hdrop-btn" id="btn-m-fall" onclick="setMeasureMode('fall')">📐 Fall (A→B)</button>
-    <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
-      <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Enhet:</span>
-      <button id="btn-fall-pct" class="tb-hdrop-btn" onclick="setFallUnit('pct')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">%</button>
-      <button id="btn-fall-ratio" class="tb-hdrop-btn" onclick="setFallUnit('ratio')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">1:X</button>
-      <button id="btn-fall-deg" class="tb-hdrop-btn" onclick="setFallUnit('deg')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Grader</button>
-      <button id="btn-fall-both" class="tb-hdrop-btn active" onclick="setFallUnit('both')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Alle</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
-      <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Farge:</span>
-      <input type="color" id="fall-seg-color" value="#f97316" oninput="setFallSegColor(this.value)" style="width:28px;height:22px;border:1px solid var(--border);border-radius:0.25rem;padding:0;cursor:pointer;background:var(--btn-bg)">
-      <span id="fall-seg-color-label" style="font-size:0.68rem;color:var(--muted)">#f97316</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:0.4rem;padding:0.18rem 0.3rem 0.18rem">
-      <span style="font-size:0.68rem;color:var(--muted);flex-shrink:0">Modus:</span>
-      <button id="btn-fall-normal" class="tb-hdrop-btn active" onclick="setFallMode('normal')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">Normal</button>
-      <button id="btn-fall-tek17" class="tb-hdrop-btn" onclick="setFallMode('tek17')" style="padding:0.15rem 0.55rem;font-size:0.72rem;flex:1">TEK17</button>
-    </div>
-    <div id="tek17-info" style="display:none;font-size:0.6rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem;line-height:1.5">
-      TEK17: 1:15 for &gt;5m, 1:12 for &le;5m<br>Bratt = rød blink hvert 2s
-    </div>
+
+    <button class="tb-hdrop-btn" id="btn-m-height" onclick="setMeasureMode('height')">🔻 Høyde (klikk punkt)</button>
     <div class="tb-hdrop-sep"></div>
     <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">📏 Lengde</button>
     <div class="tb-hdrop-sep"></div>
-    <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle målinger</button>
-    <div class="tb-hdrop-sep" style="margin:0.4rem 0 0.2rem"></div>
+    <button class="tb-hdrop-btn" id="btn-m-fall" onclick="setMeasureMode('fall')">📐 Fall (A→B)</button>
 
-    <!-- Kjøretøy — synlig over Simulering -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.25rem">Kjøretøy</div>
+    <!-- Enhet — gardin -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.22rem 0.4rem 0.18rem;cursor:pointer;user-select:none" onclick="toggleUnitAccordion()">
+      <span style="font-size:0.68rem;color:var(--muted)">Enhet</span>
+      <span id="unit-accordion-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="unit-accordion" style="display:none;flex-direction:column;gap:0.2rem;padding:0 0.1rem 0.15rem">
+      <div style="display:flex;gap:4px;padding:0 0.3rem">
+        <button id="btn-fall-pct" class="tb-hdrop-btn" onclick="setFallUnit('pct')" style="padding:0.15rem 0.4rem;font-size:0.72rem;flex:1">%</button>
+        <button id="btn-fall-ratio" class="tb-hdrop-btn" onclick="setFallUnit('ratio')" style="padding:0.15rem 0.4rem;font-size:0.72rem;flex:1">1:X</button>
+        <button id="btn-fall-deg" class="tb-hdrop-btn" onclick="setFallUnit('deg')" style="padding:0.15rem 0.4rem;font-size:0.72rem;flex:1">Grader</button>
+        <button id="btn-fall-both" class="tb-hdrop-btn active" onclick="setFallUnit('both')" style="padding:0.15rem 0.4rem;font-size:0.72rem;flex:1">Alle</button>
+      </div>
+    </div>
+
+    <!-- Modus — toggle med tekst -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.18rem 0.4rem 0.18rem">
+      <button id="btn-fall-mode-toggle" onclick="toggleFallMode()"
+        style="font-size:0.68rem;padding:0.18rem 0.55rem;border-radius:0.3rem;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:inherit;transition:background 0.12s,color 0.12s,border-color 0.12s">
+        Modus
+      </button>
+      <span id="fall-mode-label" style="font-size:0.75rem;font-weight:600;color:var(--text);padding-left:0.5rem">Normal</span>
+    </div>
+    <div id="tek17-info" style="display:none;font-size:0.6rem;color:var(--muted);padding:0.1rem 0.4rem 0.1rem;line-height:1.5">
+      1:15 for &gt;5m · 1:12 for &le;5m
+    </div>
+
+    <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle målinger</button>
+  </div>
+
+  <div class="tb-hdrop" id="drop-vehicle" style="min-width:260px;padding:0.45rem 0.4rem;">
+    <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Kjøretøy</div>
     <div style="display:flex;gap:5px;padding:0 0.1rem 0.2rem">
       <button id="btn-car" class="tb-hdrop-btn" onclick="selectVehicle('normal')"
         style="flex:1;text-align:center;font-size:0.72rem;border-color:#16a34a;color:#16a34a">Normal</button>
@@ -665,31 +695,35 @@ body{
         style="flex:1;text-align:center;font-size:0.72rem;border-color:#eab308;color:#eab308">Stor</button>
     </div>
     <div style="font-size:0.6rem;color:var(--muted);padding:0 0.3rem 0.1rem" id="vehicle-type-desc">Velg størrelse for å plassere kjøretøy</div>
+    <div class="tb-hdrop-sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.5rem 0.15rem">
       <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte</span>
       <button class="tb-hdrop-btn" onclick="removeAllVehicles()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
     </div>
     <div id="vehicle-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
     <div id="vehicle-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.2rem 0.5rem;text-align:center">Ingen kjøretøy plassert</div>
-
-
   </div>
   
   <div class="tb-hdrop" id="drop-tools">
-    <button class="tb-hdrop-btn" id="btn-tree" onclick="toggleTree()">Modelltre</button>
     <button class="tb-hdrop-btn" id="btn-select" onclick="toggleSelectMode()">Velg element</button>
+    <button class="tb-hdrop-btn" id="btn-isolate" onclick="toggleIsolate()">Isoler valgt</button>
+    <button class="tb-hdrop-btn" id="btn-show-all" onclick="showAll()" style="display:none">◉ Vis alle</button>
     <div class="tb-hdrop-sep"></div>
-    <button class="tb-hdrop-btn" onclick="isolateSelected()">Isoler valgt</button>
-    <button class="tb-hdrop-btn" onclick="showAll()">◉ Vis alle</button>
+    <button class="tb-hdrop-btn" id="btn-tree" onclick="toggleTree()">Modelltre</button>
     <div class="tb-hdrop-sep"></div>
-    <div style="padding:0.2rem 0.6rem 0.1rem;font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Rutenett</div>
-    <div style="display:flex;gap:4px;padding:0.2rem 0.5rem">
-      <button class="tb-hdrop-btn" id="grid-01" onclick="setGridSize(0.1)" style="flex:1;text-align:center">0.1m</button>
-      <button class="tb-hdrop-btn" id="grid-1" onclick="setGridSize(1)" style="flex:1;text-align:center">1m</button>
-      <button class="tb-hdrop-btn" id="grid-5" onclick="setGridSize(5)" style="flex:1;text-align:center">5m</button>
-      <button class="tb-hdrop-btn active" id="grid-10" onclick="setGridSize(10)" style="flex:1;text-align:center">10m</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0.6rem 0.2rem;cursor:pointer;user-select:none" onclick="toggleGridAccordion()">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Rutenett</span>
+      <span id="grid-accordion-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
     </div>
-    <button class="tb-hdrop-btn" id="btn-grid-toggle" onclick="toggleGrid()">▦ Vis/skjul rutenett</button>
+    <div id="grid-accordion" style="display:none;flex-direction:column;gap:0.2rem;padding:0 0.1rem 0.2rem">
+      <div style="display:flex;gap:4px;padding:0 0.4rem">
+        <button class="tb-hdrop-btn" id="grid-01" onclick="setGridSize(0.1)" style="flex:1;text-align:center">0.1m</button>
+        <button class="tb-hdrop-btn" id="grid-1" onclick="setGridSize(1)" style="flex:1;text-align:center">1m</button>
+        <button class="tb-hdrop-btn" id="grid-5" onclick="setGridSize(5)" style="flex:1;text-align:center">5m</button>
+        <button class="tb-hdrop-btn active" id="grid-10" onclick="setGridSize(10)" style="flex:1;text-align:center">10m</button>
+      </div>
+      <button class="tb-hdrop-btn" id="btn-grid-toggle" onclick="toggleGrid()">▦ Vis/skjul rutenett</button>
+    </div>
   </div>
 
   <div class="tb-hdrop" id="drop-theme" style="min-width:220px;padding:0.5rem 0.4rem;">
@@ -766,16 +800,22 @@ body{
     <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">GameMode</div>
 
     <!-- ── KAMERAVISNING ── -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kameravisning</div>
-    <div style="display:flex;flex-direction:column;gap:2px;padding:0.2rem 0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-camview')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Kameravisning</span>
+      <span id="gm-camview-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-camview" style="display:flex;flex-direction:column;gap:2px;padding:0.2rem 0">
       <button class="tb-hdrop-btn active" id="cam-3rd-free" onclick="setCarCam('3rd-free')" style="font-size:0.73rem">3. person — frivinkel</button>
       <button class="tb-hdrop-btn" id="cam-3rd-locked" onclick="setCarCam('3rd-locked')" style="font-size:0.73rem">3. person — låst vinkel</button>
       <button class="tb-hdrop-btn" id="cam-1st" onclick="setCarCam('1st')" style="font-size:0.73rem">1. person — førersete</button>
     </div>
 
     <!-- ── FYSIKK ── -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Fysikk</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-fysikk')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Fysikk</span>
+      <span id="gm-fysikk-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-fysikk" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
       <div class="dev-slider"><label>Gravitasjon <span id="dev-grav-val">20</span> m/s²</label><input type="range" min="0" max="50" step="0.5" value="20" oninput="carPhys.gravity=+this.value;document.getElementById('dev-grav-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Akselerasjon <span id="dev-accel-val">15</span> m/s²</label><input type="range" min="1" max="50" step="0.5" value="15" oninput="carPhys.accel=+this.value;document.getElementById('dev-accel-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Friksjon/brems <span id="dev-brake-val">56</span> m/s²</label><input type="range" min="1" max="60" step="0.5" value="56" oninput="carPhys.brake=+this.value;document.getElementById('dev-brake-val').textContent=this.value"></div>
@@ -783,18 +823,18 @@ body{
       <div class="dev-slider"><label>Styrefølsomhet <span id="dev-steer-val">2.5</span> rad/s</label><input type="range" min="0.5" max="5" step="0.1" value="2.5" oninput="carPhys.steerSpeed=+this.value;document.getElementById('dev-steer-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Styring fart-reduksjon <span id="dev-steer-sens-val">1.00</span></label><input type="range" min="0" max="1" step="0.05" value="1.0" oninput="carPhys.steerSensSpeed=+this.value;document.getElementById('dev-steer-sens-val').textContent=(+this.value).toFixed(2)"></div>
       <div class="dev-slider"><label>Reduksjon kurve <span id="dev-steer-exp-val">1.0</span></label><input type="range" min="0.2" max="4" step="0.1" value="1.0" oninput="carPhys.steerSensExp=+this.value;document.getElementById('dev-steer-exp-val').textContent=(+this.value).toFixed(1)"></div>
-      <div class="tb-hdrop-sep" style="margin:0.1rem 0"></div>
-      <div style="font-size:0.58rem;color:var(--muted)">Helning (4-punkt hjul)</div>
+    </div>
+
+    <!-- ── HELNING ── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-helning')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Helning</span>
+      <span id="gm-helning-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-helning" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
       <div class="dev-slider"><label>Tilt smoothing <span id="dev-tilt-smooth-val">0.50</span></label><input type="range" min="0.01" max="0.5" step="0.01" value="0.50" oninput="carPhys.tiltSmooth=+this.value;document.getElementById('dev-tilt-smooth-val').textContent=(+this.value).toFixed(2)"></div>
       <div class="dev-slider"><label>Maks tilt <span id="dev-tilt-max-val">33</span>°</label><input type="range" min="5" max="60" step="1" value="33" oninput="carPhys.maxTiltDeg=+this.value;document.getElementById('dev-tilt-max-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Tilt-terskel <span id="dev-tilt-thresh-val">10</span>°</label><input type="range" min="0" max="30" step="1" value="10" oninput="carPhys.tiltThreshDeg=+this.value;document.getElementById('dev-tilt-thresh-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Ray-høyde over bil <span id="dev-ray-h-val">2.9</span> m</label><input type="range" min="0.5" max="10" step="0.1" value="2.9" oninput="carPhys.rayHeight=+this.value;document.getElementById('dev-ray-h-val').textContent=(+this.value).toFixed(1)"></div>
-      <div class="tb-hdrop-sep" style="margin:0.1rem 0"></div>
-      <div style="font-size:0.58rem;color:var(--muted)">Fjæring / dempere</div>
-      <div class="dev-slider"><label>Fjærstivhet <span id="dev-susp-k-val">60</span></label><input type="range" min="1" max="60" step="1" value="60" oninput="carPhys.suspStiffness=+this.value;document.getElementById('dev-susp-k-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Demping <span id="dev-susp-d-val">20</span></label><input type="range" min="0" max="20" step="0.5" value="20" oninput="carPhys.suspDamping=+this.value;document.getElementById('dev-susp-d-val').textContent=this.value"></div>
-      <div class="dev-slider"><label>Slaglengde <span id="dev-susp-t-val">1.00</span> m</label><input type="range" min="0.05" max="1.0" step="0.05" value="1.00" oninput="carPhys.suspTravel=+this.value;document.getElementById('dev-susp-t-val').textContent=(+this.value).toFixed(2)"></div>
-      <div class="dev-slider"><label>Hvilehøyde <span id="dev-susp-r-val">0.00</span> m</label><input type="range" min="0" max="0.5" step="0.01" value="0.00" oninput="carPhys.suspRest=+this.value;document.getElementById('dev-susp-r-val').textContent=(+this.value).toFixed(2)"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0.15rem 0">
         <span style="font-size:0.73rem;color:var(--text)">Pitch-retning</span>
         <div style="display:flex;gap:3px">
@@ -820,16 +860,34 @@ body{
       </div>
     </div>
 
+    <!-- ── FJÆRING ── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-fjæring')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Fjæring / dempere</span>
+      <span id="gm-fjæring-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-fjæring" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
+      <div class="dev-slider"><label>Fjærstivhet <span id="dev-susp-k-val">60</span></label><input type="range" min="1" max="60" step="1" value="60" oninput="carPhys.suspStiffness=+this.value;document.getElementById('dev-susp-k-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Demping <span id="dev-susp-d-val">20</span></label><input type="range" min="0" max="20" step="0.5" value="20" oninput="carPhys.suspDamping=+this.value;document.getElementById('dev-susp-d-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Slaglengde <span id="dev-susp-t-val">1.00</span> m</label><input type="range" min="0.05" max="1.0" step="0.05" value="1.00" oninput="carPhys.suspTravel=+this.value;document.getElementById('dev-susp-t-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Hvilehøyde <span id="dev-susp-r-val">0.00</span> m</label><input type="range" min="0" max="0.5" step="0.01" value="0.00" oninput="carPhys.suspRest=+this.value;document.getElementById('dev-susp-r-val').textContent=(+this.value).toFixed(2)"></div>
+    </div>
+
     <!-- ── KAMERA 3. PERSON ── -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 3. person</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-cam3')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Kamera — 3. person</span>
+      <span id="gm-cam3-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-cam3" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
       <div class="dev-slider"><label>Avstand <span id="dev-camdist-val">8</span> m</label><input type="range" min="2" max="40" step="0.5" value="8" id="dev-camdist-slider" oninput="carCamDist=+this.value;document.getElementById('dev-camdist-val').textContent=this.value"></div>
       <div class="dev-slider"><label>Høyde <span id="dev-camht-val">1.5</span> m</label><input type="range" min="0" max="10" step="0.1" value="1.5" oninput="carPhys.camHeight=+this.value;document.getElementById('dev-camht-val').textContent=this.value"></div>
     </div>
 
     <!-- ── KAMERA 1. PERSON ── -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Kamera — 1. person</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-cam1')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Kamera — 1. person</span>
+      <span id="gm-cam1-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-cam1" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
       <div class="dev-slider"><label>Sete X <span id="dev-fp-x-val">0.00</span> m</label><input type="range" min="-1.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffX=+this.value;document.getElementById('dev-fp-x-val').textContent=(+this.value).toFixed(2)"></div>
       <div class="dev-slider"><label>Sete Y <span id="dev-fp-y-val">0.00</span> m</label><input type="range" min="-0.5" max="1.5" step="0.05" value="0" oninput="carPhys.fpOffY=+this.value;document.getElementById('dev-fp-y-val').textContent=(+this.value).toFixed(2)"></div>
       <div class="dev-slider"><label>Sete Z <span id="dev-fp-z-val">0.00</span> m</label><input type="range" min="-3" max="3" step="0.05" value="0" oninput="carPhys.fpOffZ=+this.value;document.getElementById('dev-fp-z-val').textContent=(+this.value).toFixed(2)"></div>
@@ -841,8 +899,11 @@ body{
     </div>
 
     <!-- ── DIMENSJONER ── -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Dimensjoner</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-dims')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em">Dimensjoner</span>
+      <span id="gm-dims-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-dims" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
       <div class="dev-slider"><label>Lengde <span id="dev-carlen-val">4.2</span> m</label><input type="range" min="2" max="12" step="0.1" value="4.2" oninput="carDims.length=+this.value;document.getElementById('dev-carlen-val').textContent=this.value;rebuildActiveCar()"></div>
       <div class="dev-slider"><label>Bredde <span id="dev-carw-val">2.0</span> m</label><input type="range" min="1" max="5" step="0.1" value="2.0" oninput="carDims.width=+this.value;document.getElementById('dev-carw-val').textContent=this.value;rebuildActiveCar()"></div>
       <div class="dev-slider"><label>Karosseri høyde <span id="dev-carh-val">0.7</span> m</label><input type="range" min="0.3" max="2" step="0.05" value="0.7" oninput="carDims.bodyH=+this.value;document.getElementById('dev-carh-val').textContent=this.value;rebuildActiveCar()"></div>
@@ -852,8 +913,11 @@ body{
     </div>
 
     <!-- ── SPILLKONTROLLER ── -->
-    <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Spillkontroller (Gamepad)</div>
-    <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleGMAccordion('gm-gamepad')">
+      <span style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em">Spillkontroller</span>
+      <span id="gm-gamepad-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="gm-gamepad" style="display:none;flex-direction:column;gap:0.25rem;padding:0.2rem 0.1rem">
       <div style="display:flex;gap:4px;align-items:center">
         <div id="dev-xbox-status" style="flex:1;font-size:0.7rem;padding:0.25rem 0.4rem;border-radius:0.3rem;background:var(--btn-bg);color:var(--muted);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ikke tilkoblet</div>
         <button id="btn-gamepad-toggle" onclick="toggleGamepadEnabled()" style="font-size:0.68rem;padding:0.22rem 0.5rem;border-radius:0.3rem;border:1px solid #dc2626;background:rgba(220,38,38,0.10);color:#dc2626;cursor:pointer;flex-shrink:0;font-family:inherit;white-space:nowrap">AV</button>
@@ -914,16 +978,21 @@ body{
 
     <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.2rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Røntgenboble (B-tast)</div>
     <div style="padding:0.2rem 0.1rem">
-      <div class="dev-slider"><label>Radius <span id="dev-bubble-r-val">20</span> m</label>
-        <input type="range" min="2" max="200" step="1" value="20" oninput="setBubbleRadius(+this.value)"></div>
+      <div class="dev-slider"><label>Radius <span id="dev-bubble-r-val">6</span> m</label>
+        <input type="range" min="2" max="200" step="1" value="6" oninput="setBubbleRadius(+this.value)"></div>
     </div>
     <div class="tb-hdrop-sep" style="margin:0.35rem 0"></div>
 
     <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.4rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Streaming / LOD</div>
     <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleStreaming()">
-        <span style="font-size:0.75rem;color:var(--text)">Aktiver streaming</span>
-        <span id="dev-streaming-status" style="font-size:0.68rem;padding:0.1rem 0.5rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;">
+        <span style="font-size:0.75rem;color:var(--text);cursor:pointer;flex:1" onclick="toggleStreaming()">Aktiver streaming</span>
+        <div style="display:flex;align-items:center;gap:0.35rem">
+          <button id="btn-auto-streaming" onclick="toggleAutoStreaming()"
+            style="font-size:0.65rem;padding:0.12rem 0.45rem;border-radius:0.28rem;border:1px solid var(--dot-green);background:rgba(22,163,74,0.12);color:var(--dot-green);cursor:pointer;font-family:inherit;font-weight:700;transition:background 0.15s,color 0.15s,border-color 0.15s"
+            title="Auto-aktiver streaming ved lav FPS">Auto</button>
+          <span id="dev-streaming-status" style="font-size:0.68rem;padding:0.1rem 0.5rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted);cursor:pointer" onclick="toggleStreaming()">AV</span>
+        </div>
       </div>
       <div style="font-size:0.6rem;color:var(--muted);padding:0 0 0.15rem">Frustum culling + avstandsbasert LOD</div>
       <div class="dev-slider"><label>Naer-grense <span id="dev-lod-near-val">50</span> m</label><input type="range" min="10" max="200" step="5" value="50" oninput="streamCfg.nearDist=+this.value;document.getElementById('dev-lod-near-val').textContent=this.value"></div>
@@ -975,9 +1044,14 @@ body{
     <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.2rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Objektfilter</div>
     <div style="padding:0.2rem 0.1rem;display:flex;flex-direction:column;gap:0.3rem">
       <div style="font-size:0.58rem;color:var(--muted);padding:0 0 0.1rem">Skjul sma objekter basert pa trekanter og storrelse</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;cursor:pointer" onclick="toggleObjFilter()">
-        <span style="font-size:0.75rem;color:var(--text)">Aktiver objektfilter</span>
-        <span id="dev-objfilter-status" style="font-size:0.68rem;padding:0.1rem 0.5rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted)">AV</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0;">
+        <span style="font-size:0.75rem;color:var(--text);cursor:pointer;flex:1" onclick="toggleObjFilter()">Aktiver objektfilter</span>
+        <div style="display:flex;align-items:center;gap:0.35rem">
+          <button id="btn-auto-objfilter" onclick="toggleAutoObjFilter()"
+            style="font-size:0.65rem;padding:0.12rem 0.45rem;border-radius:0.28rem;border:1px solid #dc2626;background:rgba(220,38,38,0.12);color:#dc2626;cursor:pointer;font-family:inherit;font-weight:700;transition:background 0.15s,color 0.15s,border-color 0.15s"
+            title="Auto-aktiver objektfilter basert på kameraavstand (100m)">Auto</button>
+          <span id="dev-objfilter-status" style="font-size:0.68rem;padding:0.1rem 0.5rem;border-radius:0.25rem;background:var(--btn-bg);color:var(--muted);cursor:pointer" onclick="toggleObjFilter()">AV</span>
+        </div>
       </div>
       <div class="dev-slider"><label>Maks trekanter <span id="dev-filter-tris-val">500</span></label><input type="range" min="10" max="5000" step="10" value="500" oninput="objFilterCfg.maxTris=+this.value;document.getElementById('dev-filter-tris-val').textContent=this.value;applyObjFilter()"></div>
       <div class="dev-slider"><label>Maks volum <span id="dev-filter-vol-val">1.0</span> m3</label><input type="range" min="0.01" max="20" step="0.01" value="1" oninput="objFilterCfg.maxVol=+this.value;document.getElementById('dev-filter-vol-val').textContent=(+this.value).toFixed(2);applyObjFilter()"></div>
@@ -1000,50 +1074,58 @@ body{
 
 
 
-  <div class="tb-hdrop" id="drop-sim" style="min-width:320px;max-width:380px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
+  <div class="tb-hdrop" id="drop-sim" style="min-width:300px;max-width:360px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
     <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Simulering</div>
 
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-blue);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft);margin-bottom:0.2rem">Ball / Vann</div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Simuleringsmodus</div>
-        <div style="display:flex;gap:4px;padding:0.25rem 0.1rem 0.1rem">
-          <button class="ec-preset active" id="btn-mode-ball" onclick="setSimMode('ball',this)">⬤ Ball</button>
-          <button class="ec-preset" id="btn-mode-water" onclick="setSimMode('water',this)">💧 Vann</button>
-        </div>
-        <div id="sim-mode-desc" style="font-size:0.63rem;color:var(--muted);padding:0.15rem 0.3rem 0.1rem">Ball med bounce og friksjon</div>
-        <button id="btn-sim-pause" class="tb-hdrop-btn" onclick="toggleSimPause()" style="width:calc(100% - 0.6rem);margin:0.2rem 0.3rem 0.1rem;text-align:center;font-size:0.75rem;padding:0.25rem">⏸ Pause simulering</button>
-        <div class="tb-hdrop-sep"></div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-orange);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Enkeltplassering</div>
-        <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()" style="margin-top:0.2rem">⬤ Klikk i modell</button>
-        <div class="tb-hdrop-sep"></div>
-        <div style="font-size:0.65rem;font-weight:700;color:var(--dot-green);text-transform:uppercase;letter-spacing:.04em;padding:0.1rem 0.2rem 0.2rem;border-bottom:1px solid var(--border-soft)">Partikkel-egenskaper</div>
-        <div style="display:flex;flex-direction:column;gap:0.22rem;padding:0.28rem 0.1rem 0.05rem">
-          <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
-            <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
-          <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
-            <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
-          <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
-          <div class="dev-slider"><label>Stripepunkter (maks) <span id="ball-trail-len-val">500</span></label>
-            <input type="range" min="50" max="2000" step="50" value="500" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
-          <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-opacity-val">0.92</span></label>
-            <input type="range" min="0.1" max="1" step="0.02" value="0.92" oninput="ballCfg.trailOpacity=+this.value;document.getElementById('ball-trail-opacity-val').textContent=(+this.value).toFixed(2)"></div>
-          <div class="dev-slider"><label>Min segment lengde <span id="ball-trail-mindist-val">0.1</span> m</label>
-            <input type="range" min="0.1" max="10" step="0.1" value="0.1" oninput="ballCfg.trailMinDist=+this.value;document.getElementById('ball-trail-mindist-val').textContent=(+this.value).toFixed(1)"></div>
-          
-          <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">5.0</span> s</label>
-            <input type="range" min="1" max="30" step="0.5" value="5" oninput="ballCfg.freezeTime=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
-          <div class="dev-slider"><label>Vegg-søkeradius <span id="wall-scan-r-val">10</span> m</label>
-            <input type="range" min="1" max="50" step="1" value="10" oninput="wallScanRadius=+this.value;document.getElementById('wall-scan-r-val').textContent=this.value"></div>
-          <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
-            <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
-        </div>
-        <div class="tb-hdrop-sep"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
-          <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
-          <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
-        </div>
-        <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
-        <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
-      </div>
+    <!-- Klikk i modell — sentrert øverst -->
+    <button class="tb-hdrop-btn" id="btn-ball-fall" onclick="toggleBallFall()"
+      style="width:calc(100% - 0.6rem);margin:0 0.3rem 0.2rem;text-align:center;font-size:0.8rem;padding:0.3rem;font-weight:600">
+      💧 Klikk i modell
+    </button>
+
+    <!-- Pause — sentrert under -->
+    <button id="btn-sim-pause" class="tb-hdrop-btn" onclick="toggleSimPause()"
+      style="width:calc(100% - 0.6rem);margin:0 0.3rem 0.2rem;text-align:center;font-size:0.75rem;padding:0.25rem">
+      ⏸ Pause simulering
+    </button>
+
+    <div class="tb-hdrop-sep"></div>
+
+    <!-- Plasserte -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.3rem 0.1rem">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte (<span id="ball-count">0</span>)</span>
+      <button class="tb-hdrop-btn" onclick="removeAllBalls()" style="font-size:0.7rem;color:#dc2626;padding:0.15rem 0.4rem">Slett alle</button>
+    </div>
+    <div id="ball-list" style="max-height:100px;overflow-y:auto;padding:0 0.2rem"></div>
+    <div id="ball-list-empty" style="font-size:0.72rem;color:var(--muted);padding:0.3rem 0.5rem;text-align:center">Ingen partikler plassert</div>
+
+    <div class="tb-hdrop-sep"></div>
+
+    <!-- Innstillinger — gardin -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.18rem 0.4rem 0.15rem;cursor:pointer;user-select:none" onclick="toggleSimAccordion()">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase">Innstillinger</span>
+      <span id="sim-accordion-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="sim-accordion" style="display:none;flex-direction:column;gap:0.22rem;padding:0.1rem 0.1rem 0.05rem">
+      <div class="dev-slider"><label>Radius <span id="ball-radius-val">0.30</span> m</label>
+        <input type="range" min="0.05" max="2" step="0.05" value="0.3" oninput="ballCfg.radius=+this.value;document.getElementById('ball-radius-val').textContent=(+this.value).toFixed(2);updateGhostSize()"></div>
+      <div class="dev-slider"><label>Friksjon <span id="ball-friction-val">Middels</span></label>
+        <input type="range" id="ball-friction-slider" min="0" max="100" step="1" value="50" oninput="applyFrictionSlider(+this.value)"></div>
+      <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--muted);padding:0 0.1rem 0.1rem"><span>Is</span><span>Vann</span><span>Leire</span></div>
+      <div class="dev-slider"><label>Stripepunkter (maks) <span id="ball-trail-len-val">500</span></label>
+        <input type="range" min="50" max="2000" step="50" value="500" oninput="ballCfg.trailLen=+this.value;document.getElementById('ball-trail-len-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Stripe synlighet <span id="ball-trail-opacity-val">0.92</span></label>
+        <input type="range" min="0.1" max="1" step="0.02" value="0.92" oninput="ballCfg.trailOpacity=+this.value;document.getElementById('ball-trail-opacity-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Min segment lengde <span id="ball-trail-mindist-val">0.1</span> m</label>
+        <input type="range" min="0.1" max="10" step="0.1" value="0.1" oninput="ballCfg.trailMinDist=+this.value;document.getElementById('ball-trail-mindist-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Frys etter ro <span id="ball-sleep-t-val">1.0</span> s</label>
+        <input type="range" min="0.5" max="30" step="0.5" value="1" oninput="ballCfg.freezeTime=+this.value;document.getElementById('ball-sleep-t-val').textContent=(+this.value).toFixed(1)"></div>
+      <div class="dev-slider"><label>Ro-radius <span id="ball-freeze-r-val">0.50</span> m</label>
+        <input type="range" min="0.01" max="10" step="0.01" value="0.5" oninput="ballCfg.freezeRadius=+this.value;document.getElementById('ball-freeze-r-val').textContent=(+this.value).toFixed(2)"></div>
+      <div class="dev-slider"><label>Vegg-søkeradius <span id="wall-scan-r-val">10</span> m</label>
+        <input type="range" min="1" max="50" step="1" value="10" oninput="wallScanRadius=+this.value;document.getElementById('wall-scan-r-val').textContent=this.value"></div>
+      <div class="dev-slider"><label>Klynge-radius <span id="ball-cluster-r-val">0.8</span> m</label>
+        <input type="range" min="0.1" max="5" step="0.1" value="0.8" oninput="ballCfg.clusterRadius=+this.value;document.getElementById('ball-cluster-r-val').textContent=(+this.value).toFixed(1)"></div>
     </div>
   </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1067,6 +1149,14 @@ async function ensureIfcReady(){
 }
 
 // ═══════════════════════════════ PORTAL DROPDOWNS ═════════════════════════════
+// Right-side dropdown IDs — switch to click-only when measure panel docked+visible
+const _rightDropIds=new Set(['drop-light','drop-gamemode','drop-devtools','drop-theme','drop-gta']);
+
+function _measurePanelBlocksHover(){
+  const p=document.getElementById('measure-panel');
+  return p&&p.classList.contains('visible')&&!p.classList.contains('floating');
+}
+
 (function(){
   let activePanel=null, activeTrigger=null, hideTimer=null;
   function showPanel(trigger, panelId){
@@ -1090,7 +1180,18 @@ async function ensureIfcReady(){
   document.addEventListener('DOMContentLoaded',()=>{
     document.querySelectorAll('[data-drop]').forEach(trigger=>{
       const panelId=trigger.dataset.drop;
-      trigger.addEventListener('mouseenter',()=>showPanel(trigger,panelId));
+      trigger.addEventListener('mouseenter',()=>{
+        // Skip hover-open for right-side drops when measure panel is docked
+        if(_rightDropIds.has(panelId)&&_measurePanelBlocksHover()) return;
+        showPanel(trigger,panelId);
+      });
+      trigger.addEventListener('click',()=>{
+        // Click always opens; for right-side drops this is the only way when panel docked
+        if(_rightDropIds.has(panelId)&&_measurePanelBlocksHover()){
+          if(activePanel&&activePanel.id===panelId){ scheduleHide(); }
+          else showPanel(trigger,panelId);
+        }
+      });
       trigger.addEventListener('mouseleave',scheduleHide);
       const panel=document.getElementById(panelId);
       if(panel){panel.addEventListener('mouseenter',cancelHide);panel.addEventListener('mouseleave',scheduleHide);}
@@ -1172,6 +1273,7 @@ window.resetLights=resetLights;
 let gridSize=10; // meters per cell
 let gridHelper=null;
 function createGrid(){
+  const wasVisible=gridHelper?gridHelper.visible:false;
   if(gridHelper){scene.remove(gridHelper);gridHelper.geometry.dispose();gridHelper.material.dispose();}
   const extent=Math.max(200,gridSize*200);
   const divisions=Math.round(extent/gridSize);
@@ -1180,9 +1282,11 @@ function createGrid(){
   const colorSub=isLight?0x444444:0x1e293b;
   gridHelper=new THREE.GridHelper(extent,divisions,colorMain,colorSub);
   gridHelper.position.y=-0.01;
+  gridHelper.visible=wasVisible;
   scene.add(gridHelper);
 }
 createGrid();
+gridHelper.visible=false; // skjult som standard — vises kun i isolert visning
 
 function resize(){
   const w=vp.clientWidth,h=vp.clientHeight;
@@ -1217,7 +1321,9 @@ const orb={
   tgt:new THREE.Vector3(0,0,0),sph:new THREE.Spherical(20,1.2,-2.3),
   drag:false,pan:false,ar:false,lx:0,ly:0,dnx:0,dny:0
 };
-let rotSpeed=0.3;
+let rotSpeed=0;
+function setRotSpeed(v){rotSpeed=v;const el=document.getElementById('rs-val');if(el)el.textContent=(v===0?'0':(v>0?'+':'')+v.toFixed(1))+'×';}
+window.setRotSpeed=setRotSpeed;
 
 function applyOrb(){
   camera.position.copy(new THREE.Vector3().setFromSpherical(orb.sph).add(orb.tgt));
@@ -1330,8 +1436,8 @@ window.addEventListener('mouseup',e=>{
           _clearPivotNode();
         },500);
       }
-    } else if((interactMode==='length'||interactMode==='fall')&&!moved){
-      handleMeasureClick(e.clientX,e.clientY);
+    } else if((interactMode==='length'||interactMode==='fall'||interactMode==='height')&&!moved){
+      handleMeasureClick(e.clientX,e.clientY,e.ctrlKey);
     }
   }
 });
@@ -1406,6 +1512,9 @@ function registerModel(group,name,expressIDs,modelId,fileSize){
   group.traverse(ch=>{if(ch.isMesh&&ch.geometry){const idx=ch.geometry.index;tris+=idx?idx.count/3:ch.geometry.attributes.position.count/3;}});
   m.stats.tris=tris;
   models.push(m);
+  m._cachedCenter=null; // will be computed on first checkAutoObjFilter
+  _autoObjFilterActive=false; // force re-evaluation with new model
+  _autoObjFilterLastCheck=0;
   activeModelId=id;
   refreshModelListUI();
   updateInfoBar();
@@ -1420,6 +1529,8 @@ function removeModel(id){
   m.group.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)(Array.isArray(c.material)?c.material:[c.material]).forEach(x=>x.dispose());});
   if(m.modelId!==undefined){try{ifcApi.CloseModel(m.modelId);}catch(e){}}
   models.splice(idx,1);
+  _autoObjFilterActive=false;
+  _autoObjFilterLastCheck=0;
   if(models.length>0) activeModelId=models[models.length-1].id;
   else activeModelId=null;
   refreshModelListUI();updateInfoBar();
@@ -1747,8 +1858,6 @@ window.toggleAutoRotate=toggleAutoRotate;
 
 // ═══════════════════════════════ SHADING ═════════════════════════════════════
 let xrayOpacity=0.15;
-window.xrayOpacity=xrayOpacity;
-Object.defineProperty(window,'xrayOpacity',{get(){return xrayOpacity;},set(v){xrayOpacity=v;}});
 
 function applyShading(){
   models.forEach(mdl=>{
@@ -1814,20 +1923,28 @@ function updateXrayOpacityLive(){
 }
 window.updateXrayOpacityLive=updateXrayOpacityLive;
 
+function setXrayOpacity(v){
+  xrayOpacity=v/100;
+  const el=document.getElementById('xray-op-val');
+  if(el) el.textContent=v+'%';
+  updateXrayOpacityLive();
+}
+window.setXrayOpacity=setXrayOpacity;
+
 // ═══════════════════════════════ B-KEY WIREFRAME BUBBLE ══════════════════════
 // Hold B: dual-pass render with screen-space circular mask.
 // RT1: normal render. RT2: rainbow-wireframe render. Composite: circle mask blends them.
 let _bubbleActive=false;
 let _bubbleOutline=null;
 let _bubbleCenter=new THREE.Vector3();
-let _bubbleRadius=20;
+let _bubbleRadius=6;
 let _bubbleMouseX=0, _bubbleMouseY=0;
 let _bubbleRT=null;
 let _bubbleQuad=null;
 let _bubbleScene=null;
 let _bubbleCam=null;
 
-// Rainbow wireframe shader material — color based on distance from camera
+// Pink wireframe shader material — solid pink, no distance-based color
 let _bubbleRainbowMat=null;
 
 function _getRainbowMat(){
@@ -1847,33 +1964,9 @@ function _getRainbowMat(){
       }
     `,
     fragmentShader:`
-      uniform vec3 uCamPos;
-      uniform float uNear;
-      uniform float uRange;
       varying vec3 vWorldPos;
-      // HSL to RGB
-      vec3 hsl2rgb(float h,float s,float l){
-        float c=(1.0-abs(2.0*l-1.0))*s;
-        float x=c*(1.0-abs(mod(h*6.0,2.0)-1.0));
-        float m=l-c*0.5;
-        vec3 rgb;
-        if(h<1.0/6.0) rgb=vec3(c,x,0);
-        else if(h<2.0/6.0) rgb=vec3(x,c,0);
-        else if(h<3.0/6.0) rgb=vec3(0,c,x);
-        else if(h<4.0/6.0) rgb=vec3(0,x,c);
-        else if(h<5.0/6.0) rgb=vec3(x,0,c);
-        else rgb=vec3(c,0,x);
-        return rgb+m;
-      }
       void main(){
-        float dist=distance(vWorldPos,uCamPos);
-        float t=clamp((dist-uNear)/uRange,0.0,1.0);
-        // Rosa(0) → rød → oransje → gul → grønn → cyan → blå(1)
-        float hue=mix(0.9,0.6,t); // 0.9=rosa/magenta → 0.6=blue
-        if(t<0.5) hue=mix(0.9,0.15,t*2.0); // rosa → gul
-        else hue=mix(0.15,0.55,(t-0.5)*2.0); // gul → cyan
-        vec3 col=hsl2rgb(hue,0.85,0.55);
-        gl_FragColor=vec4(col,1.0);
+        gl_FragColor=vec4(1.0,0.45,0.75,1.0); // solid pink
       }
     `,
     wireframe:true,
@@ -1908,10 +2001,15 @@ function _initBubbleRT(){
         if(dist>uRadius) discard;
         float edge=smoothstep(uRadius,uRadius-0.004,dist);
         vec4 wire=texture2D(tWire,vUv);
-        // Only show where wireframe actually drew something (not black bg)
+        // Check if wireframe drew anything here
         float lum=dot(wire.rgb,vec3(0.299,0.587,0.114));
-        if(lum<0.01) discard;
-        gl_FragColor=vec4(wire.rgb,edge);
+        if(lum<0.01){
+          // Dark fill inside circle — hides normal render
+          gl_FragColor=vec4(0.04,0.04,0.06,edge*0.92);
+        } else {
+          // Show wireframe line
+          gl_FragColor=vec4(wire.rgb,edge);
+        }
       }
     `,
     transparent:true,
@@ -2152,13 +2250,40 @@ let selectMode=false;
 let selectedMeshes=[]; // array for multi-select
 let highlightMat=new THREE.MeshBasicMaterial({color:0x2563eb,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthTest:true});
 
+function _updateToolsTriggerColor(){
+  const btn=document.getElementById('btn-tools-trigger');
+  if(!btn) return;
+  if(selectMode&&!_isIsolated){
+    btn.style.color='#f472b6';
+    btn.style.borderColor='#f472b6';
+    btn.style.background='rgba(244,114,182,0.10)';
+  } else {
+    btn.style.color='';
+    btn.style.borderColor='';
+    btn.style.background='';
+  }
+}
+
 function toggleSelectMode(){
   selectMode=!selectMode;
   document.getElementById('btn-select').classList.toggle('active',selectMode);
   vp.style.cursor=selectMode?'pointer':'';
-  if(!selectMode) clearSelection();
+  if(!selectMode){
+    clearSelection();
+    if(!_isIsolated){
+      const h=document.getElementById('measure-hint');
+      if(h) h.classList.remove('visible');
+    }
+  }
+  _updateToolsTriggerColor();
 }
 window.toggleSelectMode=toggleSelectMode;
+
+// Click on Verktøy-trigger activates select mode
+document.addEventListener('DOMContentLoaded',()=>{
+  const t=document.getElementById('btn-tools-trigger');
+  if(t) t.addEventListener('click',()=>{ if(!selectMode) toggleSelectMode(); });
+});
 
 function clearSelection(){
   selectedMeshes.forEach(sm=>{
@@ -2211,6 +2336,15 @@ function updateSelectionCount(){
     if(selectedMeshes.length>1) header.textContent='Egenskaper ('+selectedMeshes.length+' valgt)';
     else header.textContent='Egenskaper';
   }
+  // Show hint when elements are selected in select mode
+  const h=document.getElementById('measure-hint');
+  if(!h) return;
+  if(selectMode&&selectedMeshes.length>0){
+    h.textContent='Enter: Isoler valgt  ·  ESC: Avslutt velg-modus';
+    h.classList.add('visible');
+  } else if(!_isIsolated){
+    h.classList.remove('visible');
+  }
 }
 
 async function showProperties(modelId,expressID,ifcType){
@@ -2260,6 +2394,20 @@ function closeProps(){document.getElementById('props-panel').classList.remove('v
 window.closeProps=closeProps;
 
 // Isolate/show all — supports multi-select
+let _isIsolated=false;
+
+function toggleIsolate(){
+  if(_isIsolated){ showAll(); } else { isolateSelected(); }
+}
+window.toggleIsolate=toggleIsolate;
+
+function _updateIsolateBtn(isolated){
+  const bi=document.getElementById('btn-isolate');
+  const bs=document.getElementById('btn-show-all');
+  if(bi) bi.textContent=isolated?'◉ Vis alle':'Isoler valgt';
+  if(bs) bs.style.display='none'; // always hidden — btn-isolate toggles
+}
+
 function isolateSelected(){
   if(!selectedMeshes.length) return;
   const eids=new Set(selectedMeshes.map(m=>m.userData.expressID));
@@ -2268,6 +2416,32 @@ function isolateSelected(){
       if(ch.isMesh) ch.visible=eids.has(ch.userData.expressID);
     });
   });
+  if(gridHelper) gridHelper.visible=true;
+  _isIsolated=true;
+  _updateIsolateBtn(true);
+  _updateToolsTriggerColor(); // clear pink — isolation reached
+
+  // Set orbit pivot to bounding box center of isolated meshes
+  const box=new THREE.Box3();
+  selectedMeshes.forEach(m=>{ m.updateMatrixWorld(); box.expandByObject(m); });
+  if(!box.isEmpty()){
+    const center=box.getCenter(new THREE.Vector3());
+    orb.tgt.copy(center);
+    orb.sph.setFromVector3(camera.position.clone().sub(orb.tgt));
+    applyOrb();
+    // Show pivot dot briefly
+    const dot=document.getElementById('pivot-dot');
+    if(dot){
+      const sp=worldToScreen(center);
+      dot.style.left=sp.x+'px';dot.style.top=sp.y+'px';dot.style.display='block';
+      clearTimeout(dot._hideTimer);
+      dot._hideTimer=setTimeout(()=>{dot.style.display='none';},1500);
+    }
+  }
+
+  // Show hint
+  const h=document.getElementById('measure-hint');
+  if(h){h.textContent='Isolert visning — trykk ESC to ganger for å vise alle';h.classList.add('visible');}
   updateInfoBar();
 }
 window.isolateSelected=isolateSelected;
@@ -2275,6 +2449,12 @@ window.isolateSelected=isolateSelected;
 function showAll(){
   clearSelection();
   models.forEach(mdl=>{mdl.group.traverse(ch=>{if(ch.isMesh)ch.visible=true;});});
+  if(gridHelper) gridHelper.visible=false;
+  _isIsolated=false;
+  _updateIsolateBtn(false);
+  _updateToolsTriggerColor();
+  const h=document.getElementById('measure-hint');
+  if(h) h.classList.remove('visible');
   applyShading();
   updateInfoBar();
 }
@@ -2302,6 +2482,36 @@ function toggleGrid(){
   document.getElementById('btn-grid-toggle').classList.toggle('active',!gridHelper.visible);
 }
 window.toggleGrid=toggleGrid;
+
+function toggleGMAccordion(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById(id+'-arrow');
+  if(!el) return;
+  const open=el.style.display==='flex'||el.style.display==='block';
+  el.style.display=open?'none':(el.tagName==='DIV'?'flex':'block');
+  if(arrow) arrow.style.transform=open?'':'rotate(180deg)';
+}
+window.toggleGMAccordion=toggleGMAccordion;
+
+function toggleGridAccordion(){
+  const el=document.getElementById('grid-accordion');
+  const arrow=document.getElementById('grid-accordion-arrow');
+  if(!el) return;
+  const open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  if(arrow) arrow.style.transform=open?'':'rotate(180deg)';
+}
+window.toggleGridAccordion=toggleGridAccordion;
+
+function toggleSimAccordion(){
+  const el=document.getElementById('sim-accordion');
+  const arrow=document.getElementById('sim-accordion-arrow');
+  if(!el) return;
+  const open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  if(arrow) arrow.style.transform=open?'':'rotate(180deg)';
+}
+window.toggleSimAccordion=toggleSimAccordion;
 
 // ═══════════════════════════════ SPATIAL TREE ════════════════════════════════
 let treeVisible=false;
@@ -2369,21 +2579,41 @@ window._selectByExpressID=function(eid){
 
 // ═══════════════════════════════ MEASURE ═════════════════════════════════
 let showFallLabels=true;
-function toggleFallLabels(){
+function toggleLabels(){
   showFallLabels=!showFallLabels;
   const btn=document.getElementById('btn-toggle-labels');
   if(btn){btn.textContent='Labels '+(showFallLabels?'✓':'✗');
     btn.style.background=showFallLabels?'rgba(37,99,235,0.15)':'rgba(100,100,100,0.15)';
     btn.style.color=showFallLabels?'var(--dot-blue)':'var(--muted)';}
 }
-window.toggleFallLabels=toggleFallLabels;
+window.toggleLabels=toggleLabels;
+// Legacy alias
+window.toggleFallLabels=toggleLabels;
 let interactMode='navigate';
+// ── Group collapse state for measure list sections ──
+const _groupCollapsed={height:false, xyz:false, length:false, fall:false};
+function _groupForMode(mode){
+  if(mode==='height') return 'height';
+  if(mode==='xyz')    return 'xyz';
+  if(mode==='length') return 'length';
+  if(mode==='fall')   return 'fall';
+  return null;
+}
+function _collapseAllExcept(activeGroup){
+  for(const g of Object.keys(_groupCollapsed)){
+    _groupCollapsed[g]=(g!==activeGroup);
+  }
+}
+window.toggleMeasureGroup=function(g){
+  _groupCollapsed[g]=!_groupCollapsed[g];
+  renderMeasureList();
+};
 let measurePts=[];
 let measureMousePos=null;
 const measurements=[];
 let measureIdCounter=0;
 let fallUnit='both'; // 'pct' | 'ratio' | 'deg' | 'both'
-let fallSegColor='#f97316'; // user-configurable segment color
+let fallSegColor='#49dfb9'; // user-configurable segment color
 
 // Hover tracking for segment highlighting
 window._hoverMeasure=-1; // measurement id being hovered, -1=none
@@ -2419,13 +2649,17 @@ function isSteep(dz,dxy,segLength){
 
 function setFallMode(mode){
   fallMode=mode;
-  ['normal','tek17'].forEach(x=>{
-    const el=document.getElementById('btn-fall-'+x);
-    if(el) el.classList.toggle('active',x===mode);
-  });
+  const btn=document.getElementById('btn-fall-mode-toggle');
+  const lbl=document.getElementById('fall-mode-label');
   const info=document.getElementById('tek17-info');
-  if(info) info.style.display=(mode==='tek17')?'block':'none';
-  // Re-evaluate all measurements
+  const isTek=(mode==='tek17');
+  if(btn){
+    btn.style.borderColor=isTek?'var(--dot-orange)':'var(--border)';
+    btn.style.color=isTek?'var(--dot-orange)':'var(--muted)';
+    btn.style.background=isTek?'rgba(249,115,22,0.10)':'var(--btn-bg)';
+  }
+  if(lbl) lbl.textContent=isTek?'TEK17':'Normal';
+  if(info) info.style.display=isTek?'block':'none';
   measurements.forEach(m=>{
     if(m.type==='fall') m.segments.forEach(s=>{
       s.label=formatFallLabel(s.dz,s.dxy);
@@ -2435,6 +2669,21 @@ function setFallMode(mode){
 }
 window.setFallMode=setFallMode;
 
+function toggleFallMode(){
+  setFallMode(fallMode==='tek17'?'normal':'tek17');
+}
+window.toggleFallMode=toggleFallMode;
+
+function toggleUnitAccordion(){
+  const el=document.getElementById('unit-accordion');
+  const arrow=document.getElementById('unit-accordion-arrow');
+  if(!el) return;
+  const open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  if(arrow) arrow.style.transform=open?'':'rotate(180deg)';
+}
+window.toggleUnitAccordion=toggleUnitAccordion;
+
 function toggleMeasureMinimize(){
   const panel=document.getElementById('measure-panel');
   const btn=document.getElementById('btn-minimize-panel');
@@ -2443,6 +2692,70 @@ function toggleMeasureMinimize(){
   if(btn) btn.textContent=panel.classList.contains('minimized')?'▸':'▾';
 }
 window.toggleMeasureMinimize=toggleMeasureMinimize;
+
+// ── Measure panel dock/float + drag ──
+let _mpFloating=false;
+let _mpDrag={active:false,ox:0,oy:0,px:0,py:0};
+
+function toggleMeasureDock(){
+  const panel=document.getElementById('measure-panel');
+  const btn=document.getElementById('btn-dock-panel');
+  if(!panel) return;
+  _mpFloating=!_mpFloating;
+  if(_mpFloating){
+    // Snap to a floating position near where it was docked
+    const vw=window.innerWidth,vh=window.innerHeight;
+    const toolbarH=document.querySelector('.toolbar')?.offsetHeight||52;
+    const w=panel.offsetWidth||320;
+    panel.style.right='auto';
+    panel.style.bottom='auto';
+    panel.style.left=(vw-w-16)+'px';
+    panel.style.top=(toolbarH+8)+'px';
+    panel.classList.add('floating');
+    if(btn) btn.title='Dokk til høyre';
+    if(btn) btn.textContent='⊟';
+  } else {
+    // Dock back
+    panel.style.left='';panel.style.top='';panel.style.right='';panel.style.bottom='';
+    panel.classList.remove('floating');
+    if(btn) btn.title='Flyt fritt';
+    if(btn) btn.textContent='⊞';
+  }
+}
+window.toggleMeasureDock=toggleMeasureDock;
+
+(function initMpDrag(){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const handle=document.getElementById('mp-drag-handle');
+    const panel=document.getElementById('measure-panel');
+    if(!handle||!panel) return;
+    handle.addEventListener('mousedown',e=>{
+      if(!_mpFloating) return; // only drag when floating
+      if(e.button!==0) return;
+      const r=panel.getBoundingClientRect();
+      _mpDrag={active:true,ox:e.clientX-r.left,oy:e.clientY-r.top,px:r.left,py:r.top};
+      panel.style.transition='none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',e=>{
+      if(!_mpDrag.active) return;
+      const panel=document.getElementById('measure-panel');
+      if(!panel) return;
+      const vw=window.innerWidth,vh=window.innerHeight;
+      const w=panel.offsetWidth,h=panel.offsetHeight;
+      const toolbarH=document.querySelector('.toolbar')?.offsetHeight||52;
+      let nx=e.clientX-_mpDrag.ox;
+      let ny=e.clientY-_mpDrag.oy;
+      nx=Math.max(0,Math.min(vw-w,nx));
+      ny=Math.max(toolbarH,Math.min(vh-h,ny));
+      panel.style.left=nx+'px';
+      panel.style.top=ny+'px';
+    });
+    document.addEventListener('mouseup',()=>{
+      _mpDrag.active=false;
+    });
+  });
+})();
 
 function setFallUnit(u){
   fallUnit=u;
@@ -2496,6 +2809,9 @@ function formatFallLabel(dz,dxy){
 function setMeasureMode(m){
   if(interactMode===m){cancelMeasure();return;}
   cancelMeasure();
+  // Collapse all groups except the newly activated one
+  const activeGroup=_groupForMode(m);
+  if(activeGroup) _collapseAllExcept(activeGroup);
   if(m==='length'){
     interactMode='length';
     document.getElementById('btn-m-length').classList.add('active');
@@ -2510,16 +2826,39 @@ function setMeasureMode(m){
     hintEl.classList.add('visible');
     vp.className='m-fall';
     document.addEventListener('keydown',measureKeyHandler);
+  } else if(m==='height'){
+    interactMode='height';
+    document.getElementById('btn-m-height').classList.add('active');
+    hintEl.textContent='Klikk p\u00e5 modell for \u00e5 m\u00e5le h\u00f8yde (Y). Hold CTRL for \u00e5 vise XYZ-posisjon. ESC avbryt.';
+    hintEl.classList.add('visible');
+    vp.className='m-height';
+    document.addEventListener('keydown',measureKeyHandler);
+    document.addEventListener('keydown',_heightCtrlHandler);
+    document.addEventListener('keyup',_heightCtrlHandler);
   }
+  renderMeasureList();
 }
 window.setMeasureMode=setMeasureMode;
+
+// ── CTRL key hint refresh for height mode ──
+function _heightCtrlHandler(e){
+  if(interactMode!=='height') return;
+  if(e.type==='keydown'&&e.key==='Control'){
+    hintEl.textContent='CTRL holdt: klikk for \u00e5 registrere XYZ-posisjon. Slipp CTRL for h\u00f8yde-modus.';
+  } else if(e.type==='keyup'&&e.key==='Control'){
+    hintEl.textContent='Klikk p\u00e5 modell for \u00e5 m\u00e5le h\u00f8yde (Y). Hold CTRL for \u00e5 vise XYZ-posisjon. ESC avbryt.';
+  }
+}
 
 function cancelMeasure(){
   interactMode='navigate';measurePts=[];measureMousePos=null;
   hintEl.classList.remove('visible');vp.className='m-nav';
   const bl=document.getElementById('btn-m-length');if(bl)bl.classList.remove('active');
   const bf=document.getElementById('btn-m-fall');if(bf)bf.classList.remove('active');
+  const bh=document.getElementById('btn-m-height');if(bh)bh.classList.remove('active');
   document.removeEventListener('keydown',measureKeyHandler);
+  document.removeEventListener('keydown',_heightCtrlHandler);
+  document.removeEventListener('keyup',_heightCtrlHandler);
   // Clear active-drawing meshes (stored fall meshes are preserved in each measurement)
   fallHitMeshes.clear();
   applyFallXray();
@@ -2540,7 +2879,29 @@ function measureKeyHandler(e){
   if(e.key==='Backspace'&&measurePts.length>0){e.preventDefault();measurePts.pop();}
 }
 
-function handleMeasureClick(ex,ey){
+function handleMeasureClick(ex,ey,ctrlHeld){
+  if(interactMode==='height'){
+    const hit=hitModel(ex,ey);
+    if(!hit) return;
+    const p=hit.point;
+    if(ctrlHeld){
+      // XYZ position in IFC coords: X=east, Y=north (Three Z), Z=height (Three Y)
+      const label=`X:${p.x.toFixed(3)}  Y:${p.z.toFixed(3)}  Z:${p.y.toFixed(3)}`;
+      measurements.push({id:measureIdCounter++,type:'height',mode:'xyz',pt:p.clone(),label});
+      // Collapse height section, expand xyz
+      _collapseAllExcept('xyz');
+    } else {
+      // Height only (Y)
+      const label=p.y.toFixed(3)+' m';
+      measurements.push({id:measureIdCounter++,type:'height',mode:'height',pt:p.clone(),label});
+      // Collapse xyz section, expand height
+      _collapseAllExcept('height');
+    }
+    renderMeasureList();
+    document.getElementById('measure-panel').classList.add('visible');
+    // Stay active — do NOT cancel mode. ESC to exit.
+    return;
+  }
   const hit=hitModel(ex,ey);
   if(!hit) return;
   measurePts.push(hit.point.clone());
@@ -2559,6 +2920,7 @@ function finalizeMeasure(pts){
   for(let i=1;i<pts.length;i++) totalLen+=pts[i-1].distanceTo(pts[i]);
   const label=totalLen.toFixed(3)+' m';
   measurements.push({id:measureIdCounter++,type:'length',pts,label,totalLen});
+  _groupCollapsed.length=false;
   renderMeasureList();
   document.getElementById('measure-panel').classList.add('visible');
 }
@@ -2580,6 +2942,7 @@ function finalizeFall(pts){
   // Collapse all existing fall measurements before adding new
   measurements.forEach(m=>{ if(m.type==='fall') m.collapsed=true; });
   measurements.push({id:measureIdCounter++,type:'fall',pts:[...pts],segments,hitMeshes:hitSnapshot,collapsed:false});
+  _groupCollapsed.fall=false;
   applyFallXray();
   renderMeasureList();
   document.getElementById('measure-panel').classList.add('visible');
@@ -2608,42 +2971,84 @@ function toggleFallCollapse(id){
 window.toggleFallCollapse=toggleFallCollapse;
 
 function renderMeasureList(){
-  document.getElementById('measure-list').innerHTML=measurements.map(m=>{
-    if(m.type==='fall'){
-      const collapsed=!!m.collapsed;
-      const anysteep=m.segments.some(s=>isSteep(s.dz,s.dxy,s.slope3d));
-      const steepWarn=anysteep?`<span style="font-size:0.65rem;font-weight:700;color:#ef4444;margin-left:0.3rem">${fallMode==='tek17'?'TEK17':'Bratt'}</span>`:'';
-      const arrow=collapsed?'▶':'▾';
-      const segRows=collapsed?'':m.segments.map((s,i)=>{
-        const steep=isSteep(s.dz,s.dxy,s.slope3d);
-        const dzStr=(s.dz>=0?'+':'')+s.dz.toFixed(3)+' m';
-        const dxyStr=s.dxy.toFixed(3)+' m';
-        const slopeStr=s.slope3d.toFixed(3)+' m';
-        const angleDeg=Math.atan2(Math.abs(s.dz),s.dxy)*180/Math.PI;
-        const angleStr=angleDeg.toFixed(1)+'°';
-        let steepTxt='';
-        if(fallMode==='tek17'){
-          const ratio=s.dxy>0.001?Math.abs(s.dxy/s.dz):9999;
-          if(steep) steepTxt='<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt (TEK17: '+(s.slope3d<=5?'maks 1:12':'maks 1:15')+')</span>';
-          else steepTxt='<span style="margin-left:0.35rem;font-size:0.6rem;color:var(--dot-green)">OK</span>';
-        } else {
-          steepTxt=steep?'<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt</span>':'';
-        }
-        return `<div style="display:flex;flex-direction:column;gap:0.1rem;padding:0.25rem 0.55rem;border-radius:0.35rem;border:1.5px solid ${s.color}33;margin-top:0.2rem;background:${s.color}11;cursor:pointer;transition:opacity 0.15s"
-          onmouseenter="window._hoverMeasure=${m.id};window._hoverSeg=${i}"
-          onmouseleave="window._hoverMeasure=-1;window._hoverSeg=-1">
-          <div style="display:flex;align-items:center;gap:0.3rem">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
-            <span style="font-size:0.68rem;font-weight:700;color:var(--muted)">Seg ${i+1}</span>
-            <span style="font-weight:600;font-size:0.82rem;color:var(--text)">${s.label}</span>
-            ${steepTxt}
-          </div>
-          <div style="display:flex;gap:0.55rem;font-size:0.7rem;color:var(--muted);padding-left:1.3rem">
-            <span>↕ ${dzStr}</span><span>↔ ${dxyStr}</span><span>↗ ${slopeStr}</span><span>∠ ${angleStr}</span>
-          </div>
-        </div>`;
-      }).join('');
-      return `
+  const footer=document.getElementById('measure-list-footer');
+  if(footer) footer.style.display=measurements.length?'block':'none';
+
+  // Group by type for section headings
+  const groups=[
+    {type:'height', label:'Høyde',      color:'#22d3ee',           items:[]},
+    {type:'xyz',    label:'Koordinater',color:'var(--dot-green)',   items:[]},
+    {type:'length', label:'Lengde',     color:'var(--dot-blue)',    items:[]},
+    {type:'fall',   label:'Fall',       color:'var(--dot-orange)',  items:[]},
+  ];
+  for(const m of measurements){
+    if(m.type==='height'&&m.mode==='xyz') groups[1].items.push(m);
+    else if(m.type==='height') groups[0].items.push(m);
+    else if(m.type==='length') groups[2].items.push(m);
+    else if(m.type==='fall')   groups[3].items.push(m);
+  }
+
+  document.getElementById('measure-list').innerHTML=groups.map(g=>{
+    if(!g.items.length) return '';
+    const isCollapsed=_groupCollapsed[g.type]??false;
+    const arrow=isCollapsed?'▶':'▾';
+    const heading=`<div onclick="toggleMeasureGroup('${g.type}')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;font-size:0.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${g.color};padding:0.4rem 0.55rem 0.15rem;opacity:0.85">
+      <span>${g.label} (${g.items.length})</span>
+      <span style="font-size:0.58rem;opacity:0.7">${arrow}</span>
+    </div>`;
+    if(isCollapsed) return heading;
+    const items=g.items.map(m=>{
+      if(m.type==='height'){
+        const isXYZ=m.mode==='xyz';
+        const color=isXYZ?'var(--dot-green)':'#22d3ee';
+        const badgeLabel=isXYZ?'XYZ':'HØYDE';
+        const badgeStyle=isXYZ
+          ?'background:rgba(22,163,74,0.12);color:var(--dot-green);border:1px solid rgba(22,163,74,0.25)'
+          :'background:rgba(34,211,238,0.12);color:#22d3ee;border:1px solid rgba(34,211,238,0.25)';
+        return `
+    <div class="measure-item" onmouseenter="window._hoverMeasure=${m.id};window._hoverSeg=-1" onmouseleave="window._hoverMeasure=-1;window._hoverSeg=-1">
+      <div class="measure-item-row">
+        <div class="measure-item-left">
+          <span class="measure-badge" style="${badgeStyle}">${badgeLabel}</span>
+          <span class="measure-val" style="font-family:monospace;font-size:0.8rem">${m.label}</span>
+        </div>
+        <button class="measure-del" onclick="deleteMeasurement(${m.id})">&#x2715;</button>
+      </div>
+    </div>`;
+      }
+      if(m.type==='fall'){
+        const collapsed=!!m.collapsed;
+        const anysteep=m.segments.some(s=>isSteep(s.dz,s.dxy,s.slope3d));
+        const steepWarn=anysteep?`<span style="font-size:0.65rem;font-weight:700;color:#ef4444;margin-left:0.3rem">${fallMode==='tek17'?'TEK17':'Bratt'}</span>`:'';
+        const arrow=collapsed?'▶':'▾';
+        const segRows=collapsed?'':m.segments.map((s,i)=>{
+          const steep=isSteep(s.dz,s.dxy,s.slope3d);
+          const dzStr=(s.dz>=0?'+':'')+s.dz.toFixed(3)+' m';
+          const dxyStr=s.dxy.toFixed(3)+' m';
+          const slopeStr=s.slope3d.toFixed(3)+' m';
+          const angleDeg=Math.atan2(Math.abs(s.dz),s.dxy)*180/Math.PI;
+          const angleStr=angleDeg.toFixed(1)+'°';
+          let steepTxt='';
+          if(fallMode==='tek17'){
+            if(steep) steepTxt='<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt (TEK17: '+(s.slope3d<=5?'maks 1:12':'maks 1:15')+')</span>';
+            else steepTxt='<span style="margin-left:0.35rem;font-size:0.6rem;color:var(--dot-green)">OK</span>';
+          } else {
+            steepTxt=steep?'<span style="margin-left:0.35rem;font-size:0.65rem;font-weight:700;color:#ef4444">Bratt</span>':'';
+          }
+          return `<div style="display:flex;flex-direction:column;gap:0.1rem;padding:0.25rem 0.55rem;border-radius:0.35rem;border:1.5px solid ${s.color}33;margin-top:0.2rem;background:${s.color}11;cursor:pointer;transition:opacity 0.15s"
+            onmouseenter="window._hoverMeasure=${m.id};window._hoverSeg=${i}"
+            onmouseleave="window._hoverMeasure=-1;window._hoverSeg=-1">
+            <div style="display:flex;align-items:center;gap:0.3rem">
+              <span style="font-size:0.68rem;font-weight:700;color:var(--muted)">Seg ${i+1}</span>
+              <span style="font-weight:600;font-size:0.82rem;color:var(--text)">${s.label}</span>
+              ${steepTxt}
+            </div>
+            <div style="display:flex;gap:0.55rem;font-size:0.7rem;color:var(--muted);padding-left:0.2rem;flex-wrap:wrap">
+              <span>↕ ${dzStr}</span><span>↔ ${dxyStr}</span><span>↗ ${slopeStr}</span>${fallUnit==='deg'||fallUnit==='both'?`<span>∠ ${angleStr}</span>`:''}
+            </div>
+          </div>`;
+        }).join('');
+        return `
     <div class="measure-item">
       <div class="measure-item-row" style="cursor:pointer" onclick="toggleFallCollapse(${m.id})">
         <div class="measure-item-left" style="flex-wrap:wrap;gap:0.3rem">
@@ -2658,9 +3063,10 @@ function renderMeasureList(){
       </div>
       ${segRows}
     </div>`;
-    }
-    return `
-    <div class="measure-item">
+      }
+      // length
+      return `
+    <div class="measure-item" onmouseenter="window._hoverMeasure=${m.id};window._hoverSeg=-1" onmouseleave="window._hoverMeasure=-1;window._hoverSeg=-1">
       <div class="measure-item-row">
         <div class="measure-item-left">
           <span class="measure-badge badge-length">LENGDE</span>
@@ -2669,6 +3075,8 @@ function renderMeasureList(){
         <button class="measure-del" onclick="deleteMeasurement(${m.id})">&#x2715;</button>
       </div>
     </div>`;
+    }).join('');
+    return heading+items;
   }).join('');
 }
 
@@ -2678,15 +3086,91 @@ function mkSVG(tag,attrs){
   const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
   for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el;
 }
-function drawSVGLabel(x,y,txt,color){
-  const W=txt.length*7+18;const H=22;
-  svg.appendChild(mkSVG('rect',{x:x-W/2,y:y-H/2,width:W,height:H,rx:4,fill:'rgba(15,23,42,0.92)',stroke:color,'stroke-width':'1'}));
-  const t=mkSVG('text',{x,y,fill:color,'text-anchor':'middle','dominant-baseline':'central','font-size':'11','font-family':'system-ui,sans-serif','font-weight':'600'});
-  t.textContent=txt;svg.appendChild(t);
+// ── Label collision system — two-pass: collect all, then hide any that collide ──
+// group: 'node' labels only collide within their group; others ('default') share a pool.
+let _pendingLabels=[];
+
+function _labelRect(x,y,W,H){
+  return {x1:x-W/2,y1:y,x2:x+W/2,y2:y+H};
+}
+
+function _rectsOverlap(a,b,pad){
+  pad=pad||4;
+  return a.x1-pad<b.x2 && a.x2+pad>b.x1 && a.y1-pad<b.y2 && a.y2+pad>b.y1;
+}
+
+// Queue a single-line label (drawn later). group='node' for node-number labels.
+function drawSVGLabel(x,y,txt,color,group){
+  const W=txt.length*7+18,H=22;
+  const rect=_labelRect(x,y-H/2,W,H);
+  _pendingLabels.push({type:'single',group:group||'default',x,y,W,H,txt,color,rect});
+}
+
+// Queue a multi-line label (drawn later)
+function drawFallLabel(x,y,lines,color){
+  const lineH=15;
+  const maxW=Math.max(...lines.map(l=>l.length))*7+20;
+  const totalH=lines.length*lineH+10;
+  const top=y-totalH;
+  const rect=_labelRect(x,top,maxW,totalH);
+  _pendingLabels.push({type:'multi',group:'default',x,y,W:maxW,H:totalH,top,lines,color,rect,lineH});
+}
+
+// Flush pending labels: within each group, hide all labels involved in any collision
+function _flushLabels(){
+  const n=_pendingLabels.length;
+  const hidden=new Uint8Array(n);
+  for(let i=0;i<n;i++){
+    for(let j=i+1;j<n;j++){
+      // Only compare within the same group
+      if(_pendingLabels[i].group!==_pendingLabels[j].group) continue;
+      if(_rectsOverlap(_pendingLabels[i].rect,_pendingLabels[j].rect)){
+        hidden[i]=1; hidden[j]=1;
+      }
+    }
+  }
+  for(let i=0;i<n;i++){
+    if(hidden[i]) continue;
+    const L=_pendingLabels[i];
+    if(L.type==='single'){
+      svg.appendChild(mkSVG('rect',{x:L.x-L.W/2,y:L.y-L.H/2,width:L.W,height:L.H,rx:4,fill:'rgba(15,23,42,0.92)',stroke:L.color,'stroke-width':'1'}));
+      const t=mkSVG('text',{x:L.x,y:L.y,fill:L.color,'text-anchor':'middle','dominant-baseline':'central','font-size':'11','font-family':'system-ui,sans-serif','font-weight':'600'});
+      t.textContent=L.txt;svg.appendChild(t);
+    } else {
+      svg.appendChild(mkSVG('rect',{x:L.x-L.W/2,y:L.top,width:L.W,height:L.H,rx:5,fill:'rgba(15,23,42,0.92)',stroke:L.color,'stroke-width':'1'}));
+      for(let k=0;k<L.lines.length;k++){
+        const t=mkSVG('text',{x:L.x,y:L.top+8+k*L.lineH,fill:L.color,'text-anchor':'middle','dominant-baseline':'central','font-size':'10','font-family':'system-ui,sans-serif','font-weight':k===0?'700':'500'});
+        t.textContent=L.lines[k];svg.appendChild(t);
+      }
+    }
+  }
+  _pendingLabels=[];
+}
+
+// Build label lines based on fallUnit selection
+function buildFallLines(dz,dxy,segLen){
+  const sign=dz>=0?'+ ':'− ';
+  const ratioVal=dxy>0.001?Math.abs(dxy/dz):9999;
+  const ratioStr=ratioVal>=1000?'∞':ratioVal.toFixed(1);
+  const pctVal=Math.abs(dz/dxy*100);
+  const degVal=Math.atan2(Math.abs(dz),dxy)*180/Math.PI;
+  const lenStr=segLen.toFixed(2)+'m';
+
+  if(fallUnit==='ratio') return ['(1:'+ratioStr+')',lenStr];
+  if(fallUnit==='pct')   return [sign+pctVal.toFixed(2)+'%',lenStr];
+  if(fallUnit==='deg')   return [sign+degVal.toFixed(1)+' grader',lenStr];
+  // 'both' — show all
+  return [
+    '(1:'+ratioStr+')',
+    sign+pctVal.toFixed(2)+'%',
+    sign+degVal.toFixed(1)+' grader',
+    lenStr
+  ];
 }
 
 function redrawSVG(){
   while(svg.firstChild)svg.removeChild(svg.firstChild);
+  _pendingLabels=[];
 
   // Pulse timer for steep segments in SVG
   const now=performance.now();
@@ -2695,26 +3179,49 @@ function redrawSVG(){
   const pulse=_t<0.15?1:0; // blink for 300ms each 2 seconds
 
   // ── Stored measurements ──
+  const hasHoverAny=window._hoverMeasure>=0;
   for(const m of measurements){
+    const isHovered=(window._hoverMeasure===m.id);
+    const dimmed=hasHoverAny&&!isHovered;
+    const opacity=dimmed?'0.12':'1';
+
+    if(m.type==='height'){
+      const sp=worldToScreen(m.pt);
+      if(!sp.behind){
+        const isXYZ=m.mode==='xyz';
+        const col=isXYZ?'#22c55e':'#22d3ee';
+        const r=isHovered?9:6;
+        const sw=isHovered?'3':'2';
+        svg.appendChild(mkSVG('circle',{cx:sp.x,cy:sp.y,r,fill:col,stroke:'#fff','stroke-width':sw,opacity}));
+        if(showFallLabels&&!dimmed){
+          const lines=isXYZ
+            ?[`X ${m.pt.x.toFixed(3)}`,`Y ${m.pt.z.toFixed(3)}`,`Z ${m.pt.y.toFixed(3)}`]
+            :[`H: ${m.pt.y.toFixed(3)} m`];
+          drawFallLabel(sp.x,sp.y-12,lines,col);
+        }
+      }
+      continue;
+    }
     const p2=m.pts.map(p=>worldToScreen(p));
 
     if(m.type==='length'&&p2.length>=2){
+      const col='#2563eb';
+      const lw=isHovered?'3':'2';
       for(let i=1;i<p2.length;i++){
         const a=p2[i-1],b=p2[i];
         if(a.behind||b.behind) continue;
-        svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#2563eb','stroke-width':'2'}));
+        svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:col,'stroke-width':lw,opacity}));
       }
-      for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:4,fill:'#fff',stroke:'#2563eb','stroke-width':'2'}));
+      for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:isHovered?6:4,fill:'#fff',stroke:col,'stroke-width':'2',opacity}));
       const vis=p2.filter(p=>!p.behind);
-      if(vis.length>=2){
+      if(showFallLabels&&!dimmed&&vis.length>=2){
         const mid=vis[Math.floor((vis.length-1)/2)];
         drawSVGLabel(mid.x,mid.y-14,m.label,'#60a5fa');
       }
     }
 
     if(m.type==='fall'&&m.segments){
-      const isHoveredMeasure=(window._hoverMeasure===m.id);
-      const hasHover=(window._hoverMeasure>=0);
+      const isHoveredMeasure=isHovered;
       for(let i=0;i<m.segments.length;i++){
         const s=m.segments[i];
         const a=worldToScreen(s.a),b=worldToScreen(s.b);
@@ -2722,36 +3229,29 @@ function redrawSVG(){
         const col=s.color||segColor(i);
         const steep=isSteep(s.dz,s.dxy,s.slope3d);
 
-        // Dim segments that are not hovered
         const isThisSeg=(isHoveredMeasure&&window._hoverSeg===i);
-        const dimmed=(hasHover&&!isThisSeg);
-        const segOpacity=dimmed?'0.15':'1';
+        const segDimmed=dimmed||(hasHoverAny&&isHoveredMeasure&&!isThisSeg&&window._hoverSeg>=0);
+        const segOpacity=segDimmed?'0.12':'1';
 
         const aH=worldToScreen(new THREE.Vector3(s.b.x,s.a.y,s.b.z));
         if(!aH.behind){
-          svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:aH.x,y2:aH.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':dimmed?'0.08':'0.55'}));
-          svg.appendChild(mkSVG('line',{x1:aH.x,y1:aH.y,x2:b.x,y2:b.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':dimmed?'0.08':'0.55'}));
+          svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:aH.x,y2:aH.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':segDimmed?'0.06':'0.55'}));
+          svg.appendChild(mkSVG('line',{x1:aH.x,y1:aH.y,x2:b.x,y2:b.y,stroke:'#f97316','stroke-width':'1.2','stroke-dasharray':'5,3','opacity':segDimmed?'0.06':'0.55'}));
         }
 
-        // Slope line — blinks red if steep, otherwise gradient color
-        const lineStroke = (steep && pulse && !dimmed) ? '#ef4444' : col;
-        const lineW = (isThisSeg) ? '4' : (steep ? '3' : '2.5');
+        const lineStroke=(steep&&pulse&&!segDimmed)?'#ef4444':col;
+        const lineW=isThisSeg?'4':(steep?'3':'2.5');
         svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineStroke,'stroke-width':lineW,opacity:segOpacity}));
 
-        // Dots
         if(i===0) svg.appendChild(mkSVG('circle',{cx:a.x,cy:a.y,r:isThisSeg?7:5,fill:col,stroke:'#fff','stroke-width':'2',opacity:segOpacity}));
         svg.appendChild(mkSVG('circle',{cx:b.x,cy:b.y,r:isThisSeg?6:4,fill:col,stroke:'#fff','stroke-width':'1.5',opacity:segOpacity}));
 
-        // Per-segment label
-        const distStr=s.slope3d.toFixed(2)+'m';
-        const lbl=s.label+'  '+distStr;
-        const labelColor=steep?'#f97316':'#fdba74';
-        if(showFallLabels&&!dimmed) drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,labelColor);
+        const labelColor=steep?'#ef4444':'#49dfb9';
+        if(showFallLabels&&!segDimmed) drawFallLabel((a.x+b.x)/2,(a.y+b.y)/2-6,buildFallLines(s.dz,s.dxy,s.slope3d),labelColor);
       }
-      // Node index labels
-      if(showFallLabels) for(let i=0;i<p2.length;i++){
+      if(showFallLabels&&!dimmed) for(let i=0;i<p2.length;i++){
         const p=p2[i];
-        if(!p.behind) drawSVGLabel(p.x+(i===0?-18:18),p.y-14,String(i+1),'#fb923c');
+        if(!p.behind) drawSVGLabel(p.x+(i===0?-18:18),p.y-14,String(i+1),'#fb923c','node');
       }
     }
   }
@@ -2790,15 +3290,16 @@ function redrawSVG(){
       const steep=isSteep(dz,dxy,segLen);
       const lineCol=(steep&&pulse)?'#ef4444':col;
       svg.appendChild(mkSVG('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:lineCol,'stroke-width':'2.5'}));
-      const lbl=formatFallLabel(dz,dxy)+'  '+segLen.toFixed(2)+'m';
-      if(showFallLabels) drawSVGLabel((a.x+b.x)/2,(a.y+b.y)/2-14,lbl,steep?'#f97316':'#fdba74');
+      if(showFallLabels){
+        drawFallLabel((a.x+b.x)/2,(a.y+b.y)/2-6,buildFallLines(dz,dxy,segLen),steep?'#ef4444':'#49dfb9');
+      }
     }
     for(let i=0;i<p2.length;i++){
       const p=p2[i];
       if(!p.behind){
         const _dc=(i>0&&measurePts.length>i)?segColor(measurePts[i].y-measurePts[i-1].y,Math.sqrt((measurePts[i].x-measurePts[i-1].x)**2+(measurePts[i].z-measurePts[i-1].z)**2)):segColor(0,1);
         svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:i===0?5:4,fill:_dc,stroke:'#fff','stroke-width':'2'}));
-        drawSVGLabel(p.x+(i===0?-18:18),p.y-14,String(i+1),'#fb923c');
+        drawSVGLabel(p.x+(i===0?-18:18),p.y-14,String(i+1),'#fb923c','node');
       }
     }
     if(measureMousePos&&p2.length>0){
@@ -2813,13 +3314,15 @@ function redrawSVG(){
             const previewLen=measurePts[measurePts.length-1].distanceTo(hit.point);
             const steep=isSteep(dz,dxy,previewLen);
             svg.appendChild(mkSVG('line',{x1:last.x,y1:last.y,x2:pB.x,y2:pB.y,stroke:(steep&&pulse)?'#ef4444':segColor(dz,dxy),'stroke-width':'1.5','stroke-dasharray':'4,3'}));
-            const lbl=formatFallLabel(dz,dxy)+'  '+previewLen.toFixed(2)+'m';
-            if(showFallLabels) drawSVGLabel((last.x+pB.x)/2,(last.y+pB.y)/2-14,lbl,steep?'#f97316':'#fdba74');
+            if(showFallLabels){
+              drawFallLabel((last.x+pB.x)/2,(last.y+pB.y)/2-6,buildFallLines(dz,dxy,previewLen),steep?'#ef4444':'#49dfb9');
+            }
           }
         }
       }
     }
   }
+  _flushLabels();
 }
 
 
@@ -2897,6 +3400,83 @@ function toggleObjFilter(){
   }
 }
 window.toggleObjFilter=toggleObjFilter;
+
+let _autoObjFilterEnabled=false;
+let _autoObjFilterActive=false; // current auto-state: true=filter on, false=filter off
+let _autoObjFilterLastCheck=0;
+let _autoObjFilterStartupDone=false;
+const AUTO_OBJFILTER_DIST=100;
+
+function toggleAutoObjFilter(){
+  _autoObjFilterEnabled=!_autoObjFilterEnabled;
+  _autoObjFilterLastCheck=0; // force re-check immediately
+  const btn=document.getElementById('btn-auto-objfilter');
+  if(btn){
+    if(_autoObjFilterEnabled){
+      btn.style.borderColor='var(--dot-green)';
+      btn.style.background='rgba(22,163,74,0.12)';
+      btn.style.color='var(--dot-green)';
+    } else {
+      btn.style.borderColor='#dc2626';
+      btn.style.background='rgba(220,38,38,0.12)';
+      btn.style.color='#dc2626';
+    }
+  }
+}
+window.toggleAutoObjFilter=toggleAutoObjFilter;
+
+function checkAutoObjFilter(){
+  if(!_autoObjFilterEnabled) return;
+  if(!models.length) return;
+  // Throttle: check only every 500ms
+  const now=performance.now();
+  if(now-_autoObjFilterLastCheck<500) return;
+  _autoObjFilterLastCheck=now;
+
+  const cam=activeCamera||camera;
+  let minDist=Infinity;
+  for(const mdl of models){
+    if(!mdl.visible||!mdl.group) continue;
+    // Use bounding sphere center if available — cheaper than Box3 every frame
+    if(mdl._cachedCenter){
+      const d=cam.position.distanceTo(mdl._cachedCenter);
+      if(d<minDist) minDist=d;
+    } else {
+      const box=new THREE.Box3().setFromObject(mdl.group);
+      if(!box.isEmpty()){
+        mdl._cachedCenter=box.getCenter(new THREE.Vector3());
+        const d=cam.position.distanceTo(mdl._cachedCenter);
+        if(d<minDist) minDist=d;
+      }
+    }
+  }
+  if(minDist===Infinity) return;
+
+  const shouldBeActive=minDist>AUTO_OBJFILTER_DIST;
+
+  if(shouldBeActive===_autoObjFilterActive) return; // no change
+  _autoObjFilterActive=shouldBeActive;
+
+  if(shouldBeActive){
+    // Activate filter
+    objFilterCfg.enabled=true;
+    const el=document.getElementById('dev-objfilter-status');
+    if(el){el.textContent='PA';el.style.color='var(--dot-green)';}
+    buildTypeFilterList();
+    applyObjFilter();
+    if(!_autoObjFilterStartupDone){
+      _autoObjFilterStartupDone=true;
+      _showStartupHint('Objektfilter aktivert automatisk — kamera > '+AUTO_OBJFILTER_DIST+'m fra modell');
+    }
+    _blinkDevTools('green',5);
+  } else {
+    // Deactivate filter
+    objFilterCfg.enabled=false;
+    restoreObjFilter();
+    const el=document.getElementById('dev-objfilter-status');
+    if(el){el.textContent='AV';el.style.color='var(--muted)';}
+  }
+}
 
 function buildTypeFilterList(){
   // Scan all models for IFC types
@@ -3044,13 +3624,15 @@ function updateCamPosBar(){
 const VEHICLE_PRESETS={
   // ── Liten: fjernstyrt lekebil (rød) — halvert svinghastighet ──
   liten:{name:'Liten (RC-bil)',length:0.38,width:0.22,bodyH:0.10,cabH:0.08,wheelR:0.055,wheelW:0.04,
-    bodyColor:0xdc2626,cabColor:0xb91c1c,cabOpacity:0.85,maxSpeed:8,accel:12,steerSpeed:1.25,extraAxle:false},
+    bodyColor:0xdc2626,cabColor:0xb91c1c,cabOpacity:0.85,maxSpeed:8,accel:12,steerSpeed:1.3,
+    steerSensExp:0.6,suspRest:0.06,camDist:2,camHeight:0.2,extraAxle:false},
   // ── Normal: standard personbil (grønn) ──
   normal:{name:'Normal (personbil)',length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
-    bodyColor:0x16a34a,cabColor:0x15803d,cabOpacity:0.7,maxSpeed:30,accel:18,steerSpeed:2.5,extraAxle:false},
-  // ── Stor: minedumper — same speed/steering as normal, 4 wheels only ──
+    bodyColor:0x16a34a,cabColor:0x15803d,cabOpacity:0.7,maxSpeed:30,accel:18,steerSpeed:2.5,
+    steerSensExp:0.6,extraAxle:false},
   stor:{name:'Stor (minedumper)',length:14.5,width:8.4,bodyH:3.8,cabH:2.2,wheelR:1.9,wheelW:1.4,
-    bodyColor:0xeab308,cabColor:0x92400e,cabOpacity:0.75,maxSpeed:30,accel:18,steerSpeed:2.5,extraAxle:false},
+    bodyColor:0xeab308,cabColor:0x92400e,cabOpacity:0.75,maxSpeed:30,accel:18,steerSpeed:2.5,
+    steerSensSpeed:0.50,steerSensExp:2.0,camDist:40,camHeight:10,extraAxle:false},
   // legacy kept for any saved state refs
   personbil:{name:'Personbil',length:4.5,width:1.85,bodyH:0.7,cabH:0.65,wheelR:0.33,wheelW:0.22,
     bodyColor:0x2563eb,cabColor:0x1e40af,cabOpacity:0.7,maxSpeed:30,accel:18},
@@ -3090,6 +3672,18 @@ function selectVehicle(type){
   carDims.extraAxle=p.extraAxle!==false; // explicitly false = no extra axle
   carPhys.maxSpeed=p.maxSpeed;carPhys.accel=p.accel;
   if(p.steerSpeed!==undefined) carPhys.steerSpeed=p.steerSpeed;
+  if(p.steerSensSpeed!==undefined){ carPhys.steerSensSpeed=p.steerSensSpeed; const el=document.getElementById('dev-steer-sens-val');if(el)el.textContent=p.steerSensSpeed.toFixed(2); }
+  if(p.steerSensExp!==undefined){ carPhys.steerSensExp=p.steerSensExp; const el=document.getElementById('dev-steer-exp-val');if(el)el.textContent=p.steerSensExp.toFixed(1); }
+  if(p.suspRest!==undefined){ carPhys.suspRest=p.suspRest; const el=document.getElementById('dev-susp-r-val');if(el)el.textContent=p.suspRest.toFixed(2); }
+  if(p.camDist!==undefined){
+    carCamDist=p.camDist;
+    const sl=document.getElementById('dev-camdist-slider');
+    if(sl){sl.value=p.camDist;const vl=document.getElementById('dev-camdist-val');if(vl)vl.textContent=p.camDist;}
+  }
+  if(p.camHeight!==undefined){
+    carPhys.camHeight=p.camHeight;
+    const vl=document.getElementById('dev-camht-val');if(vl)vl.textContent=p.camHeight;
+  }
   const sliders={
     'dev-carlen-val':p.length,'dev-carw-val':p.width,'dev-carh-val':p.bodyH,
     'dev-cabh-val':p.cabH,'dev-wheelr-val':p.wheelR,'dev-wheelw-val':p.wheelW,
@@ -3711,6 +4305,8 @@ function exitCarDriving(){
   if(carMesh&&carDrivingId){
     const v=placedVehicles.find(x=>x.id===carDrivingId);
     if(v){v.yaw=carYaw;v.mesh=carMesh;}
+    // Show exit marker pin — 100m vertical line from car center
+    _showExitPin(carMesh.position.clone(), activeVehicleType);
   }
   if(_gunMesh){if(carMesh)carMesh.remove(_gunMesh);_gunMesh=null;}
   carMesh=null;carDrivingId=null;
@@ -3731,6 +4327,34 @@ function exitCarDriving(){
   } else {
     fitCameraToModel();
   }
+}
+
+// ── Exit pin: vertical line from car position, visible for 5 seconds ──
+const _exitPinColors={liten:0xdc2626, normal:0x16a34a, stor:0xeab308, personbil:0x2563eb, varebil:0x16a34a, lastebil:0xeab308};
+function _showExitPin(pos, vehicleType){
+  const color=_exitPinColors[vehicleType]||0x16a34a;
+  const pinH=100;
+  const geo=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,0,0),
+    new THREE.Vector3(0,pinH,0)
+  ]);
+  const mat=new THREE.LineBasicMaterial({color,linewidth:2,depthTest:false});
+  const line=new THREE.Line(geo,mat);
+  line.position.copy(pos);
+  line.renderOrder=900;
+  scene.add(line);
+  // Small sphere at base
+  const dotGeo=new THREE.SphereGeometry(0.4,8,6);
+  const dotMat=new THREE.MeshBasicMaterial({color,depthTest:false});
+  const dot=new THREE.Mesh(dotGeo,dotMat);
+  dot.position.copy(pos);
+  dot.renderOrder=901;
+  scene.add(dot);
+  // Remove after 5 seconds with fade
+  setTimeout(()=>{
+    scene.remove(line);scene.remove(dot);
+    geo.dispose();mat.dispose();dotGeo.dispose();dotMat.dispose();
+  },5000);
 }
 
 // ── Vehicle list management ──
@@ -4347,7 +4971,7 @@ function updateCar(dt){
       if(_gunMesh && gtaBounce.enabled){
         bounceOffset=Math.sin(_bounceT*gtaBounce.freq*Math.PI*2)*gtaBounce.amp;
       }
-      carMesh.position.y=avgSusp + rest + bounceOffset;
+      carMesh.position.y=avgSusp - d.wheelR + rest + bounceOffset;
 
       // Surface normal
       const toW=(lx,lz,gy)=>new THREE.Vector3(
@@ -4484,10 +5108,11 @@ const ballCfg = {
   trailOpacity: 0.92,
   trailMinDist: 0.1,
   sleepDelay:   2.0,
-  freezeTime:   5.0,
+  freezeTime:   1.0,
+  freezeRadius: 0.50,
   friction:     0.970,
   clusterRadius:0.8,
-  mode:         'ball'
+  mode:         'water'
 };
 window.ballCfg = ballCfg;
 
@@ -4582,19 +5207,12 @@ function _makeSegLine(){
 }
 
 function renderTrailSegments(trail){
-  // Just update colors/blink — no position changes
+  // Update colors — solid blue, no blink
   if(!trail.segments.length) return;
-  const t=(performance.now()%1000)/1000;
-  const blink=(!_simPausedGlobal)&&(t<0.15); // blink only when not paused
   for(let i=0;i<trail.segLines.length;i++){
     const l=trail.segLines[i];
     if(!l.visible) continue;
-    const a=trail.segments[i], b=trail.segments[i+1];
-    if(!a||!b) continue;
-    const dxy=Math.sqrt((b.pos.x-a.pos.x)**2+(b.pos.z-a.pos.z)**2);
-    const dz=b.pos.y-a.pos.y;
-    const steep=dxy>0.001&&Math.abs(dz/dxy)>1/15;
-    l.material.color.setHex(steep?(blink?0xef4444:0x9933cc):0x9933cc);
+    l.material.color.setHex(0x2196f3);
     l.material.opacity=ballCfg.trailOpacity;
     l.material.needsUpdate=true;
   }
@@ -4609,8 +5227,7 @@ function updateTrail(trail,pos,now){
       surfPos.y-=(trail.ballRadius||0.3)-0.01;
       trail.segments.push({pos:surfPos,time:now});
     }
-    // Cap at trailLen
-    while(trail.segments.length>ballCfg.trailLen) trail.segments.shift();
+    // Never trim — keep full trail length forever
   }
 
   const segs=trail.segments, n=segs.length;
@@ -4622,9 +5239,6 @@ function updateTrail(trail,pos,now){
     trail.segLines.push(l);
   }
 
-  const t=(performance.now()%1000)/1000;
-  const blink=(!_simPausedGlobal)&&(t<0.15);
-
   for(let i=0;i<trail.segLines.length;i++){
     const l=trail.segLines[i];
     if(i>=numLines){l.visible=false;continue;}
@@ -4635,17 +5249,12 @@ function updateTrail(trail,pos,now){
     const dx=b.pos.x-a.pos.x, dy_=b.pos.y-a.pos.y, dz_=b.pos.z-a.pos.z;
     const segLen=Math.sqrt(dx*dx+dy_*dy_+dz_*dz_)||0.01;
     l.scale.set(segLen,1,1);
-    // Use quaternion to orient box along segment direction (avoids gimbal lock)
     const dir=new THREE.Vector3(dx,dy_,dz_).normalize();
     const right=new THREE.Vector3(1,0,0);
     l.quaternion.setFromUnitVectors(right,dir);
 
-    const dxy=Math.sqrt((b.pos.x-a.pos.x)**2+(b.pos.z-a.pos.z)**2);
-    const dz=b.pos.y-a.pos.y;
-    const steep=dxy>0.001&&Math.abs(dz/dxy)>1/15;
-    // Lilla base farge, rød blink ved bratt
-    const col=steep?(blink?0xef4444:0x9933cc):0x9933cc;
-    l.material.color.set(col);
+    // Solid blue — no blink, no slope-based color change
+    l.material.color.setHex(0x2196f3);
     l.material.opacity=ballCfg.trailOpacity;
     l.material.needsUpdate=true;
     l.visible=true;
@@ -4697,7 +5306,8 @@ function spawnBall(x,y,z){
   const now=performance.now()/1000;
   const entry={id:bid,mesh,mode,vel:{x:0,y:0,z:0},sleeping:false,frozenAt:null,
     lastMovedAt:now,lastMovedPos:new THREE.Vector3(x,y,z),trail,radius:r,
-    posHistory:[{x,y,z,t:now}], // rolling 2s position buffer for arrow direction
+    lastGroundedAt:now, // tracks last time ball had ground contact
+    posHistory:[{x,y,z,t:now}],
     arrowDir:{x:0,z:0}};
   mesh.userData.ballId=bid;
   placedBalls.push(entry);
@@ -4726,6 +5336,7 @@ function cancelBallPlacement(){
   document.removeEventListener('mousemove',ballPlacementMove);
   tc.removeEventListener('click',ballPlacementClick);
   hintEl.classList.remove('visible');
+  _updateSimHint(); // show pause hint if sim still active
 }
 
 function ballPlacementMove(e){
@@ -4749,7 +5360,8 @@ function refreshBallListUI(){
   const count=document.getElementById('ball-count');
   if(count) count.textContent=placedBalls.length;
   if(!container) return;
-  if(placedBalls.length===0){container.innerHTML='';if(empty)empty.style.display='block';return;}
+  if(placedBalls.length===0){container.innerHTML='';if(empty)empty.style.display='block';
+    _updateSimTrigger(); _updateSimHint(); return;}
   if(empty) empty.style.display='none';
   const frozen=placedBalls.filter(b=>b.frozenAt!==null).length;
   const sleeping=placedBalls.filter(b=>b.sleeping&&b.frozenAt===null).length;
@@ -4759,6 +5371,7 @@ function refreshBallListUI(){
     Sovende: <b style="color:var(--muted)">${sleeping}</b> &nbsp;
     Frosset: <b style="color:#60a5fa">${frozen}</b>
   </div>`;
+  _updateSimTrigger(); _updateSimHint();
 }
 window.refreshBallListUI=refreshBallListUI;
 
@@ -4770,14 +5383,68 @@ function removeBall(id){
 window.removeBall=removeBall;
 
 let _simPausedGlobal=false;
+
+function _simIsActive(){
+  // True if there are any non-frozen balls
+  return placedBalls.some(b=>b.frozenAt===null);
+}
+
+function _updateSimTrigger(){
+  const btn=document.getElementById('btn-sim-trigger');
+  if(!btn) return;
+  if(!_simIsActive()){
+    // No active simulation — clear styling
+    btn.style.color=''; btn.style.borderColor=''; btn.style.background='';
+    return;
+  }
+  if(_simPausedGlobal){
+    // Paused — orange
+    btn.style.color='var(--dot-orange)';
+    btn.style.borderColor='var(--dot-orange)';
+    btn.style.background='rgba(249,115,22,0.12)';
+  } else {
+    // Running — blue
+    btn.style.color='var(--dot-blue)';
+    btn.style.borderColor='var(--dot-blue)';
+    btn.style.background='rgba(37,99,235,0.12)';
+  }
+}
+
+function _updateSimHint(){
+  const h=document.getElementById('measure-hint');
+  if(!h) return;
+  if(_simIsActive()&&!_isIsolated&&!selectMode){
+    if(ballFallMode){
+      h.textContent='ESC: Deaktiver verktøy  ·  deretter ESC: Pause/gjenoppta';
+    } else {
+      h.textContent=_simPausedGlobal
+        ?'Simulering pauset — trykk ESC for å gjenoppta'
+        :'Simulering aktiv — trykk ESC for å pause';
+    }
+    h.classList.add('visible');
+    h.dataset.simHint='1';
+  } else {
+    if(h.dataset.simHint==='1'){h.classList.remove('visible');delete h.dataset.simHint;}
+  }
+}
+
 function toggleSimPause(){
   _simPausedGlobal=!_simPausedGlobal;
+  // When resuming: reset airborne timer so balls don't instantly freeze
+  if(!_simPausedGlobal){
+    const nowSec=performance.now()/1000;
+    for(const b of placedBalls){
+      if(b.frozenAt===null) b.lastGroundedAt=nowSec;
+    }
+  }
   const btn=document.getElementById('btn-sim-pause');
   if(btn){
     btn.textContent=_simPausedGlobal?'▶ Gjenoppta simulering':'⏸ Pause simulering';
-    btn.style.color=_simPausedGlobal?'var(--dot-green)':'var(--text)';
-    btn.style.borderColor=_simPausedGlobal?'var(--dot-green)':'var(--border)';
+    btn.style.color=_simPausedGlobal?'var(--dot-orange)':'var(--text)';
+    btn.style.borderColor=_simPausedGlobal?'var(--dot-orange)':'var(--border)';
   }
+  _updateSimTrigger();
+  _updateSimHint();
 }
 window.toggleSimPause=toggleSimPause;
 
@@ -4788,8 +5455,36 @@ function removeAllBalls(){
 }
 window.removeAllBalls=removeAllBalls;
 
+// ── ESC handler with double-press detection for isolated view ──
+let _lastEscTime=0;
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){if(ballFallMode)cancelBallPlacement();}
+  if(e.key==='Enter'){
+    if(selectMode&&selectedMeshes.length>0){
+      isolateSelected();
+      toggleSelectMode(); // exit select mode after isolating
+    }
+    return;
+  }
+  if(e.key==='Escape'){
+    // First ESC: cancel placement tool if active
+    if(ballFallMode){ cancelBallPlacement(); return; }
+    if(selectMode){ toggleSelectMode(); return; }
+    // ESC pauses/resumes active simulation
+    if(_simIsActive()&&!_isIsolated){
+      toggleSimPause();
+      return;
+    }
+    if(_isIsolated){
+      const now=performance.now();
+      if(now-_lastEscTime<500){
+        showAll();
+      } else {
+        _lastEscTime=now;
+        const h=document.getElementById('measure-hint');
+        if(h){h.textContent='Trykk ESC én gang til for å vise alle';h.classList.add('visible');}
+      }
+    }
+  }
 });
 
 // ── Cluster colors ──
@@ -5012,7 +5707,7 @@ struct Params {
 }
 @group(0) @binding(2) var<uniform> params: Params;
 
-const FREEZE_RADIUS: f32 = 0.10;
+const FREEZE_RADIUS: f32 = 0.50;
 const FREEZE_TIME: f32 = 5.0;
 
 @compute @workgroup_size(64)
@@ -5181,12 +5876,14 @@ const WORKER_SRC = `
 const STRIDE=16;
 const BALL_RESTITUTION=0.0, WATER_RESTITUTION=0.0; // no bounce
 const BALL_SLEEP=0.04, WATER_SLEEP=0.008;
-const FREEZE_RADIUS=0.10; // 10cm position radius
-let FREEZE_TIME=5.0;      // overridden per message
+const FREEZE_RADIUS=0.10; // fallback only — overridden per message
+let _freezeRadius=0.50;   // default 50cm, set per message
+let FREEZE_TIME=1.0;      // overridden per message
 
 self.onmessage=function(e){
-  const {buf,count,dt,gravity,friction,sleepDelay,now,groundResults,freezeTime}=e.data;
+  const {buf,count,dt,gravity,friction,sleepDelay,now,groundResults,freezeTime,freezeRadius}=e.data;
   if(freezeTime) FREEZE_TIME=freezeTime;
+  if(freezeRadius!=null) _freezeRadius=freezeRadius;
   const f=new Float32Array(buf);
 
   for(let i=0;i<count;i++){
@@ -5230,7 +5927,7 @@ self.onmessage=function(e){
     const dz=f[base+5]-f[base+8];
     const movedDist=Math.sqrt(dx*dx+dy*dy+dz*dz);
 
-    if(movedDist>FREEZE_RADIUS){
+    if(movedDist>_freezeRadius){
       // Ball has moved more than 1cm — reset reference position and timer
       f[base+6]=f[base+3]; f[base+7]=f[base+4]; f[base+8]=f[base+5];
       f[base+9]=now;
@@ -5442,6 +6139,27 @@ function updateBalls(dt){
     }
   }
 
+  // ── 1b. AIRBORNE TIMEOUT: freeze ball if it has had no ground contact for >1.5s ──
+  // This catches balls that fall through the model geometry.
+  const nowSec=performance.now()/1000;
+  const AIRBORNE_FREEZE=1.5; // seconds without ground contact before freezing
+  for(let i=0;i<activeN;i++){
+    const b=activeBalls[i];
+    if(b.frozenAt!==null) continue;
+    const gr=groundResults[i];
+    if(gr&&gr.grounded){
+      b.lastGroundedAt=nowSec; // reset timer whenever grounded
+    } else {
+      if(nowSec-b.lastGroundedAt>AIRBORNE_FREEZE){
+        b.frozenAt=performance.now();
+        b.vel.x=0; b.vel.y=0; b.vel.z=0;
+        b.mesh.material.opacity*=0.55;
+        groundResults[i]=null; // skip integration
+        refreshBallListUI();
+      }
+    }
+  }
+
   // ── 2. INTEGRATION — GPU compute shader or Worker fallback ──
   if(_gpuReady){
     // Pack all balls into one Float32Array
@@ -5517,7 +6235,7 @@ function updateBalls(dt){
       _workerBusy[w]=true;
       _workerPool[w]._pendingStart=start;
       _workerPool[w]._pendingBalls=activeBalls.slice(start,start+count);
-      _workerPool[w].postMessage({buf:buf.buffer,count,dt,gravity:BALL_GRAVITY,friction:ballCfg.friction,sleepDelay:ballCfg.sleepDelay,now,freezeTime:ballCfg.freezeTime,groundResults:groundResults.slice(start,start+count)},[buf.buffer]);
+      _workerPool[w].postMessage({buf:buf.buffer,count,dt,gravity:BALL_GRAVITY,friction:ballCfg.friction,sleepDelay:ballCfg.sleepDelay,now,freezeTime:ballCfg.freezeTime,freezeRadius:ballCfg.freezeRadius,groundResults:groundResults.slice(start,start+count)},[buf.buffer]);
     }
   }
 }
@@ -5559,6 +6277,109 @@ function toggleStreaming(){
   if(!streamCfg.enabled) streamRestoreAll();
 }
 window.toggleStreaming=toggleStreaming;
+
+// ── Auto-streaming: aktiveres når avg FPS < 30 i over 3 sekunder, deaktiveres når FPS > 30 i 3 sek ──
+let _autoStreamEnabled=true;  // på som standard
+let _lowFpsStart=null;
+let _highFpsStart=null;
+
+function toggleAutoStreaming(){
+  _autoStreamEnabled=!_autoStreamEnabled;
+  _lowFpsStart=null; _highFpsStart=null;
+  const btn=document.getElementById('btn-auto-streaming');
+  if(btn){
+    if(_autoStreamEnabled){
+      btn.style.borderColor='var(--dot-green)';
+      btn.style.background='rgba(22,163,74,0.12)';
+      btn.style.color='var(--dot-green)';
+    } else {
+      btn.style.borderColor='#dc2626';
+      btn.style.background='rgba(220,38,38,0.12)';
+      btn.style.color='#dc2626';
+      const h=document.getElementById('measure-hint');
+      if(h&&h.dataset.autoStream==='1'){h.classList.remove('visible');delete h.dataset.autoStream;}
+    }
+  }
+}
+window.toggleAutoStreaming=toggleAutoStreaming;
+
+// ── Blink the Utviklerverktøy button N times in a given color ──
+let _devBlinkTimer=null;
+function _blinkDevTools(color,times){
+  const btn=document.getElementById('btn-devtools-trigger');
+  if(!btn) return;
+  clearInterval(_devBlinkTimer);
+  let count=0;
+  const total=times*2;
+  const origBg=btn.style.background||'';
+  const origColor=btn.style.color||'';
+  const origBorder=btn.style.borderColor||'';
+  _devBlinkTimer=setInterval(()=>{
+    count++;
+    if(count%2===1){
+      btn.style.background=color==='green'?'rgba(22,163,74,0.25)':'rgba(37,99,235,0.25)';
+      btn.style.color=color==='green'?'#16a34a':'#2563eb';
+      btn.style.borderColor=color==='green'?'#16a34a':'#2563eb';
+    } else {
+      btn.style.background=origBg;
+      btn.style.color=origColor;
+      btn.style.borderColor=origBorder;
+    }
+    if(count>=total){
+      clearInterval(_devBlinkTimer);
+      btn.style.background=origBg;
+      btn.style.color=origColor;
+      btn.style.borderColor=origBorder;
+    }
+  },250);
+}
+
+// ── Startup hint (shown once) ──
+let _startupHintShown=false;
+function _showStartupHint(msg){
+  if(_startupHintShown) return;
+  _startupHintShown=true;
+  const h=document.getElementById('measure-hint');
+  if(!h) return;
+  h.textContent=msg;
+  h.classList.add('visible');
+  h.dataset.autoStream='1';
+  clearTimeout(h._autoTimer);
+  h._autoTimer=setTimeout(()=>{if(h.dataset.autoStream==='1'){h.classList.remove('visible');delete h.dataset.autoStream;}},5000);
+}
+
+function checkAutoStreaming(fps){
+  if(!_autoStreamEnabled) return;
+  // Don't touch streaming during active simulation
+  const activeBalls=placedBalls.filter(b=>b.frozenAt===null);
+  if(activeBalls.length>0) return;
+  const now=performance.now();
+  if(fps<30){
+    _highFpsStart=null;
+    if(!streamCfg.enabled){
+      if(_lowFpsStart===null) _lowFpsStart=now;
+      if(now-_lowFpsStart>=3000){
+        streamCfg.enabled=true;
+        const el=document.getElementById('dev-streaming-status');
+        if(el){el.textContent='PA';el.style.color='var(--dot-green)';}
+        _lowFpsStart=null;
+        _blinkDevTools('blue',5);
+      }
+    }
+  } else {
+    _lowFpsStart=null;
+    if(streamCfg.enabled){
+      if(_highFpsStart===null) _highFpsStart=now;
+      if(now-_highFpsStart>=3000){
+        streamCfg.enabled=false;
+        streamRestoreAll();
+        const el=document.getElementById('dev-streaming-status');
+        if(el){el.textContent='AV';el.style.color='var(--muted)';}
+        _highFpsStart=null;
+      }
+    }
+  }
+}
 
 function toggleOcclusion(){
   streamCfg.occlusion=!streamCfg.occlusion;
@@ -6028,6 +6849,7 @@ initWebGPU();
     _fpsVal=Math.round(_fpsFrames*1000/(now-_fpsLast));
     _fpsFrames=0;_fpsLast=now;
     if(_fpsEl) _fpsEl.textContent=_fpsVal+' FPS';
+    checkAutoStreaming(_fpsVal);
   }
 
   if(carDriving){
@@ -6087,6 +6909,7 @@ initWebGPU();
     renderer.render(scene,activeCamera);
   }
   updateCamPosBar();
+  checkAutoObjFilter();
   redrawSVG();
 })();
 
