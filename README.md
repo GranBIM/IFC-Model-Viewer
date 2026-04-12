@@ -3,7 +3,9 @@ Dette er en avansert IFC modellviser med 100% støtte for IFC 2x3 / 4 / 4x3
 utviklet for å forenkle bruk og forståelse av modell.
 
 Med bakgrunn som BIM tekniker har jeg utviklet dette verktøyet som skal gjøre utveksling, kommunikasjon og forståelse lettere for arkitekter og privatpersoner.
-#Hovedfunksjoner:
+
+# Hovedfunksjoner:
+
 Kan laste å vise ubegrenset antall modeller samtidig, dette innebærer også synlighet per modell.
 
 Støtte for å lese modelltre og Pset på objekt, støtter også isolering av enkeltobjekter eller samlede.
