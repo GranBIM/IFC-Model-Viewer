@@ -108,6 +108,7 @@ body{
 #viewport.m-length{cursor:crosshair;}
 #viewport.m-fall{cursor:crosshair;}
 #viewport.m-height{cursor:crosshair;}
+#viewport.m-bus{cursor:crosshair;}
 
 /* Pivot snap dot */
 #pivot-dot{
@@ -366,6 +367,11 @@ body{
   <div class="tb-sep"></div>
 
   <div class="tb-hgroup">
+    <div class="tb-hgroup-trigger" id="btn-tools-trigger" data-drop="drop-tools">Modellverktøy <span class="tb-caret">▾</span></div>
+  </div>
+  <div class="tb-sep"></div>
+
+  <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-camera">Kamera <span class="tb-caret">▾</span></div>
   </div>
   <div class="tb-sep"></div>
@@ -376,25 +382,15 @@ body{
   <div class="tb-sep"></div>
 
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-nav">Navigasjon <span class="tb-caret">▾</span></div>
-  </div>
-  <div class="tb-sep"></div>
-
-  <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" id="btn-tools-trigger" data-drop="drop-tools">Verktøy <span class="tb-caret">▾</span></div>
-  </div>
-  <div class="tb-sep"></div>
-
-  <div class="tb-hgroup">
     <div class="tb-hgroup-trigger" data-drop="drop-measure">Måleverktøy <span class="tb-caret">▾</span></div>
   </div>
   <div class="tb-sep"></div>
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" data-drop="drop-vehicle">Kjøretøy <span class="tb-caret">▾</span></div>
+    <div class="tb-hgroup-trigger" id="btn-sim-trigger" data-drop="drop-sim">Simulering <span class="tb-caret">▾</span></div>
   </div>
   <div class="tb-sep"></div>
   <div class="tb-hgroup">
-    <div class="tb-hgroup-trigger" id="btn-sim-trigger" data-drop="drop-sim">Simulering <span class="tb-caret">▾</span></div>
+    <div class="tb-hgroup-trigger" data-drop="drop-vehicle">Kjøretøy <span class="tb-caret">▾</span></div>
   </div>
 
   <div id="toolbar-title-wrap">
@@ -452,6 +448,42 @@ body{
   </div>
 
   <div id="measure-hint"></div>
+
+  <!-- Bus tour HUD -->
+  <div id="bus-hud" style="display:none;position:fixed;bottom:52px;left:50%;transform:translateX(-50%);
+    background:rgba(15,23,42,0.92);border:1px solid rgba(255,255,255,0.15);border-radius:0.75rem;
+    padding:0.6rem 1.2rem;z-index:9999;backdrop-filter:blur(6px);min-width:360px;text-align:center;
+    pointer-events:all;user-select:none">
+    <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.35rem">
+      <span style="color:#fff;font-weight:600" id="bus-seat-label">Sete 1</span>
+      &nbsp;·&nbsp;
+      <kbd style="background:rgba(255,255,255,0.1);padding:0.05rem 0.35rem;border-radius:0.2rem;font-size:0.68rem">1</kbd>
+      <kbd style="background:rgba(255,255,255,0.1);padding:0.05rem 0.35rem;border-radius:0.2rem;font-size:0.68rem">2</kbd>
+      <kbd style="background:rgba(255,255,255,0.1);padding:0.05rem 0.35rem;border-radius:0.2rem;font-size:0.68rem">3</kbd> bytt sete
+      &nbsp;·&nbsp; dra mus for å se rundt
+      &nbsp;·&nbsp; <kbd style="background:rgba(255,255,255,0.1);padding:0.05rem 0.35rem;border-radius:0.2rem;font-size:0.68rem">ESC</kbd> avslutt
+    </div>
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <span style="font-size:0.7rem;color:var(--muted);white-space:nowrap">Hastighet</span>
+      <input type="range" id="bus-speed-slider" min="0" max="1" step="0.01" value="0.15"
+        style="flex:1;accent-color:var(--dot-blue)" oninput="setBusTourSpeed(+this.value)">      <span id="bus-speed-val" style="font-size:0.72rem;color:#fff;white-space:nowrap;min-width:3rem">Lav</span>
+    </div>
+    <button onclick="restartBusTour()" style="margin-top:0.35rem;border:none;background:rgba(37,99,235,0.15);color:var(--dot-blue);cursor:pointer;font-size:0.72rem;font-family:inherit;padding:0.2rem 0.9rem;border-radius:0.35rem;border:1px solid var(--dot-blue)">↺ Begynn fra start</button>
+    <!-- Dev tuning panel -->
+    <div style="margin-top:0.45rem;border-top:1px solid rgba(255,255,255,0.08);padding-top:0.35rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:0.25rem" onclick="const d=document.getElementById('bus-dev-panel');d.style.display=d.style.display==='none'?'block':'none'">
+        <span style="font-size:0.6rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em">Utvikler — kameraposisjon</span>
+        <span style="font-size:0.55rem;color:rgba(255,255,255,0.3)">▾</span>
+      </div>
+      <div id="bus-dev-panel" style="display:none;text-align:left">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span style="font-size:0.65rem;color:rgba(255,255,255,0.5);min-width:8rem">Kamerahøyde</span>
+          <input type="range" min="-1" max="5" step="0.05" value="2.5" style="flex:1;accent-color:#f472b6" oninput="setBusCamHeight(+this.value)">
+          <span id="bus-dev-camh-val" style="font-size:0.65rem;color:#f472b6;min-width:2.5rem">2.50</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
 
 
@@ -633,11 +665,8 @@ body{
       <label><span>Røntgen-styrke</span><span id="xray-op-val">15%</span></label>
       <input type="range" id="xray-op-slider" min="1" max="60" step="1" value="15" oninput="setXrayOpacity(+this.value)">
     </div>
-  </div>
-
-  <div class="tb-hdrop" id="drop-nav">
-    <button class="tb-hdrop-btn" onclick="resetCamera()">⌂ Tilbakestill visning</button>
     <div class="tb-hdrop-sep"></div>
+    <button class="tb-hdrop-btn" onclick="resetCamera()">⌂ Tilbakestill visning</button>
     <button class="tb-hdrop-btn" id="btn-autorot" onclick="toggleAutoRotate()">↻ Autoroter</button>
     <div class="tb-hdrop-slider">
       <label><span>Rotasjonshastighet</span><span id="rs-val">0×</span></label>
@@ -648,13 +677,19 @@ body{
   <div class="tb-hdrop" id="drop-measure" style="min-width:280px;max-width:340px;padding:0.45rem 0.4rem;max-height:85vh;overflow-y:auto;">
     <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Måleverktøy</div>
 
-    <button class="tb-hdrop-btn" id="btn-m-height" onclick="setMeasureMode('height')">🔻 Høyde (klikk punkt)</button>
+    <button class="tb-hdrop-btn" id="btn-m-height" onclick="setMeasureMode('height')">🔻 Høyde</button>
     <div class="tb-hdrop-sep"></div>
     <button class="tb-hdrop-btn" id="btn-m-length" onclick="setMeasureMode('length')">📏 Lengde</button>
     <div class="tb-hdrop-sep"></div>
-    <button class="tb-hdrop-btn" id="btn-m-fall" onclick="setMeasureMode('fall')">📐 Fall (A→B)</button>
-
-    <!-- Enhet — gardin -->
+    <div style="display:flex;align-items:center;gap:0.25rem">
+      <button class="tb-hdrop-btn" id="btn-m-fall" onclick="setMeasureMode('fall')" style="flex:1">📐 Fall</button>
+      <button id="btn-fall-mode-toggle" onclick="toggleFallMode()"
+        style="font-size:0.68rem;padding:0.18rem 0.45rem;border-radius:0.3rem;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background 0.12s,color 0.12s,border-color 0.12s">Modus</button>
+      <span id="fall-mode-label" style="font-size:0.72rem;font-weight:600;color:var(--text);white-space:nowrap;flex-shrink:0">Normal</span>
+    </div>
+    <div id="tek17-info" style="display:none;font-size:0.6rem;color:var(--muted);padding:0.1rem 0.4rem 0.1rem;line-height:1.5">
+      1:15 for &gt;5m · 1:12 for &le;5m
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:0.22rem 0.4rem 0.18rem;cursor:pointer;user-select:none" onclick="toggleUnitAccordion()">
       <span style="font-size:0.68rem;color:var(--muted)">Enhet</span>
       <span id="unit-accordion-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
@@ -668,33 +703,53 @@ body{
       </div>
     </div>
 
-    <!-- Modus — toggle med tekst -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.18rem 0.4rem 0.18rem">
-      <button id="btn-fall-mode-toggle" onclick="toggleFallMode()"
-        style="font-size:0.68rem;padding:0.18rem 0.55rem;border-radius:0.3rem;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:inherit;transition:background 0.12s,color 0.12s,border-color 0.12s">
-        Modus
-      </button>
-      <span id="fall-mode-label" style="font-size:0.75rem;font-weight:600;color:var(--text);padding-left:0.5rem">Normal</span>
-    </div>
-    <div id="tek17-info" style="display:none;font-size:0.6rem;color:var(--muted);padding:0.1rem 0.4rem 0.1rem;line-height:1.5">
-      1:15 for &gt;5m · 1:12 for &le;5m
-    </div>
-
     <div class="tb-hdrop-sep"></div>
     <button class="tb-hdrop-btn" id="btn-m-clear" onclick="clearMeasurements()" style="color:#dc2626">✕ Fjern alle målinger</button>
   </div>
 
   <div class="tb-hdrop" id="drop-vehicle" style="min-width:260px;padding:0.45rem 0.4rem;">
     <div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0.3rem 0.3rem">Kjøretøy</div>
-    <div style="display:flex;gap:5px;padding:0 0.1rem 0.2rem">
-      <button id="btn-car" class="tb-hdrop-btn" onclick="selectVehicle('normal')"
-        style="flex:1;text-align:center;font-size:0.72rem;border-color:#16a34a;color:#16a34a">Normal</button>
-      <button id="btn-car-liten" class="tb-hdrop-btn" onclick="selectVehicle('liten')"
-        style="flex:1;text-align:center;font-size:0.72rem;border-color:#dc2626;color:#dc2626">Liten</button>
-      <button id="btn-car-stor" class="tb-hdrop-btn" onclick="selectVehicle('stor')"
-        style="flex:1;text-align:center;font-size:0.72rem;border-color:#eab308;color:#eab308">Stor</button>
+
+    <!-- Bil — gardin -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleVehicleAccordion()">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase">Bil</span>
+      <span id="vehicle-accordion-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
     </div>
-    <div style="font-size:0.6rem;color:var(--muted);padding:0 0.3rem 0.1rem" id="vehicle-type-desc">Velg størrelse for å plassere kjøretøy</div>
+    <div id="vehicle-accordion" style="display:none;flex-direction:column;gap:0.2rem;padding:0.2rem 0.1rem">
+      <div style="display:flex;gap:5px">
+        <button id="btn-car" class="tb-hdrop-btn" onclick="selectVehicle('normal')"
+          style="flex:1;text-align:center;font-size:0.72rem;border-color:#16a34a;color:#16a34a">Normal</button>
+        <button id="btn-car-liten" class="tb-hdrop-btn" onclick="selectVehicle('liten')"
+          style="flex:1;text-align:center;font-size:0.72rem;border-color:#dc2626;color:#dc2626">Liten</button>
+        <button id="btn-car-stor" class="tb-hdrop-btn" onclick="selectVehicle('stor')"
+          style="flex:1;text-align:center;font-size:0.72rem;border-color:#eab308;color:#eab308">Stor</button>
+      </div>
+      <div style="font-size:0.6rem;color:var(--muted);padding:0 0.2rem 0.1rem" id="vehicle-type-desc">Velg størrelse for å plassere kjøretøy</div>
+    </div>
+
+    <!-- Buss — gardin -->
+    <div class="tb-hdrop-sep"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.2rem 0.3rem;cursor:pointer;user-select:none;border-bottom:1px solid var(--border-soft)" onclick="toggleBusAccordion()">
+      <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase">Buss</span>
+      <span id="bus-accordion-arrow" style="font-size:0.6rem;color:var(--muted);transition:transform 0.15s">▾</span>
+    </div>
+    <div id="bus-accordion" style="display:none;flex-direction:column;gap:0.3rem;padding:0.25rem 0.1rem 0.15rem">
+      <button id="btn-bus-draw" class="tb-hdrop-btn" onclick="toggleBusPathMode()" style="text-align:center;font-size:0.75rem">🚌 Tegn kjørerute</button>
+      <div style="font-size:0.6rem;color:var(--muted);padding:0 0.2rem">Klikk noder i modellen · Enter for å fullføre · Backspace angre · ESC avbryt</div>
+      <!-- After path drawn -->
+      <div id="bus-tour-controls" style="display:none;flex-direction:column;gap:0.3rem">
+        <div style="font-size:0.68rem;color:var(--dot-green);padding:0 0.2rem">✓ Rute tegnet — velg sete og start</div>
+        <div style="font-size:0.65rem;font-weight:700;color:var(--muted);padding:0 0.2rem;text-transform:uppercase;letter-spacing:.04em">Velg sete</div>
+        <div style="display:flex;flex-direction:column;gap:3px;padding:0 0.1rem">
+          <button id="bus-seat-0" class="tb-hdrop-btn active" onclick="selectBusSeat(0)" style="font-size:0.72rem;text-align:left">1 · Foran — ved siden av sjåfør</button>
+          <button id="bus-seat-1" class="tb-hdrop-btn" onclick="selectBusSeat(1)" style="font-size:0.72rem;text-align:left">2 · Midten — venstre side</button>
+          <button id="bus-seat-2" class="tb-hdrop-btn" onclick="selectBusSeat(2)" style="font-size:0.72rem;text-align:left">3 · Bakerst — høyre side</button>
+        </div>
+        <button onclick="startBusTour()" style="width:100%;border:none;background:rgba(37,99,235,0.15);color:var(--dot-blue);cursor:pointer;font-size:0.8rem;font-weight:600;font-family:inherit;padding:0.3rem;border-radius:0.4rem;border:1px solid var(--dot-blue)">▶ Start tur</button>
+        <button id="btn-bus-clear" onclick="clearBusPath()" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:0.72rem;font-family:inherit;text-align:left;padding:0.1rem 0.2rem">✕ Fjern rute</button>
+      </div>
+      <button id="btn-bus-clear-simple" onclick="clearBusPath()" style="display:none;border:none;background:none;color:#dc2626;cursor:pointer;font-size:0.72rem;font-family:inherit;text-align:left;padding:0.1rem 0.2rem">✕ Fjern rute</button>
+    </div>
     <div class="tb-hdrop-sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:0.1rem 0.5rem 0.15rem">
       <span style="font-size:0.68rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Plasserte</span>
@@ -1364,6 +1419,7 @@ function _clearPivotNode(){
 }
 tc.addEventListener('mousedown',e=>{
   if(carDriving) return;
+  if(_busTourCamera) return; // bus handles mouse look separately
   if(e.button===0) orb.drag=true;
   if(e.button===1||e.button===2) orb.pan=true;
   // Ctrl + middle-click in measure modes: orbit rotation
@@ -1386,6 +1442,7 @@ tc.addEventListener('contextmenu',e=>e.preventDefault());
 
 window.addEventListener('mousemove',e=>{
   if(carDriving) return; // car handles its own mouse
+  if(_busTourCamera) return; // bus camera handles its own mouse
   const dx=e.clientX-orb.lx,dy=e.clientY-orb.ly;
   orb.lx=e.clientX;orb.ly=e.clientY;
   if(orb.drag&&interactMode==='navigate'){
@@ -1436,7 +1493,7 @@ window.addEventListener('mouseup',e=>{
           _clearPivotNode();
         },500);
       }
-    } else if((interactMode==='length'||interactMode==='fall'||interactMode==='height')&&!moved){
+    } else if((interactMode==='length'||interactMode==='fall'||interactMode==='height'||interactMode==='bus')&&!moved){
       handleMeasureClick(e.clientX,e.clientY,e.ctrlKey);
     }
   }
@@ -1809,7 +1866,20 @@ function fitCameraToModel(){
   gridHelper.position.z=center.z;
 }
 
-function resetCamera(){if(models.length>0)fitCameraToModel();}
+function resetCamera(){
+  // Reset autorotate
+  if(orb.ar){ orb.ar=false; const b=document.getElementById('btn-autorot');if(b)b.classList.remove('active'); }
+  // Reset rotation speed
+  rotSpeed=0;
+  const rsSlider=document.getElementById('rs-slider');if(rsSlider) rsSlider.value=0;
+  const rsVal=document.getElementById('rs-val');if(rsVal) rsVal.textContent='0×';
+  // Reset camera mode to perspective
+  if(cameraMode!=='perspective') setCameraMode('perspective');
+  // Reset shading to solid
+  if(shading!=='solid') setShading('solid');
+  // Fit camera to model
+  if(models.length>0) fitCameraToModel();
+}
 
 let cameraMode='perspective';
 function setCameraMode(mode){
@@ -2513,6 +2583,488 @@ function toggleSimAccordion(){
 }
 window.toggleSimAccordion=toggleSimAccordion;
 
+function toggleVehicleAccordion(){
+  const el=document.getElementById('vehicle-accordion');
+  const arrow=document.getElementById('vehicle-accordion-arrow');
+  if(!el) return;
+  const open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  if(arrow) arrow.style.transform=open?'':'rotate(180deg)';
+}
+window.toggleVehicleAccordion=toggleVehicleAccordion;
+
+// ═══════════════════════════════ BUS PATH SYSTEM ═════════════════════════════
+let _busPathPts=[];
+let _busPathCurve=null;
+let _busPathLine=null;
+let _busMesh=null;
+
+function toggleBusAccordion(){
+  const el=document.getElementById('bus-accordion');
+  const arrow=document.getElementById('bus-accordion-arrow');
+  if(!el) return;
+  const open=el.style.display==='flex';
+  el.style.display=open?'none':'flex';
+  if(arrow) arrow.style.transform=open?'':'rotate(180deg)';
+}
+window.toggleBusAccordion=toggleBusAccordion;
+
+function toggleBusPathMode(){
+  if(interactMode==='bus'){ _cancelBusPath(); return; }
+  cancelMeasure();
+  _busPathPts=[];
+  interactMode='bus';
+  vp.className='m-bus';
+  document.getElementById('btn-bus-draw').classList.add('active');
+  hintEl.textContent='Klikk noder i modell for kjørerute \u00b7 Enter fullfører \u00b7 Backspace angre \u00b7 ESC avbryt';
+  hintEl.classList.add('visible');
+  document.addEventListener('keydown',_busKeyHandler);
+}
+window.toggleBusPathMode=toggleBusPathMode;
+
+function _cancelBusPath(){
+  interactMode='navigate'; vp.className='m-nav';
+  const b=document.getElementById('btn-bus-draw'); if(b) b.classList.remove('active');
+  hintEl.classList.remove('visible');
+  document.removeEventListener('keydown',_busKeyHandler);
+  _busPathPts=[];
+  _removeBusPathLine();
+}
+
+function _busKeyHandler(e){
+  if(e.key==='Escape'){ _cancelBusPath(); return; }
+  if(e.key==='Backspace'&&_busPathPts.length>0){
+    e.preventDefault();
+    _busPathPts.pop();
+    _updateBusPathLine();
+    hintEl.textContent=_busPathPts.length>0
+      ?_busPathPts.length+' noder \u00b7 Enter fullfør \u00b7 Backspace angre \u00b7 ESC avbryt'
+      :'Klikk noder i modell for kjørerute \u00b7 Enter fullfører \u00b7 Backspace angre \u00b7 ESC avbryt';
+    return;
+  }
+  if(e.key==='Enter'&&_busPathPts.length>=2){ _finalizeBusPath(); }
+}
+
+function _busHandleClick(pt){
+  _busPathPts.push(pt.clone());
+  _updateBusPathLine();
+  hintEl.textContent=_busPathPts.length+' noder \u00b7 Enter fullfør \u00b7 Backspace angre \u00b7 ESC avbryt';
+}
+
+function _updateBusPathLine(){
+  _removeBusPathLine();
+  if(_busPathPts.length<2) return;
+  const curve=new THREE.CatmullRomCurve3(_busPathPts,false,'catmullrom',0.5);
+  const pts=curve.getPoints(Math.max(60,_busPathPts.length*12));
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=new THREE.LineBasicMaterial({color:0x3b82f6,depthTest:false});
+  _busPathLine=new THREE.Line(geo,mat);
+  _busPathLine.renderOrder=20;
+  scene.add(_busPathLine);
+}
+
+function _removeBusPathLine(){
+  if(_busPathLine){ scene.remove(_busPathLine); _busPathLine.geometry.dispose(); _busPathLine.material.dispose(); _busPathLine=null; }
+}
+
+function _buildBusMesh(){
+  const g=new THREE.Group();
+  const solid=new THREE.MeshStandardMaterial({color:0x1e293b,roughness:0.6,metalness:0.3});
+
+  // Chassis (solid, thin)
+  const chassisGeo=new THREE.BoxGeometry(2.5,0.25,12);
+  const chassis=new THREE.Mesh(chassisGeo,solid.clone());
+  chassis.position.y=0.55+0.125; g.add(chassis);
+
+  // Floor (solid)
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.08,11.6),solid.clone());
+  floor.position.y=0.55+0.25+0.04; g.add(floor);
+
+  // Body panels (transparent blue) — floor at ~0.84, roof at ~3.84
+  const bodyH=3.0; // internal height
+  const bodyBaseY=0.55+0.25; // top of chassis
+  const bodyCentreY=bodyBaseY+bodyH/2;
+  const bodyMat=new THREE.MeshStandardMaterial({color:0x1d4ed8,roughness:0.3,metalness:0.15,transparent:true,opacity:0.22,side:THREE.DoubleSide,depthWrite:false});
+  // Side walls
+  [[-1.26],[1.26]].forEach(([x])=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.07,bodyH,11.8),bodyMat.clone());
+    m.position.set(x,bodyCentreY,0); g.add(m);
+  });
+  // Front & rear walls
+  [[-5.96],[5.96]].forEach(([z])=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(2.5,bodyH,0.07),bodyMat.clone());
+    m.position.set(0,bodyCentreY,z); g.add(m);
+  });
+  // Roof
+  const roofMat=new THREE.MeshStandardMaterial({color:0x1e40af,roughness:0.4,transparent:true,opacity:0.32,depthWrite:false});
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.1,12),roofMat);
+  roof.position.y=bodyBaseY+bodyH+0.05; g.add(roof);
+
+  // Wheels (solid dark) — rear wheels static, front wheels steerable via pivots
+  const wheelGeo=new THREE.CylinderGeometry(0.55,0.55,0.3,20);
+  const wheelMat=new THREE.MeshStandardMaterial({color:0x111827,roughness:0.9});
+  // Rear wheels (static)
+  [[-1.4,0.55,-4],[1.4,0.55,-4]].forEach(([x,y,z])=>{
+    const w=new THREE.Mesh(wheelGeo,wheelMat.clone());
+    w.rotation.z=Math.PI/2; w.position.set(x,y,z); g.add(w);
+  });
+  // Front wheels (steerable — wrapped in pivot)
+  g.userData.frontWheels=[];
+  [[-1.4,0.55,4],[1.4,0.55,4]].forEach(([x,y,z])=>{
+    const pivot=new THREE.Object3D();
+    pivot.position.set(x,y,z);
+    const w=new THREE.Mesh(wheelGeo,wheelMat.clone());
+    w.rotation.z=Math.PI/2;
+    pivot.add(w);
+    g.add(pivot);
+    g.userData.frontWheels.push(pivot);
+  });
+
+  // Wheel arches (solid)
+  const archMat=new THREE.MeshStandardMaterial({color:0x334155,roughness:0.7});
+  [[-1.15,0.55,4],[1.15,0.55,4],[-1.15,0.55,-4],[1.15,0.55,-4]].forEach(([x,y,z])=>{
+    const a=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.5,1.4),archMat.clone());
+    a.position.set(x,y,z); g.add(a);
+  });
+
+  return g;
+}
+
+// ── Seat local positions (relative to bus centre, bus forward = +Z) ──
+// Bus: length 12m along Z, width 2.5m, floor at ~0.5m, seat height ~1.1m
+const _busSeats=[
+  {x:-0.7, y:1.1, z:4.5,  label:'Sete 1 · Foran, ved sjåfør'},   // front left
+  {x:-0.8, y:1.1, z:0.0,  label:'Sete 2 · Midten, venstre'},      // mid left
+  {x: 0.8, y:1.1, z:-4.2, label:'Sete 3 · Bakerst, høyre'},       // rear right
+];
+let _busTourActive=false;
+let _busTourT=0;       // 0..1 along curve
+let _busTourSpeed=0.15; // 0..1 normalised
+let _busTourSeat=0;
+let _busTourCamera=false;
+let _busPrevCamera=null;
+let _busPrevCameraMode=null;
+
+function selectBusSeat(idx){
+  _busTourSeat=idx;
+  for(let i=0;i<3;i++){
+    const b=document.getElementById('bus-seat-'+i);
+    if(b) b.classList.toggle('active',i===idx);
+  }
+}
+window.selectBusSeat=selectBusSeat;
+
+function startBusTour(){
+  if(!_busPathCurve||!_busMesh) return;
+  _busTourActive=true;
+  _busTourT=0;
+  _busTourCamera=true;
+  _busCamYaw=0;
+  _busCamPitch=0;
+  _resetBusSusp();
+  // Save previous camera state
+  _busPrevCamera={pos:camera.position.clone(),tgt:orb.tgt.clone(),sph:{radius:orb.sph.radius,phi:orb.sph.phi,theta:orb.sph.theta}};
+  _busPrevCameraMode=cameraMode;
+  if(cameraMode!=='perspective') setCameraMode('perspective');
+  // Show HUD
+  const hud=document.getElementById('bus-hud');
+  if(hud) hud.style.display='block';
+  _updateBusSeatLabel();
+  hintEl.classList.remove('visible');
+}
+window.startBusTour=startBusTour;
+
+function stopBusTour(){
+  _busTourActive=false;
+  _busTourCamera=false;
+  const hud=document.getElementById('bus-hud');
+  if(hud) hud.style.display='none';
+  // Restore camera
+  if(_busPrevCamera){
+    orb.tgt.copy(_busPrevCamera.tgt);
+    orb.sph.radius=_busPrevCamera.sph.radius;
+    orb.sph.phi=_busPrevCamera.sph.phi;
+    orb.sph.theta=_busPrevCamera.sph.theta;
+    applyOrb();
+    _busPrevCamera=null;
+  }
+  if(_busPrevCameraMode&&_busPrevCameraMode!==cameraMode) setCameraMode(_busPrevCameraMode);
+}
+window.stopBusTour=stopBusTour;
+
+function restartBusTour(){
+  _busTourT=0;
+  _busTourActive=true;
+  _busCamYaw=0;
+  _busCamPitch=0;
+  _resetBusSusp();
+}
+window.restartBusTour=restartBusTour;
+
+function setBusTourSpeed(v){
+  _busTourSpeed=v;
+  const lbl=document.getElementById('bus-speed-val');
+  if(lbl) lbl.textContent=v<0.15?'Lav':v<0.45?'Middels':v<0.75?'Høy':'Maks';
+}
+window.setBusTourSpeed=setBusTourSpeed;
+
+function _updateBusSeatLabel(){
+  const el=document.getElementById('bus-seat-label');
+  if(el) el.textContent=_busSeats[_busTourSeat].label;
+}
+
+// ── Bus camera look ──
+let _busCamYaw=0;   // extra horizontal rotation (mouse drag)
+let _busCamPitch=0; // extra vertical rotation
+let _busCamHeight=2.5; // camera height above bus ground position
+let _busMouseLook=false;
+let _busMouseLX=0, _busMouseLY=0;
+
+function setBusCamHeight(v){ _busCamHeight=v; const el=document.getElementById('bus-dev-camh-val');if(el)el.textContent=v.toFixed(2); }
+window.setBusCamHeight=setBusCamHeight;
+
+// Mouse look during tour — ignore clicks on the HUD
+document.addEventListener('mousedown',e=>{
+  // Scrub: only when bus exists, stopped, and no active tour or camera
+  if(!_busTourCamera&&!_busTourActive&&_busPathCurve&&_busMesh&&e.button===0){
+    if(!e.target.closest('#bus-hud')&&!e.target.closest('.tb-hdrop')&&!e.target.closest('.toolbar')){
+      _busScrubbing=true; _busScrubLastX=e.clientX;
+      return;
+    }
+  }
+  // Mouse-look: only when inside bus camera
+  if(!_busTourCamera) return;
+  if(e.target.closest('#bus-hud')) return;
+  if(e.button===0){ _busMouseLook=true; _busMouseLX=e.clientX; _busMouseLY=e.clientY; e.preventDefault(); }
+});
+document.addEventListener('mouseup',()=>{ _busMouseLook=false; _busScrubbing=false; });
+document.addEventListener('mousemove',e=>{
+  if(_busScrubbing&&_busPathCurve){
+    const dx=e.clientX-_busScrubLastX; _busScrubLastX=e.clientX;
+    // ~3px per metre at typical zoom; map drag to T
+    const pathLen=Math.max(1,_busPathCurve.getLength());
+    _busTourT=Math.max(0,Math.min(1,_busTourT+dx*3/pathLen*0.01));
+    _busPlaceOnPath(_busTourT,0);
+    return;
+  }
+  if(!_busMouseLook||!_busTourCamera) return;
+  const dx=e.clientX-_busMouseLX; const dy=e.clientY-_busMouseLY;
+  _busMouseLX=e.clientX; _busMouseLY=e.clientY;
+  _busCamYaw  -=dx*0.003;
+  _busCamPitch = Math.max(-1.2,Math.min(1.2,_busCamPitch-dy*0.003));
+});
+
+// Bus suspension state (mirrors car)
+let _busSusp=[null,null,null,null];
+let _busSuspVel=[0,0,0,0];
+let _busBodyY=0;
+let _busOnGround=false;
+let _busVelY=0;
+let _busRearPt=null; // simulated rear axle world XZ position
+
+function _resetBusSusp(){ _busSusp=[null,null,null,null]; _busSuspVel=[0,0,0,0]; _busVelY=0; _busOnGround=false; _busRearPt=null; }
+
+// ── Bus scrub state ──
+let _busScrubbing=false;
+let _busScrubLastX=0;
+
+function _updateBusTour(dt){
+  if((!_busTourActive&&!_busScrubbing)||!_busPathCurve||!_busMesh) return;
+
+  if(_busTourActive){
+    const pathLen=_busPathCurve.getLength();
+    const speedMs=_busTourSpeed*16;
+    const dT=pathLen>0?(speedMs*dt)/pathLen:0;
+    _busTourT=Math.min(1,_busTourT+dT);
+  }
+
+  _busPlaceOnPath(_busTourT, dt);
+
+  if(_busTourT>=1&&_busTourActive){ _busTourActive=false; }
+}
+
+// ── Core placement: front axle at T, rear simulated as trailer ──
+const _busWheelbase=8.4;
+const _busTrackW=2.5;
+const _busWheelR=0.55;
+
+function _busPlaceOnPath(frontT, dt){
+  const curve=_busPathCurve;
+  const pathLen=curve.getLength();
+  if(pathLen<0.1) return;
+
+  // Front axle world XZ from path
+  const frontPt=curve.getPoint(frontT);
+
+  // ── Rear axle: trailer/articulation algorithm ──
+  // Init rear axle on first call: place it wheelbase behind front along curve
+  if(!_busRearPt){
+    const rearArcLen=Math.max(0, frontT*pathLen - _busWheelbase);
+    const rearPt0=curve.getPoint(rearArcLen/pathLen);
+    _busRearPt=new THREE.Vector3(rearPt0.x,0,rearPt0.z);
+  }
+  // Trailer constraint: rear axle must stay exactly wheelbase behind front axle.
+  // Move rear axle toward front axle, keeping fixed distance = wheelbase.
+  const toFront=new THREE.Vector3(frontPt.x-_busRearPt.x, 0, frontPt.z-_busRearPt.z);
+  const dist=toFront.length();
+  if(dist>_busWheelbase){
+    // Rear is too far — pull it toward front to restore wheelbase
+    toFront.normalize();
+    _busRearPt.x=frontPt.x-toFront.x*_busWheelbase;
+    _busRearPt.z=frontPt.z-toFront.z*_busWheelbase;
+  }
+
+  // Bus heading = direction from rear axle to front axle
+  const dx=frontPt.x-_busRearPt.x, dz=frontPt.z-_busRearPt.z;
+  const d=Math.sqrt(dx*dx+dz*dz);
+  const busYaw=d>0.001?Math.atan2(dx,dz):(_busMesh.rotation.y||0);
+
+  // Bus body XZ = midpoint of axles
+  const bx=(frontPt.x+_busRearPt.x)/2;
+  const bz=(frontPt.z+_busRearPt.z)/2;
+
+  // ── Ground snap + gravity ──
+  const meshes=getCarRayMeshes();
+  const groundHit=bvhRayDown(bx,(_busMesh.position.y||frontPt.y)+8,bz,meshes);
+  const gy=groundHit?groundHit.y:(_busMesh.position.y||frontPt.y);
+  if(dt>0){
+    if(groundHit){
+      if(_busMesh.position.y>gy+0.05){
+        _busVelY-=20*dt;
+        _busMesh.position.y+=_busVelY*dt;
+        if(_busMesh.position.y<=gy){_busMesh.position.y=gy;_busVelY=0;_busOnGround=true;}
+      } else {
+        _busMesh.position.y=gy; _busVelY=0; _busOnGround=true;
+      }
+    } else {
+      _busVelY-=20*dt;
+      _busMesh.position.y+=_busVelY*dt;
+      _busOnGround=false;
+    }
+  } else {
+    if(groundHit) _busMesh.position.y=gy;
+  }
+  _busMesh.position.x=bx;
+  _busMesh.position.z=bz;
+
+  // ── Per-wheel suspension ──
+  const bHalfW=1.25, bHalfL=4.2;
+  const travel=0.4, rest=0.0, ks=50, kd=15;
+  const cosY=Math.cos(busYaw), sinY=Math.sin(busYaw);
+  const corners=[[-bHalfW,bHalfL],[bHalfW,bHalfL],[-bHalfW,-bHalfL],[bHalfW,-bHalfL]];
+  const startY=_busMesh.position.y+6;
+  const rawH=corners.map(([lx,lz])=>{
+    const wx=bx+cosY*lx+sinY*lz;
+    const wz=bz-sinY*lx+cosY*lz;
+    const hit=bvhRayDown(wx,startY,wz,meshes);
+    return (hit&&hit.y<startY)?hit.y:null;
+  });
+  const allValid=rawH.every(v=>v!==null);
+  if(allValid&&_busOnGround&&dt>0){
+    const targetY=rawH.map(h=>h+_busWheelR);
+    for(let i=0;i<4;i++){
+      if(_busSusp[i]===null) _busSusp[i]=targetY[i];
+      const err=targetY[i]-_busSusp[i];
+      _busSuspVel[i]+=(ks*err-kd*_busSuspVel[i])*dt;
+      _busSusp[i]+=_busSuspVel[i]*dt;
+      if(_busSusp[i]<targetY[i]){_busSusp[i]=targetY[i];if(_busSuspVel[i]<0)_busSuspVel[i]=0;}
+    }
+    const avgSusp=(_busSusp[0]+_busSusp[1]+_busSusp[2]+_busSusp[3])/4;
+    _busMesh.position.y=avgSusp-_busWheelR+rest;
+    const toW=(lx,lz,sy)=>new THREE.Vector3(bx+cosY*lx+sinY*lz,sy,bz-sinY*lx+cosY*lz);
+    const pFL=toW(-bHalfW,bHalfL,_busSusp[0]),pFR=toW(bHalfW,bHalfL,_busSusp[1]);
+    const pRL=toW(-bHalfW,-bHalfL,_busSusp[2]),pRR=toW(bHalfW,-bHalfL,_busSusp[3]);
+    const surfN=new THREE.Vector3()
+      .crossVectors(new THREE.Vector3().subVectors(pRR,pFL),
+                    new THREE.Vector3().subVectors(pRL,pFR)).normalize();
+    const carFwd=new THREE.Vector3(sinY,0,cosY);
+    const carRight=new THREE.Vector3(cosY,0,-sinY);
+    const pitch=Math.asin(Math.max(-1,Math.min(1,surfN.dot(carFwd))));
+    const roll =Math.asin(Math.max(-1,Math.min(1,surfN.dot(carRight))));
+    _busMesh.rotation.set(pitch,busYaw,roll,'YXZ');
+  } else {
+    _busMesh.rotation.y=busYaw;
+  }
+
+  // ── Ackermann front wheels ──
+  // Steer angle = angle between bus heading and path tangent at front axle
+  const pathTan=curve.getTangent(frontT);
+  const pathYaw=Math.atan2(pathTan.x,pathTan.z);
+  let rawSteer=pathYaw-busYaw;
+  // Normalise to -PI..PI
+  while(rawSteer>Math.PI) rawSteer-=2*Math.PI;
+  while(rawSteer<-Math.PI) rawSteer+=2*Math.PI;
+  rawSteer=Math.max(-0.65,Math.min(0.65,rawSteer));
+  if(!_busMesh.userData.steerAngle) _busMesh.userData.steerAngle=0;
+  const smoothRate=dt>0?Math.min(1,dt*8):1;
+  _busMesh.userData.steerAngle+=(rawSteer-_busMesh.userData.steerAngle)*smoothRate;
+  const steer=_busMesh.userData.steerAngle;
+  if(_busMesh.userData.frontWheels&&_busMesh.userData.frontWheels.length===2){
+    if(Math.abs(steer)>0.001){
+      const R=_busWheelbase/Math.tan(Math.abs(steer));
+      const inner=Math.atan(_busWheelbase/(Math.max(0.1,R-_busTrackW/2)));
+      const outer=Math.atan(_busWheelbase/(R+_busTrackW/2));
+      if(steer>0){
+        _busMesh.userData.frontWheels[0].rotation.y=outer;
+        _busMesh.userData.frontWheels[1].rotation.y=inner;
+      } else {
+        _busMesh.userData.frontWheels[0].rotation.y=-inner;
+        _busMesh.userData.frontWheels[1].rotation.y=-outer;
+      }
+    } else {
+      _busMesh.userData.frontWheels.forEach(w=>w.rotation.y=0);
+    }
+  }
+
+  // ── 1st-person camera ──
+  if(_busTourCamera){
+    const seat=_busSeats[_busTourSeat];
+    _busMesh.updateMatrixWorld(true);
+    const localSeat=new THREE.Vector3(seat.x,0,seat.z);
+    const worldSeat=localSeat.applyMatrix4(_busMesh.matrixWorld);
+    const wy=_busMesh.position.y+_busCamHeight;
+    const camPos=new THREE.Vector3(worldSeat.x,wy,worldSeat.z);
+    const lookYaw=busYaw+_busCamYaw;
+    const lookFwd=new THREE.Vector3(Math.sin(lookYaw),Math.sin(_busCamPitch),Math.cos(lookYaw)).normalize();
+    const lookAt=camPos.clone().addScaledVector(lookFwd,5);
+    camera.position.copy(camPos);
+    camera.lookAt(lookAt);
+    orb.tgt.copy(lookAt);
+    orb.sph.setFromVector3(camPos.clone().sub(lookAt));
+  }
+}
+
+function _finalizeBusPath(){
+  if(_busPathPts.length<2) return;
+  _busPathCurve=new THREE.CatmullRomCurve3([..._busPathPts],false,'catmullrom',0.5);
+  document.removeEventListener('keydown',_busKeyHandler);
+  interactMode='navigate'; vp.className='m-nav';
+  const b=document.getElementById('btn-bus-draw'); if(b) b.classList.remove('active');
+  hintEl.classList.remove('visible');
+  _updateBusPathLine();
+  if(_busMesh){ scene.remove(_busMesh); _busMesh=null; }
+  _busMesh=_buildBusMesh();
+  const startPt=_busPathCurve.getPoint(0);
+  const startTan=_busPathCurve.getTangent(0);
+  _busMesh.position.copy(startPt);
+  _busMesh.rotation.y=Math.atan2(startTan.x,startTan.z);
+  scene.add(_busMesh);
+  // Show tour controls
+  const tc=document.getElementById('bus-tour-controls');
+  if(tc) tc.style.display='flex';
+}
+
+function clearBusPath(){
+  if(_busTourActive) stopBusTour();
+  _removeBusPathLine();
+  _busPathPts=[];
+  _busPathCurve=null;
+  if(_busMesh){ scene.remove(_busMesh); _busMesh=null; }
+  const tc=document.getElementById('bus-tour-controls');
+  if(tc) tc.style.display='none';
+}
+window.clearBusPath=clearBusPath;
+
 // ═══════════════════════════════ SPATIAL TREE ════════════════════════════════
 let treeVisible=false;
 function toggleTree(){
@@ -2880,26 +3432,26 @@ function measureKeyHandler(e){
 }
 
 function handleMeasureClick(ex,ey,ctrlHeld){
+  if(interactMode==='bus'){
+    const hit=hitModel(ex,ey);
+    if(hit) _busHandleClick(hit.point);
+    return;
+  }
   if(interactMode==='height'){
     const hit=hitModel(ex,ey);
     if(!hit) return;
     const p=hit.point;
     if(ctrlHeld){
-      // XYZ position in IFC coords: X=east, Y=north (Three Z), Z=height (Three Y)
       const label=`X:${p.x.toFixed(3)}  Y:${p.z.toFixed(3)}  Z:${p.y.toFixed(3)}`;
       measurements.push({id:measureIdCounter++,type:'height',mode:'xyz',pt:p.clone(),label});
-      // Collapse height section, expand xyz
       _collapseAllExcept('xyz');
     } else {
-      // Height only (Y)
       const label=p.y.toFixed(3)+' m';
       measurements.push({id:measureIdCounter++,type:'height',mode:'height',pt:p.clone(),label});
-      // Collapse xyz section, expand height
       _collapseAllExcept('height');
     }
     renderMeasureList();
     document.getElementById('measure-panel').classList.add('visible');
-    // Stay active — do NOT cancel mode. ESC to exit.
     return;
   }
   const hit=hitModel(ex,ey);
@@ -3321,6 +3873,14 @@ function redrawSVG(){
         }
       }
     }
+  }
+  // ── Active bus path drawing ──
+  if(interactMode==='bus'&&_busPathPts.length>0){
+    const p2=_busPathPts.map(p=>worldToScreen(p));
+    // Draw node dots
+    for(const p of p2) if(!p.behind) svg.appendChild(mkSVG('circle',{cx:p.x,cy:p.y,r:5,fill:'#3b82f6',stroke:'#fff','stroke-width':'2'}));
+    // Node numbers
+    for(let i=0;i<p2.length;i++) if(!p2[i].behind) drawSVGLabel(p2[i].x+(i===0?-18:18),p2[i].y-14,String(i+1),'#60a5fa','node');
   }
   _flushLabels();
 }
@@ -5465,7 +6025,38 @@ document.addEventListener('keydown',e=>{
     }
     return;
   }
+  // Bus tour seat selection
+  if(_busTourCamera&&(e.key==='1'||e.key==='2'||e.key==='3')){
+    selectBusSeat(+e.key-1);
+    _updateBusSeatLabel();
+    return;
+  }
   if(e.key==='Escape'){
+    if(_busTourCamera){
+      // First ESC: exit to free camera, bus keeps running
+      _busTourCamera=false;
+      _busMouseLook=false;
+      const hud=document.getElementById('bus-hud');
+      if(hud) hud.style.display='none';
+      // Restore camera back to orbit around bus
+      if(_busPrevCamera){
+        orb.tgt.copy(_busPrevCamera.tgt);
+        orb.sph.radius=_busPrevCamera.sph.radius;
+        orb.sph.phi=_busPrevCamera.sph.phi;
+        orb.sph.theta=_busPrevCamera.sph.theta;
+        applyOrb();
+      }
+      hintEl.textContent='ESC én gang til for å stoppe bussen';
+      hintEl.classList.add('visible');
+      return;
+    }
+    if(_busTourActive){
+      // Second ESC: stop the bus entirely
+      _busTourActive=false;
+      hintEl.classList.remove('visible');
+      return;
+    }
+    if(hintEl.classList.contains('visible')){ hintEl.classList.remove('visible'); }
     // First ESC: cancel placement tool if active
     if(ballFallMode){ cancelBallPlacement(); return; }
     if(selectMode){ toggleSelectMode(); return; }
@@ -6856,7 +7447,7 @@ initWebGPU();
     updateCar(dt);
     updateCarTelemetry();
   } else {
-    if(orb.ar){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
+    if(orb.ar&&!_busTourActive&&!_busTourCamera){orb.sph.theta+=dt*0.5*rotSpeed;applyOrb();}
   }
 
   if(!_simPausedGlobal){
@@ -6910,6 +7501,7 @@ initWebGPU();
   }
   updateCamPosBar();
   checkAutoObjFilter();
+  _updateBusTour(dt);
   redrawSVG();
 })();
 
